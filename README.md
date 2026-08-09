@@ -4,7 +4,7 @@ API para apoiar estudantes na organização de atividades acadêmicas, desenvolv
 
 ## Estado atual
 
-O repositório contém a base da API em Spring Boot. Ao iniciar, a aplicação registra `Ola, mundo!` no console para confirmar que o serviço foi carregado.
+O repositório contém uma API Spring Boot e uma aplicação Vue. A API possui cadastro, login por JWT e consulta do usuário autenticado; o frontend oferece uma tela para testar esse fluxo com o banco H2 em memória.
 
 ## Visão do produto
 
@@ -23,10 +23,13 @@ O sistema deve reduzir a dificuldade de acompanhar compromissos acadêmicos e to
 - Spring Web MVC
 - Spring Data JPA
 - Bean Validation
+- Spring Security e JWT
 - PostgreSQL
 - H2 em memória para desenvolvimento local
 - Lombok
 - Maven Wrapper
+- Vue 3
+- Vite
 
 ## Como executar
 
@@ -37,6 +40,16 @@ No terminal integrado do VS Code, na pasta do projeto:
 ```
 
 A execução local usa H2 em memória, dispensando configuração inicial de banco. Para a implantação, configure a conexão PostgreSQL por variáveis de ambiente ou por um perfil de produção.
+
+Em outro terminal, inicie o frontend:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+O Vite disponibiliza a aplicação, normalmente, em `http://localhost:5173`. Durante o desenvolvimento, o Vite encaminha requisições iniciadas por `/api` para a API em `http://localhost:8080`.
 
 Para executar os testes:
 
@@ -50,7 +63,23 @@ Para executar os testes:
 src/main/java/studdy/example/demo/   Código-fonte da aplicação
 src/main/resources/                  Configurações da aplicação
 src/test/java/studdy/example/demo/   Testes automatizados
+frontend/src/                        Componentes e estilos Vue
+frontend/public/                     Arquivos estáticos usados pela interface
 ```
+
+## Autenticação
+
+| Método | Rota | Finalidade |
+| --- | --- | --- |
+| `POST` | `/api/v1/auth/register` | Cria um usuário com senha criptografada. |
+| `POST` | `/api/v1/auth/login` | Valida as credenciais e retorna um token JWT. |
+| `GET` | `/api/v1/users/me` | Retorna o usuário do token enviado em `Authorization: Bearer <token>`. |
+
+## Tela de teste
+
+A tela inicial do Vue permite criar conta e entrar usando a API. Após o login, ela consulta `/api/v1/users/me` e apresenta os dados devolvidos pelo H2.
+
+O botão vermelho `?` ativa um efeito visual independente do fluxo de autenticação. Os arquivos de áudio, GIF e slideshow ficam em `frontend/public/`; o componente responsável é `frontend/src/components/SurpriseButton.vue`.
 
 ## Próximos incrementos sugeridos
 
