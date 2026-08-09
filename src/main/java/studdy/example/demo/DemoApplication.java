@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class DemoApplication {
 
 	public static void main(String[] args) {
-		System.out.println("Ola, mundo!");
+		System.out.println("Servidor subiu, só n pode cair !");
 		SpringApplication.run(DemoApplication.class, args);
 	}
 
