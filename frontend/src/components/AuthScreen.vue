@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import SurpriseButton from './SurpriseButton.vue'
+import DashboardScreen from './DashboardScreen.vue'
 
 const mode = ref('login')
 const name = ref('')
@@ -10,6 +11,7 @@ const loading = ref(false)
 const feedback = ref('')
 const feedbackType = ref('')
 const authenticatedUser = ref(null)
+const accessToken = ref('')
 
 const isLogin = computed(() => mode.value === 'login')
 const title = computed(() => (isLogin.value ? 'Boas-vindas de volta' : 'Crie sua conta'))
@@ -57,6 +59,7 @@ async function submit() {
       }
 
       authenticatedUser.value = await userResponse.json()
+      accessToken.value = data.accessToken
       feedback.value = 'Login realizado com sucesso.'
     } else {
       feedback.value = 'Conta criada com sucesso. Agora faça login para testar o acesso.'
@@ -76,13 +79,21 @@ async function submit() {
 
 function logout() {
   authenticatedUser.value = null
+  accessToken.value = ''
   password.value = ''
   feedback.value = ''
 }
 </script>
 
 <template>
-  <main class="auth-page">
+  <DashboardScreen
+    v-if="authenticatedUser"
+    :user="authenticatedUser"
+    :access-token="accessToken"
+    @logout="logout"
+  />
+
+  <main v-else class="auth-page">
     <SurpriseButton />
     <section class="auth-intro" aria-labelledby="product-title">
       <div class="auth-brand"><span>•</span> Studdy</div>
