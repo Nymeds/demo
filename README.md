@@ -31,17 +31,31 @@ O sistema deve reduzir a dificuldade de acompanhar compromissos acadêmicos e to
 - Vue 3
 - Vite
 
-## Como executar
+## Como rodar o projeto
 
-No terminal integrado do VS Code, na pasta do projeto:
+### Pré-requisitos
+
+- Java 21;
+- Node.js com npm;
+- dois terminais abertos na pasta raiz do projeto.
+
+Não é necessário instalar o Maven, pois o repositório inclui o Maven Wrapper. A execução local também usa o banco H2 em memória, portanto não exige uma instalação do PostgreSQL.
+
+### 1. Iniciar o backend
+
+No primeiro terminal, na pasta raiz do projeto, execute:
 
 ```powershell
 .\mvnw.cmd spring-boot:run
 ```
 
-A execução local usa H2 em memória, dispensando configuração inicial de banco. Para a implantação, configure a conexão PostgreSQL por variáveis de ambiente ou por um perfil de produção.
+Quando a inicialização terminar, a API estará disponível em `http://localhost:8080`. Mantenha esse terminal aberto enquanto estiver usando o sistema.
 
-Em outro terminal, inicie o frontend:
+> No PowerShell, use `./mvnw.cmd` ou `.\mvnw.cmd`. O comando `\mvnw.cmd` não procura o arquivo na pasta atual.
+
+### 2. Iniciar o frontend
+
+Abra um segundo terminal na pasta raiz do projeto e execute:
 
 ```powershell
 cd frontend
@@ -49,13 +63,27 @@ npm install
 npm run dev
 ```
 
-O Vite disponibiliza a aplicação, normalmente, em `http://localhost:5173`. Durante o desenvolvimento, o Vite encaminha requisições iniciadas por `/api` para a API em `http://localhost:8080`.
+O `npm install` instala as dependências e normalmente só é necessário na primeira execução ou quando elas forem alteradas. Mantenha esse segundo terminal aberto também.
 
-Para executar os testes:
+### 3. Acessar a aplicação
+
+Abra no navegador:
+
+```text
+http://localhost:5173
+```
+
+Durante o desenvolvimento, o Vite encaminha automaticamente as requisições iniciadas por `/api` para o backend em `http://localhost:8080`.
+
+### Executar os testes
+
+Na pasta raiz do projeto, execute:
 
 ```powershell
 .\mvnw.cmd test
 ```
+
+Para uma implantação real, configure a conexão com PostgreSQL e os segredos da aplicação usando variáveis de ambiente ou um perfil de produção.
 
 ## Estrutura
 
