@@ -9,7 +9,6 @@ import studdy.example.demo.dashboard.dto.DashboardResponse;
 import studdy.example.demo.user.AppUser;
 import studdy.example.demo.user.UserRepository;
 
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -28,15 +27,10 @@ public class DashboardService {
         AppUser owner = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
 
-        List<String> disciplines = request.disciplines().stream()
-                .map(String::trim)
-                .toList();
-
         Dashboard dashboard = new Dashboard(
                 request.name().trim(),
                 request.status(),
-                owner,
-                disciplines
+                owner
         );
 
         return DashboardResponse.from(dashboardRepository.save(dashboard));
