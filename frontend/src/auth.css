@@ -61,7 +61,7 @@ button { cursor: pointer; }
 .auth-form-panel { align-items: center; background: #fff; display: flex; justify-content: center; padding: 48px clamp(36px, 6vw, 76px); }
 .auth-form-wrap { max-width: 440px; width: 100%; }
 .auth-eyebrow { color: #6849d7; font-size: .7rem; font-weight: 750; letter-spacing: .1em; margin: 0 0 10px; text-transform: uppercase; }
-.auth-form-panel h2 { color: #17152a; font-size: clamp(1.8rem, 3vw, 2.35rem); font-weight: 760; letter-spacing: -.045em; line-height: 1.15; margin: 0 0 9px; }
+.auth-form-panel h2 { color: #17152a; font-size: clamp(1.6rem, 2.7vw, 2.15rem); font-weight: 760; letter-spacing: -.045em; line-height: 1.15; margin: 0 0 9px; }
 .auth-form-panel header > p:last-child { color: #777487; font-size: .9rem; line-height: 1.5; margin: 0; }
 .auth-form-panel form { display: grid; gap: 17px; margin-top: 30px; }
 .auth-form-panel label:not(.auth-checkbox) { color: #302d41; display: grid; font-size: .78rem; font-weight: 650; gap: 8px; }

@@ -203,6 +203,6 @@ function logout() {
       </section>
     </section>
 
-    <p class="auth-copyright">© 2026 Studdy. Organização acadêmica feita para estudantes.</p>
+    <p class="auth-copyright">2026. Organização acadêmica feita para estudantes.</p>
   </main>
 </template>
