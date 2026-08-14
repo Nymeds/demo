@@ -1,12 +1,16 @@
 <script setup>
 import { computed, ref } from 'vue'
-import SurpriseButton from './SurpriseButton.vue'
+import loginPanelImage from '../assets/login-panel.png'
+import registerPanelImage from '../assets/register-panel.png'
 import DashboardScreen from './DashboardScreen.vue'
 
 const mode = ref('login')
 const name = ref('')
 const email = ref('')
 const password = ref('')
+const confirmPassword = ref('')
+const acceptedTerms = ref(false)
+const showPassword = ref(false)
 const loading = ref(false)
 const feedback = ref('')
 const feedbackType = ref('')
@@ -14,20 +18,29 @@ const authenticatedUser = ref(null)
 const accessToken = ref('')
 
 const isLogin = computed(() => mode.value === 'login')
-const title = computed(() => (isLogin.value ? 'Boas-vindas de volta' : 'Crie sua conta'))
+const title = computed(() => (isLogin.value ? 'Bem-vindo de volta!' : 'Criar conta'))
 const subtitle = computed(() => (
   isLogin.value
-    ? 'Entre para acompanhar sua organização acadêmica.'
-    : 'Comece a organizar sua rotina acadêmica em um só lugar.'
+    ? 'Faça login para acessar sua conta.'
+    : 'Preencha os dados para começar a organizar seus estudos.'
 ))
 
 function switchMode(nextMode) {
   mode.value = nextMode
   feedback.value = ''
   feedbackType.value = ''
+  password.value = ''
+  confirmPassword.value = ''
+  showPassword.value = false
 }
 
 async function submit() {
+  if (!isLogin.value && password.value !== confirmPassword.value) {
+    feedback.value = 'As senhas informadas não são iguais.'
+    feedbackType.value = 'error'
+    return
+  }
+
   loading.value = true
   feedback.value = ''
 
@@ -60,15 +73,15 @@ async function submit() {
 
       authenticatedUser.value = await userResponse.json()
       accessToken.value = data.accessToken
-      feedback.value = 'Login realizado com sucesso.'
     } else {
-      feedback.value = 'Conta criada com sucesso. Agora faça login para testar o acesso.'
+      feedback.value = 'Conta criada com sucesso. Agora entre com seus dados.'
+      feedbackType.value = 'success'
       mode.value = 'login'
       name.value = ''
       password.value = ''
+      confirmPassword.value = ''
+      acceptedTerms.value = false
     }
-
-    feedbackType.value = 'success'
   } catch (error) {
     feedback.value = error.message || 'Não foi possível conectar à API.'
     feedbackType.value = 'error'
@@ -94,63 +107,102 @@ function logout() {
   />
 
   <main v-else class="auth-page">
-    <SurpriseButton />
-    <section class="auth-intro" aria-labelledby="product-title">
-      <div class="auth-brand"><span>•</span> Studdy</div>
-      <div>
-        <p class="auth-eyebrow">Organização acadêmica</p>
-        <h1 id="product-title">Seu semestre,<br><em>sob controle.</em></h1>
-        <p class="auth-intro-copy">Uma base simples para reunir tarefas, prazos e compromissos da sua vida acadêmica.</p>
-      </div>
-      <div class="auth-feature-list">
-        <p><span>✓</span> Acompanhe prazos importantes</p>
-        <p><span>✓</span> Centralize sua rotina de estudos</p>
-      </div>
-    </section>
+    <div class="auth-decoration auth-decoration-top" aria-hidden="true"></div>
+    <div class="auth-decoration auth-decoration-bottom" aria-hidden="true"></div>
 
-    <section class="auth-panel" aria-labelledby="auth-title">
-      <div v-if="authenticatedUser" class="auth-success-card">
-        <div class="auth-success-icon">✓</div>
-        <p class="auth-eyebrow">Sessão ativa</p>
-        <h2 id="auth-title">Olá, {{ authenticatedUser.name }}!</h2>
-        <p>Seu login foi validado pela API e o usuário foi encontrado no banco H2.</p>
-        <dl>
-          <div><dt>E-mail</dt><dd>{{ authenticatedUser.email }}</dd></div>
-          <div><dt>ID</dt><dd>{{ authenticatedUser.id }}</dd></div>
-        </dl>
-        <button class="auth-secondary-button" type="button" @click="logout">Sair da demonstração</button>
-      </div>
+    <section class="auth-card" aria-labelledby="auth-title">
+      <aside class="auth-presentation" :class="{ 'is-register': !isLogin }">
+        <img
+          class="auth-panel-image"
+          :src="isLogin ? loginPanelImage : registerPanelImage"
+          :alt="isLogin
+            ? 'Apresentação do AcadOrganize e seus recursos acadêmicos'
+            : 'Ambiente de estudos com notebook, livros e proteção de dados'"
+          width="794"
+          height="1979"
+        >
+      </aside>
 
-      <div v-else class="auth-form-wrap">
-        <div class="auth-tab-list" role="tablist" aria-label="Autenticação">
-          <button :class="{ active: isLogin }" type="button" role="tab" :aria-selected="isLogin" @click="switchMode('login')">Entrar</button>
-          <button :class="{ active: !isLogin }" type="button" role="tab" :aria-selected="!isLogin" @click="switchMode('register')">Criar conta</button>
+      <section class="auth-form-panel">
+        <div class="auth-form-wrap">
+          <header>
+            <p class="auth-eyebrow">{{ isLogin ? 'Acesse sua conta' : 'Comece agora' }}</p>
+            <h2 id="auth-title">{{ title }} <span v-if="isLogin" aria-hidden="true">👋</span></h2>
+            <p>{{ subtitle }}</p>
+          </header>
+
+          <form @submit.prevent="submit">
+            <label v-if="!isLogin">
+              Nome completo
+              <span class="auth-input-wrap">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+                <input v-model.trim="name" type="text" autocomplete="name" required maxlength="100" placeholder="Seu nome completo">
+              </span>
+            </label>
+
+            <label>
+              E-mail
+              <span class="auth-input-wrap">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m4 7 8 6 8-6" /></svg>
+                <input v-model.trim="email" type="email" autocomplete="email" required placeholder="seu@email.com">
+              </span>
+            </label>
+
+            <label>
+              Senha
+              <span class="auth-input-wrap">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
+                <input
+                  v-model="password"
+                  :type="showPassword ? 'text' : 'password'"
+                  :autocomplete="isLogin ? 'current-password' : 'new-password'"
+                  required
+                  minlength="8"
+                  maxlength="72"
+                  placeholder="Mínimo de 8 caracteres"
+                >
+                <button class="password-toggle" type="button" :aria-label="showPassword ? 'Ocultar senha' : 'Mostrar senha'" @click="showPassword = !showPassword">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="2.5" /></svg>
+                </button>
+              </span>
+            </label>
+
+            <label v-if="!isLogin">
+              Confirmar senha
+              <span class="auth-input-wrap">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
+                <input v-model="confirmPassword" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" required minlength="8" maxlength="72" placeholder="Digite a senha novamente">
+              </span>
+            </label>
+
+            <div v-if="isLogin" class="auth-form-options">
+              <label class="auth-checkbox is-disabled" title="Funcionalidade ainda não disponível"><input type="checkbox" disabled> <span>Lembrar de mim</span></label>
+              <span class="disabled-link" title="Funcionalidade ainda não disponível">Esqueci minha senha</span>
+            </div>
+
+            <label v-else class="auth-checkbox auth-terms">
+              <input v-model="acceptedTerms" type="checkbox" required>
+              <span>Li e concordo com os <span class="terms-highlight">Termos de Uso e a Política de Privacidade</span>.</span>
+            </label>
+
+            <button class="auth-primary-button" type="submit" :disabled="loading">
+              <span>{{ loading ? 'Aguarde...' : isLogin ? 'Entrar' : 'Criar minha conta' }}</span>
+              <svg v-if="!loading" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+            </button>
+          </form>
+
+          <p v-if="feedback" class="auth-feedback" :class="feedbackType" role="status">{{ feedback }}</p>
+
+          <p class="auth-switch">
+            {{ isLogin ? 'Ainda não tem uma conta?' : 'Já tem uma conta?' }}
+            <button type="button" @click="switchMode(isLogin ? 'register' : 'login')">
+              {{ isLogin ? 'Cadastre-se' : 'Fazer login' }}
+            </button>
+          </p>
         </div>
-
-        <header>
-          <p class="auth-eyebrow">Acesso ao sistema</p>
-          <h2 id="auth-title">{{ title }}</h2>
-          <p>{{ subtitle }}</p>
-        </header>
-
-        <form @submit.prevent="submit">
-          <label v-if="!isLogin">Nome completo
-            <input v-model.trim="name" type="text" autocomplete="name" required maxlength="100" placeholder="Ex.: Rafael Silva">
-          </label>
-          <label>E-mail acadêmico
-            <input v-model.trim="email" type="email" autocomplete="email" required placeholder="voce@exemplo.com">
-          </label>
-          <label>Senha
-            <input v-model="password" type="password" autocomplete="current-password" required minlength="8" placeholder="Mínimo de 8 caracteres">
-          </label>
-          <button class="auth-primary-button" type="submit" :disabled="loading">
-            {{ loading ? 'Enviando...' : isLogin ? 'Entrar na conta' : 'Criar minha conta' }}
-          </button>
-        </form>
-
-        <p v-if="feedback" class="auth-feedback" :class="feedbackType" role="status">{{ feedback }}</p>
-        <p class="auth-api-note">Esta tela envia requisições para <code>/api/v1/auth</code>.</p>
-      </div>
+      </section>
     </section>
+
+    <p class="auth-copyright">© 2026 Studdy. Organização acadêmica feita para estudantes.</p>
   </main>
 </template>
