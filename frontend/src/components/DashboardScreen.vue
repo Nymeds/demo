@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import DisciplinesEmpty from './DisciplinesEmpty.vue'
 
-const { user } = defineProps({
+const { user, accessToken } = defineProps({
   user: { type: Object, required: true },
   accessToken: { type: String, required: true },
 })
@@ -212,7 +212,10 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
         </p>
       </section>
 
-      <DisciplinesEmpty v-else />
+      <DisciplinesEmpty
+        v-show="activeSection === 'disciplines'"
+        :access-token="accessToken"
+      />
     </main>
   </div>
 </template>

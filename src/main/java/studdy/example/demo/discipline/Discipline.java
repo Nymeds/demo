@@ -40,8 +40,8 @@ public class Discipline {
     @Column(name = "professor_name", nullable = false, length = 120)
     private String professorName;
 
-    @Column(name = "workload_hours", nullable = false)
-    private Integer workloadHours;
+    @Column(nullable = false, length = 7)
+    private String color;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "dashboard_id", nullable = false)
@@ -61,13 +61,13 @@ public class Discipline {
     public Discipline(
             String name,
             String professorName,
-            Integer workloadHours,
+            String color,
             Dashboard dashboard,
             List<ClassSchedule> schedules
     ) {
         this.name = name;
         this.professorName = professorName;
-        this.workloadHours = workloadHours;
+        this.color = color;
         this.dashboard = dashboard;
         this.schedules = new ArrayList<>(schedules);
     }
@@ -75,12 +75,12 @@ public class Discipline {
     public void update(
             String name,
             String professorName,
-            Integer workloadHours,
+            String color,
             List<ClassSchedule> schedules
     ) {
         this.name = name;
         this.professorName = professorName;
-        this.workloadHours = workloadHours;
+        this.color = color;
         this.schedules.clear();
         this.schedules.addAll(schedules);
         this.updatedAt = Instant.now();
