@@ -1,12 +1,12 @@
 package studdy.example.demo.discipline.dto;
 
-import studdy.example.demo.discipline.Discipline;
-import studdy.example.demo.discipline.DisciplineStatus;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+
+import studdy.example.demo.discipline.Discipline;
+import studdy.example.demo.discipline.DisciplineStatus;
 
 public record DisciplineResponse(
         UUID id,
@@ -14,6 +14,7 @@ public record DisciplineResponse(
         String name,
         String professorName,
         Integer workloadHours,
+        BigDecimal minimumAttendancePercentage,
         List<ClassScheduleResponse> schedules,
         BigDecimal average,
         BigDecimal attendancePercentage,
@@ -33,6 +34,7 @@ public record DisciplineResponse(
                 discipline.getName(),
                 discipline.getProfessorName(),
                 discipline.getWorkloadHours(),
+                discipline.getMinimumAttendancePercentage(),
                 schedules,
                 null,
                 null,

@@ -1,12 +1,15 @@
 package studdy.example.demo.discipline.dto;
 
+import java.math.BigDecimal;
+import java.util.List;
+
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
-
-import java.util.List;
 
 public record UpdateDisciplineRequest(
         @NotBlank(message = "O nome da disciplina é obrigatório.")
@@ -20,6 +23,11 @@ public record UpdateDisciplineRequest(
         @NotNull(message = "A carga horária é obrigatória.")
         @Positive(message = "A carga horária deve ser maior que zero.")
         Integer workloadHours,
+
+        @NotNull(message = "O percentual mínimo de frequência é obrigatório.")
+        @DecimalMin(value = "0.0", message = "O percentual mínimo de frequência não pode ser menor que 0.")
+        @DecimalMax(value = "100.0", message = "O percentual mínimo de frequência não pode ser maior que 100.")
+        BigDecimal minimumAttendancePercentage,
 
         @NotNull(message = "A lista de horários é obrigatória.")
         @Size(min = 1, message = "A disciplina deve ter pelo menos um horário.")

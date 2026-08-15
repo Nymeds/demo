@@ -1,5 +1,11 @@
 package studdy.example.demo.discipline;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -18,11 +24,6 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import studdy.example.demo.dashboard.Dashboard;
-
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 
 @Getter
 @Entity
@@ -43,6 +44,9 @@ public class Discipline {
     @Column(name = "workload_hours", nullable = false)
     private Integer workloadHours;
 
+    @Column(name = "minimum_attendance_percentage", nullable = false)
+    private BigDecimal minimumAttendancePercentage;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "dashboard_id", nullable = false)
     private Dashboard dashboard;
@@ -62,12 +66,14 @@ public class Discipline {
             String name,
             String professorName,
             Integer workloadHours,
+            BigDecimal minimumAttendancePercentage,
             Dashboard dashboard,
             List<ClassSchedule> schedules
     ) {
         this.name = name;
         this.professorName = professorName;
         this.workloadHours = workloadHours;
+        this.minimumAttendancePercentage = minimumAttendancePercentage;
         this.dashboard = dashboard;
         this.schedules = new ArrayList<>(schedules);
     }
@@ -76,11 +82,13 @@ public class Discipline {
             String name,
             String professorName,
             Integer workloadHours,
+            BigDecimal minimumAttendancePercentage,
             List<ClassSchedule> schedules
     ) {
         this.name = name;
         this.professorName = professorName;
         this.workloadHours = workloadHours;
+        this.minimumAttendancePercentage = minimumAttendancePercentage;
         this.schedules.clear();
         this.schedules.addAll(schedules);
         this.updatedAt = Instant.now();
