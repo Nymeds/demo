@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import DisciplinesEmpty from './DisciplinesEmpty.vue'
 
 const { user } = defineProps({
   user: { type: Object, required: true },
@@ -87,19 +88,13 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
     </aside>
 
     <main class="dashboard-main">
-      <header class="dashboard-topbar">
+      <header v-if="activeSection === 'dashboard'" class="dashboard-topbar">
         <div>
-          <template v-if="activeSection === 'dashboard'">
-            <h1>Olá, {{ firstName }}! <span aria-hidden="true">👋</span></h1>
-            <p>Este é o seu resumo acadêmico.</p>
-          </template>
-          <template v-else>
-            <h1>Disciplinas</h1>
-            <p>Organize as disciplinas do seu período.</p>
-          </template>
+          <h1>Olá, {{ firstName }}! <span aria-hidden="true">👋</span></h1>
+          <p>Este é o seu resumo acadêmico.</p>
         </div>
 
-        <time v-if="activeSection === 'dashboard'" class="dashboard-date" :datetime="todayIso">
+        <time class="dashboard-date" :datetime="todayIso">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <rect x="3" y="5" width="18" height="16" rx="2" />
             <path d="M7 3v4m10-4v4M3 10h18" />
@@ -217,13 +212,7 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
         </p>
       </section>
 
-      <section v-else class="dashboard-disciplines-empty" aria-labelledby="disciplines-empty-title">
-        <span class="dashboard-disciplines-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22V5.5Z" /><path d="M20 5.5A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22V5.5Z" /></svg>
-        </span>
-        <h2 id="disciplines-empty-title">Nenhuma disciplina cadastrada</h2>
-        <p>O cadastro de disciplinas será conectado nesta área na próxima etapa.</p>
-      </section>
+      <DisciplinesEmpty v-else />
     </main>
   </div>
 </template>
@@ -332,12 +321,6 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
 .dashboard-guide-card.is-violet .dashboard-guide-icon { background: #f1edff; color: #6330e0; }
 .dashboard-tip { background: #f2efff; border-radius: 8px; color: #6c7287; font-size: .7rem; padding: 12px 18px; text-align: center; }
 .dashboard-tip strong { color: #30364a; }
-
-.dashboard-disciplines-empty { align-items: center; background: #fff; border: 1px solid #e7e4f0; border-radius: 12px; display: flex; flex-direction: column; justify-content: center; min-height: calc(100svh - 145px); padding: 40px; text-align: center; }
-.dashboard-disciplines-icon { align-items: center; background: #f1edff; border-radius: 50%; color: #6330e0; display: flex; height: 64px; justify-content: center; width: 64px; }
-.dashboard-disciplines-icon svg { fill: none; height: 29px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; width: 29px; }
-.dashboard-disciplines-empty h2 { color: #202538; font-size: 1.1rem; margin: 18px 0 7px; }
-.dashboard-disciplines-empty p { color: #7a8194; font-size: .76rem; }
 
 @media (max-width: 1180px) {
   .dashboard-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
