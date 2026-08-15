@@ -41,6 +41,36 @@ O sistema deve reduzir a dificuldade de acompanhar compromissos acadêmicos e to
 
 Não é necessário instalar o Maven, pois o repositório inclui o Maven Wrapper. A execução local também usa o banco H2 em memória, portanto não exige uma instalação do PostgreSQL.
 
+### PostgreSQL com Docker
+
+Com o Docker Desktop aberto, inicie o banco:
+
+```powershell
+docker compose up -d postgres
+```
+
+Confira se o container está saudável:
+
+```powershell
+docker compose ps
+```
+
+Para iniciar a API usando PostgreSQL:
+
+```powershell
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=postgres"
+```
+
+Por padrão, o banco usa `studdy` como database e usuário, `studdy_dev` como senha e a porta `5432`. Para personalizar, copie `.env.example` para `.env` e altere os valores. O arquivo `.env` não é versionado.
+
+Para parar o banco sem apagar os dados:
+
+```powershell
+docker compose stop postgres
+```
+
+O volume `studdy_postgres_data` mantém os dados entre reinicializações.
+
 ### 1. Iniciar o backend
 
 No primeiro terminal, na pasta raiz do projeto, execute:
