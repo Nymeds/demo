@@ -1,5 +1,6 @@
 package studdy.example.demo.calendar;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
@@ -20,6 +21,12 @@ public interface CalendarEventRepository extends JpaRepository<CalendarEvent, UU
             List<CalendarEventCategory> categories,
             LocalDateTime start,
             LocalDateTime end
+    );
+
+    List<CalendarEvent> findAllByDashboard_IdAndStartsAtGreaterThanEqualOrderByStartsAtAsc(
+            UUID dashboardId,
+            LocalDateTime from,
+            Pageable pageable
     );
 
     Optional<CalendarEvent> findByIdAndDashboard_Id(UUID id, UUID dashboardId);
