@@ -12,7 +12,6 @@ public record GradeResponse(
         UUID disciplineId,
         String assessmentName,
         BigDecimal score,
-        BigDecimal weight,
         LocalDate recordedAt,
         Instant createdAt,
         Instant updatedAt
@@ -24,7 +23,6 @@ public record GradeResponse(
                 grade.getDiscipline().getId(),
                 grade.getAssessmentName(),
                 grade.getScore(),
-                grade.getWeight(),
                 grade.getRecordedAt(),
                 grade.getCreatedAt(),
                 grade.getUpdatedAt()

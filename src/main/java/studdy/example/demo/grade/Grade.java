@@ -41,9 +41,6 @@ public class Grade {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal score;
 
-    @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal weight;
-
     @Column(name = "recorded_at", nullable = false)
     private LocalDate recordedAt;
 
@@ -57,25 +54,21 @@ public class Grade {
             Discipline discipline,
             String assessmentName,
             BigDecimal score,
-            BigDecimal weight,
             LocalDate recordedAt
     ) {
         this.discipline = discipline;
         this.assessmentName = assessmentName;
         this.score = score;
-        this.weight = weight;
         this.recordedAt = recordedAt;
     }
 
     public void update(
             String assessmentName,
             BigDecimal score,
-            BigDecimal weight,
             LocalDate recordedAt
     ) {
         this.assessmentName = assessmentName;
         this.score = score;
-        this.weight = weight;
         this.recordedAt = recordedAt;
     }
 

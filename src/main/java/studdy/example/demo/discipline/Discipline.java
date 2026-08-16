@@ -1,6 +1,7 @@
 package studdy.example.demo.discipline;
 
 import jakarta.persistence.CollectionTable;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
@@ -11,6 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OrderColumn;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -18,6 +20,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import studdy.example.demo.dashboard.Dashboard;
+import studdy.example.demo.grade.Grade;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -51,6 +54,9 @@ public class Discipline {
     @CollectionTable(name = "discipline_schedules", joinColumns = @JoinColumn(name = "discipline_id"))
     @OrderColumn(name = "position")
     private List<ClassSchedule> schedules = new ArrayList<>();
+
+    @OneToMany(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Grade> grades = new ArrayList<>();
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
