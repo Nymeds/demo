@@ -12,11 +12,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 class AcademicPerformanceServiceTest {
 
-    private final AcademicPerformanceService service = new AcademicPerformanceService(new BigDecimal("6.00"));
+    private static final BigDecimal PASSING_AVERAGE = new BigDecimal("6.00");
+
+    private final AcademicPerformanceService service = new AcademicPerformanceService();
 
     @Test
     void returnsNoDataWhenThereAreNoRecordedGrades() {
-        AcademicPerformance performance = service.calculate(List.of());
+        AcademicPerformance performance = service.calculate(List.of(), PASSING_AVERAGE);
 
         assertNull(performance.average());
         assertEquals(new BigDecimal("6.00"), performance.passingAverage());
@@ -28,7 +30,7 @@ class AcademicPerformanceServiceTest {
         Grade firstGrade = new Grade(null, "Prova 1", new BigDecimal("7.00"), LocalDate.of(2026, 8, 1));
         Grade secondGrade = new Grade(null, "Trabalho final", new BigDecimal("9.00"), LocalDate.of(2026, 8, 10));
 
-        AcademicPerformance performance = service.calculate(List.of(firstGrade, secondGrade));
+        AcademicPerformance performance = service.calculate(List.of(firstGrade, secondGrade), PASSING_AVERAGE);
 
         assertEquals(new BigDecimal("8.00"), performance.average());
         assertEquals(DisciplineStatus.APPROVED, performance.status());
@@ -38,9 +40,20 @@ class AcademicPerformanceServiceTest {
     void returnsFailedByGradeWhenAverageIsBelowMinimum() {
         Grade grade = new Grade(null, "Prova 1", new BigDecimal("5.50"), LocalDate.of(2026, 8, 1));
 
-        AcademicPerformance performance = service.calculate(List.of(grade));
+        AcademicPerformance performance = service.calculate(List.of(grade), PASSING_AVERAGE);
 
         assertEquals(new BigDecimal("5.50"), performance.average());
         assertEquals(DisciplineStatus.FAILED_BY_GRADE, performance.status());
+    }
+
+    @Test
+    void appliesThePassingAverageDefinedByEachDiscipline() {
+        Grade grade = new Grade(null, "Prova 1", new BigDecimal("7.00"), LocalDate.of(2026, 8, 1));
+
+        AcademicPerformance lenient = service.calculate(List.of(grade), new BigDecimal("6.00"));
+        AcademicPerformance strict = service.calculate(List.of(grade), new BigDecimal("8.00"));
+
+        assertEquals(DisciplineStatus.APPROVED, lenient.status());
+        assertEquals(DisciplineStatus.FAILED_BY_GRADE, strict.status());
     }
 }

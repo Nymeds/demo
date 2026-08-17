@@ -62,13 +62,13 @@ public class GradeService {
 
     @Transactional(readOnly = true)
     public GradeSummaryResponse summary(UUID userId, UUID dashboardId, UUID disciplineId) {
-        findOwnedDiscipline(userId, dashboardId, disciplineId);
+        Discipline discipline = findOwnedDiscipline(userId, dashboardId, disciplineId);
 
         List<Grade> grades = gradeRepository.findAllByDiscipline_IdOrderByRecordedAtDescCreatedAtDesc(disciplineId);
         return GradeSummaryResponse.from(
                 disciplineId,
                 grades.size(),
-                academicPerformanceService.calculate(grades)
+                academicPerformanceService.calculate(grades, discipline.getPassingAverage())
         );
     }
 

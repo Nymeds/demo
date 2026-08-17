@@ -40,6 +40,7 @@ public class DisciplineService {
                 request.name().trim(),
                 request.professorName().trim(),
                 request.workloadHours(),
+                request.passingAverage(),
                 dashboard,
                 toSchedules(request.schedules())
         );
@@ -74,6 +75,7 @@ public class DisciplineService {
                 request.name().trim(),
                 request.professorName().trim(),
                 request.workloadHours(),
+                request.passingAverage(),
                 toSchedules(request.schedules())
         );
 
@@ -88,7 +90,7 @@ public class DisciplineService {
     private DisciplineResponse toResponse(Discipline discipline) {
         return DisciplineResponse.from(
                 discipline,
-                academicPerformanceService.calculate(discipline.getGrades())
+                academicPerformanceService.calculate(discipline.getGrades(), discipline.getPassingAverage())
         );
     }
 

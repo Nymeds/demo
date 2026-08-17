@@ -22,6 +22,8 @@ import lombok.NoArgsConstructor;
 import studdy.example.demo.dashboard.Dashboard;
 import studdy.example.demo.grade.Grade;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +48,9 @@ public class Discipline {
     @Column(name = "workload_hours", nullable = false)
     private Integer workloadHours;
 
+    @Column(name = "passing_average", nullable = false, precision = 4, scale = 2)
+    private BigDecimal passingAverage;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "dashboard_id", nullable = false)
     private Dashboard dashboard;
@@ -57,7 +62,7 @@ public class Discipline {
 
     @OneToMany(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Grade> grades = new ArrayList<>();
-
+    
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -68,12 +73,14 @@ public class Discipline {
             String name,
             String professorName,
             Integer workloadHours,
+            BigDecimal passingAverage,
             Dashboard dashboard,
             List<ClassSchedule> schedules
     ) {
         this.name = name;
         this.professorName = professorName;
         this.workloadHours = workloadHours;
+        this.passingAverage = normalizePassingAverage(passingAverage);
         this.dashboard = dashboard;
         this.schedules = new ArrayList<>(schedules);
     }
@@ -82,14 +89,26 @@ public class Discipline {
             String name,
             String professorName,
             Integer workloadHours,
+            BigDecimal passingAverage,
             List<ClassSchedule> schedules
     ) {
         this.name = name;
         this.professorName = professorName;
         this.workloadHours = workloadHours;
+        this.passingAverage = normalizePassingAverage(passingAverage);
         this.schedules.clear();
         this.schedules.addAll(schedules);
         this.updatedAt = Instant.now();
+    }
+
+    private static BigDecimal normalizePassingAverage(BigDecimal value) {
+        if (value == null
+                || value.compareTo(BigDecimal.ZERO) < 0
+                || value.compareTo(BigDecimal.TEN) > 0) {
+            throw new IllegalArgumentException("A média de aprovação deve estar entre 0 e 10.");
+        }
+
+        return value.setScale(2, RoundingMode.HALF_UP);
     }
 
     @PrePersist

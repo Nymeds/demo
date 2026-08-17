@@ -15,13 +15,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class DisciplineResponseTest {
 
-    private final AcademicPerformanceService performanceService = new AcademicPerformanceService(new BigDecimal("6.00"));
+    private final AcademicPerformanceService performanceService = new AcademicPerformanceService();
 
     @Test
     void includesAverageAndStatusCalculatedFromRecordedGrades() {
         AppUser user = new AppUser("Estudante", "estudante@example.com", "hash");
         Dashboard dashboard = new Dashboard("Semestre 2026.2", DashboardStatus.ACTIVE, user);
-        Discipline discipline = new Discipline("Cálculo", "Professora Ana", 60, dashboard, List.of());
+        Discipline discipline = new Discipline(
+                "Cálculo",
+                "Professora Ana",
+                60,
+                new BigDecimal("6.00"),
+                dashboard,
+                List.of()
+        );
         discipline.getGrades().add(new Grade(
                 discipline,
                 "Prova 1",
@@ -31,10 +38,11 @@ class DisciplineResponseTest {
 
         DisciplineResponse response = DisciplineResponse.from(
                 discipline,
-                performanceService.calculate(discipline.getGrades())
+                performanceService.calculate(discipline.getGrades(), discipline.getPassingAverage())
         );
 
         assertEquals(new BigDecimal("5.50"), response.average());
+        assertEquals(new BigDecimal("6.00"), response.passingAverage());
         assertEquals(DisciplineStatus.FAILED_BY_GRADE, response.status());
     }
 }

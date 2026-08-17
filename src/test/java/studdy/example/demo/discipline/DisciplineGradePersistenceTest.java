@@ -43,7 +43,14 @@ class DisciplineGradePersistenceTest {
         AppUser user = userRepository.save(new AppUser("Estudante", "cascade@example.com", "hash"));
         Dashboard dashboard = dashboardRepository.save(new Dashboard("Semestre", DashboardStatus.ACTIVE, user));
         Discipline discipline = disciplineRepository.save(
-                new Discipline("Banco de Dados", "Professor João", 60, dashboard, List.of())
+                new Discipline(
+                        "Banco de Dados",
+                        "Professor João",
+                        60,
+                        new BigDecimal("6.00"),
+                        dashboard,
+                        List.of()
+                )
         );
         Grade grade = gradeRepository.save(new Grade(
                 discipline,
