@@ -1,6 +1,5 @@
 # Sistema de Organização Acadêmica
 # RAFAEL É MUITO FODA
-API para apoiar estudantes na organização de atividades acadêmicas, desenvolvida como projeto integrador da disciplina de Interação Humano-Computador (IHC).
 
 ## Estado atual
 
