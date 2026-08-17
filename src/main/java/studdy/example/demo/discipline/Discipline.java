@@ -1,5 +1,12 @@
 package studdy.example.demo.discipline;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -22,13 +29,6 @@ import lombok.NoArgsConstructor;
 import studdy.example.demo.dashboard.Dashboard;
 import studdy.example.demo.grade.Grade;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
 @Getter
 @Entity
 @Table(name = "disciplines")
@@ -50,6 +50,9 @@ public class Discipline {
 
     @Column(name = "passing_average", nullable = false, precision = 4, scale = 2)
     private BigDecimal passingAverage;
+
+    @Column(name = "minimum_attendance_percentage", nullable = false)
+    private BigDecimal minimumAttendancePercentage;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "dashboard_id", nullable = false)
@@ -74,6 +77,7 @@ public class Discipline {
             String professorName,
             Integer workloadHours,
             BigDecimal passingAverage,
+            BigDecimal minimumAttendancePercentage,
             Dashboard dashboard,
             List<ClassSchedule> schedules
     ) {
@@ -81,6 +85,7 @@ public class Discipline {
         this.professorName = professorName;
         this.workloadHours = workloadHours;
         this.passingAverage = normalizePassingAverage(passingAverage);
+        this.minimumAttendancePercentage = minimumAttendancePercentage;
         this.dashboard = dashboard;
         this.schedules = new ArrayList<>(schedules);
     }
@@ -90,12 +95,14 @@ public class Discipline {
             String professorName,
             Integer workloadHours,
             BigDecimal passingAverage,
+            BigDecimal minimumAttendancePercentage,
             List<ClassSchedule> schedules
     ) {
         this.name = name;
         this.professorName = professorName;
         this.workloadHours = workloadHours;
         this.passingAverage = normalizePassingAverage(passingAverage);
+        this.minimumAttendancePercentage = minimumAttendancePercentage;
         this.schedules.clear();
         this.schedules.addAll(schedules);
         this.updatedAt = Instant.now();

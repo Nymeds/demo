@@ -1,15 +1,16 @@
 package studdy.example.demo.discipline;
 
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import studdy.example.demo.dashboard.Dashboard;
 import studdy.example.demo.discipline.dto.ClassScheduleRequest;
 import studdy.example.demo.discipline.dto.CreateDisciplineRequest;
 import studdy.example.demo.discipline.dto.DisciplineResponse;
 import studdy.example.demo.discipline.dto.UpdateDisciplineRequest;
-
-import java.util.List;
-import java.util.UUID;
 
 @Service
 public class DisciplineService {
@@ -41,6 +42,7 @@ public class DisciplineService {
                 request.professorName().trim(),
                 request.workloadHours(),
                 request.passingAverage(),
+                request.minimumAttendancePercentage(),
                 dashboard,
                 toSchedules(request.schedules())
         );
@@ -76,6 +78,7 @@ public class DisciplineService {
                 request.professorName().trim(),
                 request.workloadHours(),
                 request.passingAverage(),
+                request.minimumAttendancePercentage(),
                 toSchedules(request.schedules())
         );
 
