@@ -1,5 +1,6 @@
 package studdy.example.demo.discipline.dto;
 
+import studdy.example.demo.discipline.AcademicPerformance;
 import studdy.example.demo.discipline.Discipline;
 import studdy.example.demo.discipline.DisciplineStatus;
 
@@ -22,7 +23,7 @@ public record DisciplineResponse(
         Instant updatedAt
 ) {
 
-    public static DisciplineResponse from(Discipline discipline) {
+    public static DisciplineResponse from(Discipline discipline, AcademicPerformance performance) {
         List<ClassScheduleResponse> schedules = discipline.getSchedules().stream()
                 .map(ClassScheduleResponse::from)
                 .toList();
@@ -34,9 +35,9 @@ public record DisciplineResponse(
                 discipline.getProfessorName(),
                 discipline.getWorkloadHours(),
                 schedules,
+                performance.average(),
                 null,
-                null,
-                DisciplineStatus.NO_DATA,
+                performance.status(),
                 discipline.getCreatedAt(),
                 discipline.getUpdatedAt()
         );
