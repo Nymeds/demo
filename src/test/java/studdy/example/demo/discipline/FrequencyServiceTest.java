@@ -57,8 +57,7 @@ class FrequencyServiceTest {
         FrequencyResponse response = create(discipline, 60, 6);
 
         assertEquals(new BigDecimal("90.00"), response.attendancePercentage());
-        // Apesar do nome, este campo carrega a quantidade mínima de aulas: 75% de 60.
-        assertEquals(45, response.minimumAttendancePercentage());
+        assertEquals(45, response.minimumAttendanceClasses());
         assertEquals(15, response.maximumAbsences());
     }
 
@@ -70,7 +69,7 @@ class FrequencyServiceTest {
         FrequencyResponse response = create(shortDiscipline, 50, 12);
 
         assertEquals(new BigDecimal("76.00"), response.attendancePercentage());
-        assertEquals(38, response.minimumAttendancePercentage());
+        assertEquals(38, response.minimumAttendanceClasses());
         assertEquals(12, response.maximumAbsences());
     }
 
@@ -81,7 +80,7 @@ class FrequencyServiceTest {
         FrequencyResponse response = create(strictDiscipline, 60, 0);
 
         assertEquals(new BigDecimal("100.00"), response.attendancePercentage());
-        assertEquals(60, response.minimumAttendancePercentage());
+        assertEquals(60, response.minimumAttendanceClasses());
         assertEquals(0, response.maximumAbsences());
     }
 

@@ -9,7 +9,7 @@ public record FrequencyResponse(
     Integer totalClasses,
     Integer absences,
     BigDecimal attendancePercentage,
-    Integer minimumAttendancePercentage,
+    Integer minimumAttendanceClasses,
     Integer maximumAbsences
 ) {
 }

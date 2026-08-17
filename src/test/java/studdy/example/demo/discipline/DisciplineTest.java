@@ -56,16 +56,37 @@ class DisciplineTest {
         );
 
         assertEquals(new BigDecimal("6.00"), discipline.getPassingAverage());
-        assertEquals(new BigDecimal("75.0"), discipline.getMinimumAttendancePercentage());
+        assertEquals(new BigDecimal("75.00"), discipline.getMinimumAttendancePercentage());
+    }
+
+    @Test
+    void rejectsAMinimumAttendanceOutsideOfTheAllowedRange() {
+        assertThrows(IllegalArgumentException.class, () -> newDiscipline(new BigDecimal("6.00"), new BigDecimal("100.01")));
+        assertThrows(IllegalArgumentException.class, () -> newDiscipline(new BigDecimal("6.00"), new BigDecimal("-0.01")));
+        assertThrows(IllegalArgumentException.class, () -> newDiscipline(new BigDecimal("6.00"), null));
+    }
+
+    @Test
+    void rejectsTheTwoCriteriaSwappedByMistake() {
+        // Trocar a ordem dos dois BigDecimal do construtor compila, mas não passa daqui:
+        // 75 não é média válida. É a diferença de faixa que protege a chamada.
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> newDiscipline(new BigDecimal("75.00"), new BigDecimal("6.00"))
+        );
     }
 
     private Discipline newDiscipline(BigDecimal passingAverage) {
+        return newDiscipline(passingAverage, new BigDecimal("75.0"));
+    }
+
+    private Discipline newDiscipline(BigDecimal passingAverage, BigDecimal minimumAttendancePercentage) {
         return new Discipline(
                 "Cálculo",
                 "Professora Ana",
                 60,
                 passingAverage,
-                new BigDecimal("75.0"),
+                minimumAttendancePercentage,
                 dashboard,
                 List.of()
         );
