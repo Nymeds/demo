@@ -95,6 +95,33 @@ npm run dev
 
 O `npm install` instala as dependências e normalmente só é necessário na primeira execução ou quando elas forem alteradas. Mantenha esse segundo terminal aberto também.
 
+O proxy do Vite lê o endereço da API pela variável `VITE_API_PROXY_TARGET`. Quando ela não é definida, o frontend usa `http://localhost:8080`, adequado para executar backend e frontend na mesma máquina.
+
+Para usar outro backend, crie uma configuração local que não será versionada:
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+Edite `frontend/.env.local` e informe somente o endereço do ambiente desejado:
+
+```dotenv
+VITE_API_PROXY_TARGET=https://endereco-do-backend
+```
+
+Reinicie `npm run dev` depois de alterar o arquivo. O `.env.local` é ignorado pelo Git e não deve ser adicionado ao repositório.
+
+#### Frontend local conectado a uma API no GitHub Codespaces
+
+1. No Codespace, mantenha a API em execução na porta `8080`.
+2. Na aba **PORTS**, copie o **Forwarded Address** da porta `8080`.
+3. Para um teste temporário sem túnel local, altere a visibilidade da porta `8080` para **Public**.
+4. Copie `frontend/.env.example` para `frontend/.env.local` e coloque o endereço encaminhado em `VITE_API_PROXY_TARGET`.
+5. Inicie ou reinicie o frontend local com `npm run dev`.
+6. Ao terminar, retorne a porta `8080` para **Private**.
+
+Nunca torne a porta `5432` pública. Não coloque URL de ambiente, chave JWT, token ou senha no `vite.config.js`; segredos do backend devem ser configurados como **Codespaces secrets**, e não em arquivos do frontend.
+
 ### 3. Acessar a aplicação
 
 Abra no navegador:
