@@ -97,7 +97,7 @@ class GradeSummaryTest {
 
         assertEquals(DisciplineStatus.APPROVED, summaryOf(discipline).academicSituation());
 
-        discipline.update("Cálculo", "Professora Ana", 60, new BigDecimal("9.00"), List.of());
+        discipline.update("Cálculo", "Professora Ana", 60, new BigDecimal("9.00"), new BigDecimal("75.0"), List.of());
 
         assertEquals(DisciplineStatus.FAILED_BY_GRADE, summaryOf(discipline).academicSituation());
     }
@@ -108,7 +108,7 @@ class GradeSummaryTest {
 
     private Discipline newDiscipline(String name, BigDecimal passingAverage) {
         return disciplineRepository.save(
-                new Discipline(name, "Professora Ana", 60, passingAverage, dashboard, List.of())
+                new Discipline(name, "Professora Ana", 60, passingAverage, new BigDecimal("75.0"), dashboard, List.of())
         );
     }
 

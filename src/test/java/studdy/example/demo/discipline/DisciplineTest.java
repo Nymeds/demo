@@ -37,12 +37,37 @@ class DisciplineTest {
     void updatesThePassingAverageOfAnExistingDiscipline() {
         Discipline discipline = newDiscipline(new BigDecimal("6.00"));
 
-        discipline.update("Cálculo II", "Professora Ana", 60, new BigDecimal("8.00"), List.of());
+        discipline.update("Cálculo II", "Professora Ana", 60, new BigDecimal("8.00"), new BigDecimal("75.0"), List.of());
 
         assertEquals(new BigDecimal("8.00"), discipline.getPassingAverage());
     }
 
+    @Test
+    void keepsThePassingAverageAndTheMinimumAttendanceApart() {
+        // Os dois critérios convivem: nota vai de 0 a 10, frequência de 0 a 100.
+        Discipline discipline = new Discipline(
+                "Cálculo",
+                "Professora Ana",
+                60,
+                new BigDecimal("6.00"),
+                new BigDecimal("75.0"),
+                dashboard,
+                List.of()
+        );
+
+        assertEquals(new BigDecimal("6.00"), discipline.getPassingAverage());
+        assertEquals(new BigDecimal("75.0"), discipline.getMinimumAttendancePercentage());
+    }
+
     private Discipline newDiscipline(BigDecimal passingAverage) {
-        return new Discipline("Cálculo", "Professora Ana", 60, passingAverage, dashboard, List.of());
+        return new Discipline(
+                "Cálculo",
+                "Professora Ana",
+                60,
+                passingAverage,
+                new BigDecimal("75.0"),
+                dashboard,
+                List.of()
+        );
     }
 }

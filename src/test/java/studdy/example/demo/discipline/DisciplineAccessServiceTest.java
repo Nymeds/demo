@@ -47,7 +47,15 @@ class DisciplineAccessServiceTest {
         intruder = userRepository.save(new AppUser("Intruso", "intruso@example.com", "hash"));
         dashboard = dashboardRepository.save(new Dashboard("Semestre 2026.2", DashboardStatus.ACTIVE, owner));
         discipline = disciplineRepository.save(
-                new Discipline("Cálculo", "Professora Ana", 60, new BigDecimal("6.00"), dashboard, List.of())
+                new Discipline(
+                        "Cálculo",
+                        "Professora Ana",
+                        60,
+                        new BigDecimal("6.00"),
+                        new BigDecimal("75.0"),
+                        dashboard,
+                        List.of()
+                )
         );
     }
 

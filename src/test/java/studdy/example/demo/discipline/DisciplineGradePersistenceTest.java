@@ -48,6 +48,7 @@ class DisciplineGradePersistenceTest {
                         "Professor João",
                         60,
                         new BigDecimal("6.00"),
+                        new BigDecimal("75.0"),
                         dashboard,
                         List.of()
                 )
