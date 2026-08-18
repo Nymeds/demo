@@ -46,7 +46,7 @@ class DisciplineGradePersistenceTest {
                 new Discipline(
                         "Banco de Dados",
                         "Professor João",
-                        60,
+                        "#4F46E5",
                         new BigDecimal("6.00"),
                         new BigDecimal("75.0"),
                         dashboard,

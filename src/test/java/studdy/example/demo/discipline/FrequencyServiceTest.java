@@ -187,7 +187,7 @@ class FrequencyServiceTest {
         return disciplineRepository.save(new Discipline(
                 name,
                 "Professora Ana",
-                60,
+                "#4F46E5",
                 new BigDecimal("6.00"),
                 minimumAttendancePercentage,
                 dashboard,

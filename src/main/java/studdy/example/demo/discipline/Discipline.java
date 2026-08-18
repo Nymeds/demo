@@ -20,12 +20,14 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import studdy.example.demo.activities.Activity;
 import studdy.example.demo.dashboard.Dashboard;
 import studdy.example.demo.grade.Grade;
 
@@ -65,6 +67,12 @@ public class Discipline {
 
     @OneToMany(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Grade> grades = new ArrayList<>();
+
+    @OneToMany(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Activity> activities = new ArrayList<>();
+
+    @OneToOne(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Frequency frequency;
     
     @Column(nullable = false, updatable = false)
     private Instant createdAt;

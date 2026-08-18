@@ -37,7 +37,7 @@ class DisciplineTest {
     void updatesThePassingAverageOfAnExistingDiscipline() {
         Discipline discipline = newDiscipline(new BigDecimal("6.00"));
 
-        discipline.update("Cálculo II", "Professora Ana", 60, new BigDecimal("8.00"), new BigDecimal("75.0"), List.of());
+        discipline.update("Cálculo II", "Professora Ana", "#4F46E5", new BigDecimal("8.00"), new BigDecimal("75.0"), List.of());
 
         assertEquals(new BigDecimal("8.00"), discipline.getPassingAverage());
     }
@@ -48,7 +48,7 @@ class DisciplineTest {
         Discipline discipline = new Discipline(
                 "Cálculo",
                 "Professora Ana",
-                60,
+                "#4F46E5",
                 new BigDecimal("6.00"),
                 new BigDecimal("75.0"),
                 dashboard,
@@ -84,7 +84,7 @@ class DisciplineTest {
         return new Discipline(
                 "Cálculo",
                 "Professora Ana",
-                60,
+                "#4F46E5",
                 passingAverage,
                 minimumAttendancePercentage,
                 dashboard,
