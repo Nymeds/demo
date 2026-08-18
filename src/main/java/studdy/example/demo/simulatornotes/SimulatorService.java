@@ -31,33 +31,30 @@ public class SimulatorService {
     public SimulatorResponse simulate(
             UUID userId,
             UUID dashboardId,
+            UUID disciplineId,
             SimulatorRequest request
     ) {
 
-        // Verifica se o usuário possui acesso à disciplina.
         disciplineAccessService.findOwnedDiscipline(
                 userId,
                 dashboardId,
-                request.disciplineId()
+                disciplineId
         );
 
-        // Busca as notas já cadastradas para a disciplina.
         List<Grade> grades =
                 gradeRepository.findAllByDiscipline_IdOrderByRecordedAtDescCreatedAtDesc(
-                        request.disciplineId()
+                        disciplineId
                 );
 
-        // Calcula a média atual.
         BigDecimal currentAverage = calculateAverage(grades);
 
-        // Calcula a nota necessária para alcançar a média desejada.
         BigDecimal requiredGrade = calculateRequiredGrade(
                 grades,
                 request.targetAverage()
         );
 
         return new SimulatorResponse(
-                request.disciplineId(),
+                disciplineId,
                 currentAverage,
                 request.targetAverage(),
                 requiredGrade
