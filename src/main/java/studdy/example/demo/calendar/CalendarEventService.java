@@ -75,15 +75,8 @@ public class CalendarEventService {
         }
 
         List<CalendarEvent> events = categories == null || categories.isEmpty()
-                ? calendarEventRepository
-                        .findAllByDashboard_IdAndStartsAtBetweenOrderByStartsAtAsc(dashboardId, start, end)
-                : calendarEventRepository
-                        .findAllByDashboard_IdAndCategoryInAndStartsAtBetweenOrderByStartsAtAsc(
-                                dashboardId,
-                                categories,
-                                start,
-                                end
-                        );
+                ? calendarEventRepository.findAllInPeriod(dashboardId, start, end)
+                : calendarEventRepository.findAllInPeriodByCategories(dashboardId, categories, start, end);
 
         return events.stream()
                 .map(CalendarEventResponse::from)

@@ -323,6 +323,33 @@ class CalendarEventServiceTest {
         assertEquals(List.of("Antes", "Depois"), week.stream().map(CalendarEventResponse::title).toList());
     }
 
+    // A aula que começa 23:00 de domingo e termina 01:00 de segunda pertence às duas visões:
+    // ela ainda está acontecendo quando a semana começa.
+    @Test
+    void listsTheEventThatStartedBeforeThePeriodAndEndsInsideIt() {
+        create("Aula da virada", CalendarEventCategory.CLASS, MONDAY.minusHours(2), MONDAY.plusHours(1), null);
+
+        List<CalendarEventResponse> week = findByPeriod(MONDAY, MONDAY.plusDays(7), null);
+
+        assertEquals(List.of("Aula da virada"), week.stream().map(CalendarEventResponse::title).toList());
+    }
+
+    @Test
+    void ignoresTheEventThatEndedBeforeThePeriodStarted() {
+        create("Aula da semana passada", CalendarEventCategory.CLASS, MONDAY.minusDays(3), MONDAY.minusDays(3).plusHours(2), null);
+
+        assertTrue(findByPeriod(MONDAY, MONDAY.plusDays(7), null).isEmpty());
+    }
+
+    // Prazo não tem duração: vale como instante, então só entra no período em que cai.
+    @Test
+    void treatsADeadlineWithoutAnEndAsASingleMoment() {
+        create("Entregar relatório", CalendarEventCategory.ASSIGNMENT, MONDAY.minusDays(1), null, null);
+
+        assertTrue(findByPeriod(MONDAY, MONDAY.plusDays(7), null).isEmpty());
+        assertEquals(1, findByPeriod(MONDAY.minusDays(2), MONDAY, null).size());
+    }
+
     @Test
     void filtersTheEventsByCategory() {
         create("Aula", CalendarEventCategory.CLASS, MONDAY, null, null);
