@@ -54,7 +54,6 @@ public class SimulatorService {
         );
 
         return new SimulatorResponse(
-                disciplineId,
                 currentAverage,
                 request.targetAverage(),
                 requiredGrade
