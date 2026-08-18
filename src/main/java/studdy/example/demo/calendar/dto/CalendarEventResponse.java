@@ -13,6 +13,7 @@ public record CalendarEventResponse(
         UUID dashboardId,
         UUID disciplineId,
         String disciplineName,
+        boolean disciplineDeleted,
         String title,
         String description,
         CalendarEventCategory category,
@@ -22,14 +23,21 @@ public record CalendarEventResponse(
         Instant updatedAt
 ) {
 
+    private static final String DELETED_DISCIPLINE_NAME = "Essa disciplina não existe mais.";
+
     public static CalendarEventResponse from(CalendarEvent event) {
         Discipline discipline = event.getDiscipline();
+
+        // Disciplina apagada: o banco zerou o vínculo, mas o nome copiado no momento da
+        // criação continua ali provando que este evento um dia teve disciplina.
+        boolean disciplineDeleted = discipline == null && event.getLinkedDisciplineName() != null;
 
         return new CalendarEventResponse(
                 event.getId(),
                 event.getDashboard().getId(),
                 discipline == null ? null : discipline.getId(),
-                discipline == null ? null : discipline.getName(),
+                disciplineName(discipline, disciplineDeleted),
+                disciplineDeleted,
                 event.getTitle(),
                 event.getDescription(),
                 event.getCategory(),
@@ -38,5 +46,13 @@ public record CalendarEventResponse(
                 event.getCreatedAt(),
                 event.getUpdatedAt()
         );
+    }
+
+    private static String disciplineName(Discipline discipline, boolean disciplineDeleted) {
+        if (discipline != null) {
+            return discipline.getName();
+        }
+
+        return disciplineDeleted ? DELETED_DISCIPLINE_NAME : null;
     }
 }

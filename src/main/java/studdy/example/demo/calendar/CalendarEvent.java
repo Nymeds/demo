@@ -16,6 +16,8 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import studdy.example.demo.dashboard.Dashboard;
 import studdy.example.demo.discipline.Discipline;
 
@@ -37,9 +39,17 @@ public class CalendarEvent {
     @JoinColumn(name = "dashboard_id", nullable = false)
     private Dashboard dashboard;
 
+    // O banco zera esta coluna quando a disciplina é apagada (ON DELETE SET NULL), em vez
+    // de barrar a exclusão: o evento continua no calendário, só perde o vínculo.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "discipline_id")
+    @OnDelete(action = OnDeleteAction.SET_NULL)
     private Discipline discipline;
+
+    // Cópia do nome da disciplina no momento do vínculo. É o que diferencia um evento
+    // avulso (nunca teve disciplina) de um evento cuja disciplina foi apagada depois.
+    @Column(name = "linked_discipline_name", length = 120)
+    private String linkedDisciplineName;
 
     @Column(nullable = false, length = 120)
     private String title;
@@ -74,6 +84,7 @@ public class CalendarEvent {
     ) {
         this.dashboard = dashboard;
         this.discipline = discipline;
+        this.linkedDisciplineName = nameOf(discipline);
         this.title = title;
         this.description = description;
         this.category = category;
@@ -90,12 +101,17 @@ public class CalendarEvent {
             LocalDateTime endsAt
     ) {
         this.discipline = discipline;
+        this.linkedDisciplineName = nameOf(discipline);
         this.title = title;
         this.description = description;
         this.category = category;
         this.startsAt = startsAt;
         this.endsAt = endsAt;
         this.updatedAt = Instant.now();
+    }
+
+    private static String nameOf(Discipline discipline) {
+        return discipline == null ? null : discipline.getName();
     }
 
     @PrePersist
