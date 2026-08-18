@@ -1,5 +1,4 @@
 # Sistema de Organização Acadêmica
-# RAFAEL É MUITO FODA
 
 ## Estado atual
 
