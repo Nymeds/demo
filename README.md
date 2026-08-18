@@ -46,27 +46,51 @@ Não é necessário instalar o Maven, pois o repositório inclui o Maven Wrapper
 
 Com o Docker Desktop aberto, inicie o banco:
 
+**Windows:**
 ```powershell
+docker compose up -d postgres
+```
+
+**Linux/Mac:**
+```bash
 docker compose up -d postgres
 ```
 
 Confira se o container está saudável:
 
+**Windows:**
 ```powershell
+docker compose ps
+```
+
+**Linux/Mac:**
+```bash
 docker compose ps
 ```
 
 Para iniciar a API usando PostgreSQL:
 
+**Windows:**
 ```powershell
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=postgres"
+```
+
+**Linux/Mac:**
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=postgres
 ```
 
 Por padrão, o banco usa `studdy` como database e usuário, `studdy_dev` como senha e a porta `5432`. Para personalizar, copie `.env.example` para `.env` e altere os valores. O arquivo `.env` não é versionado.
 
 Para parar o banco sem apagar os dados:
 
+**Windows:**
 ```powershell
+docker compose stop postgres
+```
+
+**Linux/Mac:**
+```bash
 docker compose stop postgres
 ```
 
@@ -76,8 +100,14 @@ O volume `studdy_postgres_data` mantém os dados entre reinicializações.
 
 No primeiro terminal, na pasta raiz do projeto, execute:
 
+**Windows:**
 ```powershell
 .\mvnw.cmd spring-boot:run
+```
+
+**Linux/Mac:**
+```bash
+./mvnw spring-boot:run
 ```
 
 Quando a inicialização terminar, a API estará disponível em `http://localhost:8080`. Mantenha esse terminal aberto enquanto estiver usando o sistema.
@@ -88,7 +118,8 @@ Quando a inicialização terminar, a API estará disponível em `http://localhos
 
 Abra um segundo terminal na pasta raiz do projeto e execute:
 
-```powershell
+**Windows/Linux/Mac:**
+```bash
 cd frontend
 npm install
 npm run dev
@@ -100,8 +131,14 @@ O proxy do Vite lê o endereço da API pela variável `VITE_API_PROXY_TARGET`. Q
 
 Para usar outro backend, crie uma configuração local que não será versionada:
 
+**Windows:**
 ```powershell
 Copy-Item .env.example .env.local
+```
+
+**Linux/Mac:**
+```bash
+cp .env.example .env.local
 ```
 
 Edite `frontend/.env.local` e informe somente o endereço do ambiente desejado:
@@ -137,8 +174,14 @@ Durante o desenvolvimento, o Vite encaminha automaticamente as requisições ini
 
 Na pasta raiz do projeto, execute:
 
+**Windows:**
 ```powershell
 .\mvnw.cmd test
+```
+
+**Linux/Mac:**
+```bash
+./mvnw test
 ```
 
 A suíte cobre as validações dos formulários, as regras de aprovação por nota e por frequência, o isolamento entre usuários e a persistência em cascata. Os testes de integração sobem o contexto Spring com o H2 em memória e desfazem as transações ao final, então não deixam dados para trás.
