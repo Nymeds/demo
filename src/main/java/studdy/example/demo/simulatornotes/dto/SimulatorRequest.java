@@ -5,12 +5,8 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
-import java.util.UUID;
 
 public record SimulatorRequest(
-
-        @NotNull(message = "A disciplina é obrigatória.")
-        UUID disciplineId,
 
         @NotNull(message = "A média desejada é obrigatória.")
         @DecimalMin(value = "0.00", message = "A média não pode ser negativa.")
