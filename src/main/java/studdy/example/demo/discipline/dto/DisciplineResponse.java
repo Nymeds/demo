@@ -1,12 +1,13 @@
 package studdy.example.demo.discipline.dto;
 
-import studdy.example.demo.discipline.Discipline;
-import studdy.example.demo.discipline.DisciplineStatus;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+
+import studdy.example.demo.discipline.AcademicPerformance;
+import studdy.example.demo.discipline.Discipline;
+import studdy.example.demo.discipline.DisciplineStatus;
 
 public record DisciplineResponse(
         UUID id,
@@ -14,15 +15,17 @@ public record DisciplineResponse(
         String name,
         String professorName,
         Integer workloadHours,
+        BigDecimal minimumAttendancePercentage,
         List<ClassScheduleResponse> schedules,
         BigDecimal average,
+        BigDecimal passingAverage,
         BigDecimal attendancePercentage,
         DisciplineStatus status,
         Instant createdAt,
         Instant updatedAt
 ) {
 
-    public static DisciplineResponse from(Discipline discipline) {
+    public static DisciplineResponse from(Discipline discipline, AcademicPerformance performance) {
         List<ClassScheduleResponse> schedules = discipline.getSchedules().stream()
                 .map(ClassScheduleResponse::from)
                 .toList();
@@ -33,10 +36,12 @@ public record DisciplineResponse(
                 discipline.getName(),
                 discipline.getProfessorName(),
                 discipline.getWorkloadHours(),
+                discipline.getMinimumAttendancePercentage(),
                 schedules,
+                performance.average(),
+                performance.passingAverage(),
                 null,
-                null,
-                DisciplineStatus.NO_DATA,
+                performance.status(),
                 discipline.getCreatedAt(),
                 discipline.getUpdatedAt()
         );

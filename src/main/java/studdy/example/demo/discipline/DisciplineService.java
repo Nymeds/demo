@@ -1,31 +1,32 @@
 package studdy.example.demo.discipline;
 
-import org.springframework.http.HttpStatus;
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+
 import studdy.example.demo.dashboard.Dashboard;
-import studdy.example.demo.dashboard.DashboardRepository;
 import studdy.example.demo.discipline.dto.ClassScheduleRequest;
 import studdy.example.demo.discipline.dto.CreateDisciplineRequest;
 import studdy.example.demo.discipline.dto.DisciplineResponse;
 import studdy.example.demo.discipline.dto.UpdateDisciplineRequest;
 
-import java.util.List;
-import java.util.UUID;
-
 @Service
 public class DisciplineService {
 
     private final DisciplineRepository disciplineRepository;
-    private final DashboardRepository dashboardRepository;
+    private final DisciplineAccessService disciplineAccessService;
+    private final AcademicPerformanceService academicPerformanceService;
 
     public DisciplineService(
             DisciplineRepository disciplineRepository,
-            DashboardRepository dashboardRepository
+            DisciplineAccessService disciplineAccessService,
+            AcademicPerformanceService academicPerformanceService
     ) {
         this.disciplineRepository = disciplineRepository;
-        this.dashboardRepository = dashboardRepository;
+        this.disciplineAccessService = disciplineAccessService;
+        this.academicPerformanceService = academicPerformanceService;
     }
 
     @Transactional
@@ -34,31 +35,33 @@ public class DisciplineService {
             UUID dashboardId,
             CreateDisciplineRequest request
     ) {
-        Dashboard dashboard = findOwnedDashboard(userId, dashboardId);
+        Dashboard dashboard = disciplineAccessService.findOwnedDashboard(userId, dashboardId);
 
         Discipline discipline = new Discipline(
                 request.name().trim(),
                 request.professorName().trim(),
                 request.workloadHours(),
+                request.passingAverage(),
+                request.minimumAttendancePercentage(),
                 dashboard,
                 toSchedules(request.schedules())
         );
 
-        return DisciplineResponse.from(disciplineRepository.save(discipline));
+        return toResponse(disciplineRepository.save(discipline));
     }
 
     @Transactional(readOnly = true)
     public List<DisciplineResponse> findAll(UUID userId, UUID dashboardId) {
-        findOwnedDashboard(userId, dashboardId);
+        disciplineAccessService.findOwnedDashboard(userId, dashboardId);
 
         return disciplineRepository.findAllByDashboard_IdOrderByNameAsc(dashboardId).stream()
-                .map(DisciplineResponse::from)
+                .map(this::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public DisciplineResponse findById(UUID userId, UUID dashboardId, UUID disciplineId) {
-        return DisciplineResponse.from(findOwnedDiscipline(userId, dashboardId, disciplineId));
+        return toResponse(disciplineAccessService.findOwnedDiscipline(userId, dashboardId, disciplineId));
     }
 
     @Transactional
@@ -68,39 +71,30 @@ public class DisciplineService {
             UUID disciplineId,
             UpdateDisciplineRequest request
     ) {
-        Discipline discipline = findOwnedDiscipline(userId, dashboardId, disciplineId);
+        Discipline discipline = disciplineAccessService.findOwnedDiscipline(userId, dashboardId, disciplineId);
 
         discipline.update(
                 request.name().trim(),
                 request.professorName().trim(),
                 request.workloadHours(),
+                request.passingAverage(),
+                request.minimumAttendancePercentage(),
                 toSchedules(request.schedules())
         );
 
-        return DisciplineResponse.from(discipline);
+        return toResponse(discipline);
     }
 
     @Transactional
     public void delete(UUID userId, UUID dashboardId, UUID disciplineId) {
-        disciplineRepository.delete(findOwnedDiscipline(userId, dashboardId, disciplineId));
+        disciplineRepository.delete(disciplineAccessService.findOwnedDiscipline(userId, dashboardId, disciplineId));
     }
 
-    private Dashboard findOwnedDashboard(UUID userId, UUID dashboardId) {
-        return dashboardRepository.findByIdAndOwner_Id(dashboardId, userId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Dashboard não encontrado."
-                ));
-    }
-
-    private Discipline findOwnedDiscipline(UUID userId, UUID dashboardId, UUID disciplineId) {
-        findOwnedDashboard(userId, dashboardId);
-
-        return disciplineRepository.findByIdAndDashboard_Id(disciplineId, dashboardId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Disciplina não encontrada."
-                ));
+    private DisciplineResponse toResponse(Discipline discipline) {
+        return DisciplineResponse.from(
+                discipline,
+                academicPerformanceService.calculate(discipline.getGrades(), discipline.getPassingAverage())
+        );
     }
 
     private List<ClassSchedule> toSchedules(List<ClassScheduleRequest> requests) {
