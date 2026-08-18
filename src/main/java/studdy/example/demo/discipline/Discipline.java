@@ -45,8 +45,8 @@ public class Discipline {
     @Column(name = "professor_name", nullable = false, length = 120)
     private String professorName;
 
-    @Column(name = "workload_hours", nullable = false)
-    private Integer workloadHours;
+    @Column(nullable = false, length = 7)
+    private String color;
 
     @Column(name = "passing_average", nullable = false, precision = 4, scale = 2)
     private BigDecimal passingAverage;
@@ -75,7 +75,7 @@ public class Discipline {
     public Discipline(
             String name,
             String professorName,
-            Integer workloadHours,
+            String color,
             BigDecimal passingAverage,
             BigDecimal minimumAttendancePercentage,
             Dashboard dashboard,
@@ -83,7 +83,7 @@ public class Discipline {
     ) {
         this.name = name;
         this.professorName = professorName;
-        this.workloadHours = workloadHours;
+        this.color = color;
         this.passingAverage = normalizePassingAverage(passingAverage);
         this.minimumAttendancePercentage = normalizeMinimumAttendancePercentage(minimumAttendancePercentage);
         this.dashboard = dashboard;
@@ -93,14 +93,14 @@ public class Discipline {
     public void update(
             String name,
             String professorName,
-            Integer workloadHours,
+            String color,
             BigDecimal passingAverage,
             BigDecimal minimumAttendancePercentage,
             List<ClassSchedule> schedules
     ) {
         this.name = name;
         this.professorName = professorName;
-        this.workloadHours = workloadHours;
+        this.color = color;
         this.passingAverage = normalizePassingAverage(passingAverage);
         this.minimumAttendancePercentage = normalizeMinimumAttendancePercentage(minimumAttendancePercentage);
         this.schedules.clear();
