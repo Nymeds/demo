@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import DisciplinesEmpty from './DisciplinesEmpty.vue'
+import CalendarScreen from './CalendarScreen.vue'
 
 const { user, accessToken } = defineProps({
   user: { type: Object, required: true },
@@ -66,6 +67,19 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
             <path d="M20 5.5A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22V5.5Z" />
           </svg>
           Disciplinas
+        </button>
+
+        <button
+          type="button"
+          :class="{ active: activeSection === 'calendar' }"
+          :aria-current="activeSection === 'calendar' ? 'page' : undefined"
+          @click="activeSection = 'calendar'"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="16" rx="2" />
+            <path d="M7 3v4m10-4v4M3 10h18" />
+          </svg>
+          Calendário
         </button>
       </nav>
 
@@ -214,6 +228,11 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
 
       <DisciplinesEmpty
         v-show="activeSection === 'disciplines'"
+        :access-token="accessToken"
+      />
+
+      <CalendarScreen
+        v-if="activeSection === 'calendar'"
         :access-token="accessToken"
       />
     </main>
