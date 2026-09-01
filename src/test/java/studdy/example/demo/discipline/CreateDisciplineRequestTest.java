@@ -26,7 +26,7 @@ class CreateDisciplineRequestTest {
 
     @Test
     void requiresThePassingAverage() {
-        assertRejects(newRequest(null), "A média de aprovação é obrigatória.");
+        assertRejects(newRequest((BigDecimal) null), "A média de aprovação é obrigatória.");
     }
 
     @Test
@@ -89,21 +89,49 @@ class CreateDisciplineRequestTest {
     }
 
     @Test
-    void rejectsANonPositiveWorkload() {
+    void requiresTheColor() {
+        assertRejects(newRequestWithColor(null), "A cor da disciplina é obrigatória.");
+    }
+
+    @Test
+    void rejectsAColorThatIsNotHexadecimal() {
+        assertRejects(newRequestWithColor("azul"), "A cor da disciplina deve estar no formato hexadecimal.");
+    }
+
+    @Test
+    void rejectsAThreeDigitHexadecimalColor() {
+        // O front costuma abreviar para #FFF; o contrato exige os seis dígitos.
+        assertRejects(newRequestWithColor("#FFF"), "A cor da disciplina deve estar no formato hexadecimal.");
+    }
+
+    @Test
+    void acceptsARequestWithoutTheProfessorName() {
+        // O nome do professor deixou de ser obrigatório no cadastro.
         CreateDisciplineRequest request = new CreateDisciplineRequest(
                 "Cálculo",
-                "Professora Ana",
-                0,
+                null,
+                "#4F46E5",
                 new BigDecimal("6.00"),
                 MINIMUM_ATTENDANCE,
                 defaultSchedules()
         );
 
-        assertRejects(request, "A carga horária deve ser maior que zero.");
+        assertTrue(validator.validate(request).isEmpty());
     }
 
     private CreateDisciplineRequest newRequest(BigDecimal passingAverage) {
         return newRequest(passingAverage, MINIMUM_ATTENDANCE, defaultSchedules());
+    }
+
+    private CreateDisciplineRequest newRequestWithColor(String color) {
+        return new CreateDisciplineRequest(
+                "Cálculo",
+                "Professora Ana",
+                color,
+                new BigDecimal("6.00"),
+                MINIMUM_ATTENDANCE,
+                defaultSchedules()
+        );
     }
 
     private CreateDisciplineRequest newRequest(
@@ -114,7 +142,7 @@ class CreateDisciplineRequestTest {
         return new CreateDisciplineRequest(
                 "Cálculo",
                 "Professora Ana",
-                60,
+                "#4F46E5",
                 passingAverage,
                 minimumAttendancePercentage,
                 schedules

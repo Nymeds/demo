@@ -9,6 +9,7 @@ import studdy.example.demo.dashboard.dto.DashboardResponse;
 import studdy.example.demo.user.AppUser;
 import studdy.example.demo.user.UserRepository;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -34,5 +35,12 @@ public class DashboardService {
         );
 
         return DashboardResponse.from(dashboardRepository.save(dashboard));
+    }
+
+    @Transactional(readOnly = true)
+    public List<DashboardResponse> findAll(UUID userId) {
+        return dashboardRepository.findAllByOwner_IdOrderByNameAsc(userId).stream()
+                .map(DashboardResponse::from)
+                .toList();
     }
 }

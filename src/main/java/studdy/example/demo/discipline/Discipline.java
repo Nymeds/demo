@@ -20,12 +20,14 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import studdy.example.demo.activities.Activity;
 import studdy.example.demo.dashboard.Dashboard;
 import studdy.example.demo.grade.Grade;
 
@@ -45,8 +47,8 @@ public class Discipline {
     @Column(name = "professor_name", nullable = false, length = 120)
     private String professorName;
 
-    @Column(name = "workload_hours", nullable = false)
-    private Integer workloadHours;
+    @Column(nullable = false, length = 7)
+    private String color;
 
     @Column(name = "passing_average", nullable = false, precision = 4, scale = 2)
     private BigDecimal passingAverage;
@@ -65,6 +67,12 @@ public class Discipline {
 
     @OneToMany(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Grade> grades = new ArrayList<>();
+
+    @OneToMany(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Activity> activities = new ArrayList<>();
+
+    @OneToOne(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Frequency frequency;
     
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
@@ -75,7 +83,7 @@ public class Discipline {
     public Discipline(
             String name,
             String professorName,
-            Integer workloadHours,
+            String color,
             BigDecimal passingAverage,
             BigDecimal minimumAttendancePercentage,
             Dashboard dashboard,
@@ -83,7 +91,7 @@ public class Discipline {
     ) {
         this.name = name;
         this.professorName = professorName;
-        this.workloadHours = workloadHours;
+        this.color = color;
         this.passingAverage = normalizePassingAverage(passingAverage);
         this.minimumAttendancePercentage = normalizeMinimumAttendancePercentage(minimumAttendancePercentage);
         this.dashboard = dashboard;
@@ -93,14 +101,14 @@ public class Discipline {
     public void update(
             String name,
             String professorName,
-            Integer workloadHours,
+            String color,
             BigDecimal passingAverage,
             BigDecimal minimumAttendancePercentage,
             List<ClassSchedule> schedules
     ) {
         this.name = name;
         this.professorName = professorName;
-        this.workloadHours = workloadHours;
+        this.color = color;
         this.passingAverage = normalizePassingAverage(passingAverage);
         this.minimumAttendancePercentage = normalizeMinimumAttendancePercentage(minimumAttendancePercentage);
         this.schedules.clear();

@@ -39,8 +39,8 @@ public class DisciplineService {
 
         Discipline discipline = new Discipline(
                 request.name().trim(),
-                request.professorName().trim(),
-                request.workloadHours(),
+                normalizedProfessorName(request.professorName()),
+                request.color(),
                 request.passingAverage(),
                 request.minimumAttendancePercentage(),
                 dashboard,
@@ -75,8 +75,8 @@ public class DisciplineService {
 
         discipline.update(
                 request.name().trim(),
-                request.professorName().trim(),
-                request.workloadHours(),
+                normalizedProfessorName(request.professorName()),
+                request.color(),
                 request.passingAverage(),
                 request.minimumAttendancePercentage(),
                 toSchedules(request.schedules())
@@ -105,5 +105,9 @@ public class DisciplineService {
                         request.endTime()
                 ))
                 .toList();
+    }
+
+    private String normalizedProfessorName(String professorName) {
+        return professorName == null ? "" : professorName.trim();
     }
 }
