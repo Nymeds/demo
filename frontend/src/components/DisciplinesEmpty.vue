@@ -1,5 +1,6 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import AppToast from './AppToast.vue'
 import DisciplineModal from './DisciplineModal.vue'
 import DeleteDisciplineModal from './DeleteDisciplineModal.vue'
 
@@ -19,6 +20,8 @@ const requestError = ref('')
 const loading = ref(true)
 const dashboardId = ref('')
 const disciplines = ref([])
+const toast = ref({ message: '', type: 'success' })
+let toastTimer
 
 const filters = [
   { value: 'all', label: 'Todas' },
@@ -26,6 +29,19 @@ const filters = [
   { value: 'finished', label: 'Concluídas' },
   { value: 'locked', label: 'Trancadas' },
 ]
+
+function showToast(message, type = 'success') {
+  toast.value = { message, type }
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => {
+    toast.value.message = ''
+  }, 4500)
+}
+
+function closeToast() {
+  clearTimeout(toastTimer)
+  toast.value.message = ''
+}
 
 function openAddModal() {
   saveFeedback.value = ''
@@ -59,7 +75,11 @@ async function apiRequest(path, options = {}) {
     : await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error(data.detail || data.message || 'Não foi possível concluir a solicitação.')
+    const fieldErrors = data.errors && typeof data.errors === 'object'
+      ? Object.values(data.errors).filter(Boolean).join(' ')
+      : ''
+
+    throw new Error(fieldErrors || data.detail || data.message || 'Não foi possível concluir a solicitação.')
   }
 
   return data
@@ -97,6 +117,7 @@ async function loadDisciplines() {
     disciplines.value = savedDisciplines.map(normalizeDiscipline)
   } catch (error) {
     requestError.value = error.message || 'Não foi possível carregar as disciplinas.'
+    showToast(requestError.value, 'error')
   } finally {
     loading.value = false
   }
@@ -125,9 +146,11 @@ async function saveDiscipline(formData) {
       saveFeedback.value = 'Disciplina adicionada com sucesso.'
     }
 
+    showToast(saveFeedback.value)
     closeAddModal()
   } catch (error) {
     requestError.value = error.message || 'Não foi possível salvar a disciplina.'
+    showToast(requestError.value, 'error')
   }
 }
 
@@ -151,13 +174,16 @@ async function confirmDeleteDiscipline() {
     })
     disciplines.value = disciplines.value.filter(item => item.id !== disciplineId)
     saveFeedback.value = 'Disciplina excluída com sucesso.'
+    showToast(saveFeedback.value)
     closeDeleteModal()
   } catch (error) {
     requestError.value = error.message || 'Não foi possível excluir a disciplina.'
+    showToast(requestError.value, 'error')
   }
 }
 
 onMounted(loadDisciplines)
+onBeforeUnmount(() => clearTimeout(toastTimer))
 
 function clearFilters() {
   searchTerm.value = ''
@@ -497,11 +523,7 @@ function statusDetails(status) {
       <p v-if="filteredDisciplines.length === 0" class="disciplines-no-results">Nenhuma disciplina encontrada com esses filtros.</p>
     </section>
 
-    <p v-if="requestError" class="disciplines-request-error" role="alert">
-      {{ requestError }}
-      <button v-if="!dashboardId" type="button" @click="loadDisciplines">Tentar novamente</button>
-    </p>
-    <p v-if="saveFeedback" class="disciplines-save-feedback" role="status">{{ saveFeedback }}</p>
+    <AppToast :message="toast.message" :type="toast.type" @close="closeToast" />
 
     <footer class="disciplines-footer">
       <p>Mostrando {{ filteredDisciplines.length }} de {{ disciplines.length }} disciplinas</p>
