@@ -4,6 +4,7 @@ import { computed, ref } from 'vue'
 const props = defineProps({
   activity: { type: Object, default: null },
   disciplines: { type: Array, required: true },
+  saving: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['close', 'save'])
@@ -149,12 +150,12 @@ function submitForm() {
             Cancelar
           </button>
 
-          <button class="activity-save-button" type="submit">
+          <button class="activity-save-button" type="submit" :disabled="saving">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M5 4h12l2 2v14H5V4Z" />
               <path d="M8 4v6h8V4M9 20v-6h6v6" />
             </svg>
-            {{ isEditing ? 'Salvar alterações' : 'Salvar atividade' }}
+            {{ saving ? 'Salvando…' : isEditing ? 'Salvar alterações' : 'Salvar atividade' }}
           </button>
         </footer>
       </form>
@@ -181,6 +182,9 @@ function submitForm() {
   box-shadow: 0 24px 70px rgba(15, 18, 35, .28);
   color: #202538;
   max-width: 650px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 28px 32px 25px;
   width: 100%;
 }
@@ -192,6 +196,8 @@ function submitForm() {
   align-items: center;
   display: flex;
 }
+
+.activity-save-button:disabled { cursor: wait; opacity: .7; }
 
 .activity-modal-header {
   justify-content: space-between;
