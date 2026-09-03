@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import ActivitiesScreen from './ActivitiesScreen.vue'
 import DisciplinesEmpty from './DisciplinesEmpty.vue'
 
 const { user, accessToken } = defineProps({
@@ -12,7 +13,6 @@ const activeSection = ref('dashboard')
 
 const firstName = computed(() => user.name?.trim().split(/\s+/)[0] || 'estudante')
 const userInitial = computed(() => firstName.value.charAt(0).toUpperCase())
-
 const today = new Date()
 const todayIso = [
   today.getFullYear(),
@@ -24,7 +24,6 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
   month: 'long',
 }).format(today)
 </script>
-
 <template>
   <div class="dashboard-shell">
     <aside class="dashboard-sidebar">
@@ -40,7 +39,6 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
           <small>Organize seus estudos</small>
         </span>
       </div>
-
       <nav class="dashboard-navigation" aria-label="Navegação principal">
         <button
           type="button"
@@ -54,7 +52,6 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
           </svg>
           Dashboard
         </button>
-
         <button
           type="button"
           :class="{ active: activeSection === 'disciplines' }"
@@ -67,8 +64,19 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
           </svg>
           Disciplinas
         </button>
+        <button
+          type="button"
+          :class="{ active: activeSection === 'activities' }"
+          :aria-current="activeSection === 'activities' ? 'page' : undefined"
+          @click="activeSection = 'activities'"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="5" y="4" width="14" height="17" rx="2" />
+            <path d="M9 4V2m6 2V2M8 9h8m-8 4 2 2 4-4" />
+          </svg>
+          Atividades
+        </button>
       </nav>
-
       <div class="dashboard-sidebar-footer">
         <div class="dashboard-user-card" :title="user.name">
           <span class="dashboard-user-avatar" aria-hidden="true">{{ userInitial }}</span>
@@ -77,7 +85,6 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
             <small>Usuário conectado</small>
           </span>
         </div>
-
         <button class="dashboard-logout" type="button" @click="emit('logout')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10" />
@@ -86,14 +93,12 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
         </button>
       </div>
     </aside>
-
     <main class="dashboard-main">
       <header v-if="activeSection === 'dashboard'" class="dashboard-topbar">
         <div>
           <h1>Olá, {{ firstName }}! <span aria-hidden="true">👋</span></h1>
           <p>Este é o seu resumo acadêmico.</p>
         </div>
-
         <time class="dashboard-date" :datetime="todayIso">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <rect x="3" y="5" width="18" height="16" rx="2" />
@@ -102,7 +107,6 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
           Hoje, {{ todayLabel }}
         </time>
       </header>
-
       <section v-if="activeSection === 'dashboard'" class="dashboard-overview" aria-labelledby="dashboard-empty-title">
         <div class="dashboard-summary-grid" aria-label="Resumo sem dados">
           <article class="dashboard-summary-card is-purple">
@@ -111,28 +115,24 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
             </span>
             <div><p>Disciplinas</p><strong>—</strong><small>Nenhuma ainda</small></div>
           </article>
-
           <article class="dashboard-summary-card is-green">
             <span class="dashboard-summary-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4V2m6 2V2M8 9h8m-8 4 2 2 4-4" /></svg>
             </span>
             <div><p>Atividades</p><strong>—</strong><small>Nenhuma ainda</small></div>
           </article>
-
           <article class="dashboard-summary-card is-orange">
             <span class="dashboard-summary-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18m5 4h4" /></svg>
             </span>
             <div><p>Provas</p><strong>—</strong><small>Nenhuma ainda</small></div>
           </article>
-
           <article class="dashboard-summary-card is-violet">
             <span class="dashboard-summary-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M4 19v-5m5 5V9m5 10v-7m5 7V5" /><path d="m4 10 5-4 5 3 6-6" /></svg>
             </span>
             <div><p>Média geral</p><strong>—</strong><small>Sem dados</small></div>
           </article>
-
           <article class="dashboard-summary-card is-blue">
             <span class="dashboard-summary-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 1-7.8 4.5" /><path d="M12 3v9l6 4" /></svg>
@@ -140,7 +140,6 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
             <div><p>Frequência média</p><strong>—</strong><small>Sem dados</small></div>
           </article>
         </div>
-
         <article class="dashboard-empty-hero">
           <svg class="dashboard-empty-illustration" viewBox="0 0 420 190" role="img" aria-label="Ilustração de um painel acadêmico vazio">
             <defs>
@@ -167,7 +166,6 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
             <rect x="323" y="139" width="55" height="11" rx="3" fill="#7655dc" /><rect x="316" y="150" width="62" height="11" rx="3" fill="#a78eea" /><rect x="328" y="128" width="49" height="11" rx="3" fill="#c1aff3" />
             <path d="m72 43 4 9 9 4-9 4-4 9-4-9-9-4 9-4 4-9Zm280 21 3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z" fill="#c6b4f8" />
           </svg>
-
           <h2 id="dashboard-empty-title">Seu dashboard está vazio por enquanto</h2>
           <p>Cadastre suas disciplinas para começar a montar seu resumo acadêmico.</p>
           <button type="button" @click="activeSection = 'disciplines'">
@@ -175,7 +173,6 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
             Cadastrar primeira disciplina
           </button>
         </article>
-
         <div class="dashboard-guide-grid" aria-label="Próximos passos">
           <article class="dashboard-guide-card is-purple">
             <span class="dashboard-guide-icon" aria-hidden="true">
@@ -183,21 +180,18 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
             </span>
             <div><h3>Adicione suas disciplinas</h3><p>Comece pelas matérias que você está cursando.</p><button type="button" @click="activeSection = 'disciplines'">Cadastrar disciplina <span aria-hidden="true">→</span></button></div>
           </article>
-
           <article class="dashboard-guide-card is-green">
             <span class="dashboard-guide-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4V2m6 2V2M8 9h8m-8 4 2 2 4-4" /></svg>
             </span>
-            <div><h3>Crie atividades</h3><p>Organize tarefas, trabalhos e compromissos.</p><span class="dashboard-planned-action">Em breve</span></div>
+            <div><h3>Crie atividades</h3><p>Organize tarefas, trabalhos e compromissos.</p><button type="button" @click="activeSection = 'activities'">Gerenciar atividades <span aria-hidden="true">→</span></button></div>
           </article>
-
           <article class="dashboard-guide-card is-orange">
             <span class="dashboard-guide-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18m5 4h4" /></svg>
             </span>
             <div><h3>Agende suas provas</h3><p>As datas das avaliações ficarão reunidas aqui.</p><span class="dashboard-planned-action">Em breve</span></div>
           </article>
-
           <article class="dashboard-guide-card is-violet">
             <span class="dashboard-guide-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M4 19v-5m5 5V9m5 10v-7m5 7V5" /><path d="m4 10 5-4 5 3 6-6" /></svg>
@@ -205,7 +199,6 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
             <div><h3>Acompanhe seu progresso</h3><p>Gráficos e estatísticas aparecerão com seus dados.</p><span class="dashboard-planned-action">Em breve</span></div>
           </article>
         </div>
-
         <p class="dashboard-tip">
           <span aria-hidden="true">💡</span>
           <strong>Dica:</strong> quanto mais você usar o AcadOrganize, mais completo será o seu dashboard.
@@ -216,10 +209,14 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
         v-show="activeSection === 'disciplines'"
         :access-token="accessToken"
       />
+
+      <ActivitiesScreen
+        v-show="activeSection === 'activities'"
+        :access-token="accessToken"
+      />
     </main>
   </div>
 </template>
-
 <style scoped>
 .dashboard-shell {
   background: #f7f7fc;
@@ -240,14 +237,12 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
   position: sticky;
   top: 0;
 }
-
 .dashboard-brand { align-items: center; border-bottom: 1px solid rgba(255, 255, 255, .06); display: flex; gap: 11px; margin: 0 -14px 20px; padding: 0 20px 27px; }
 .dashboard-brand-icon { align-items: center; color: #7547ff; display: flex; flex: 0 0 42px; height: 42px; justify-content: center; }
 .dashboard-brand-icon svg { fill: #6d3cf2; height: 38px; stroke: #7d55f2; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.4; width: 38px; }
 .dashboard-brand strong { display: block; font-size: 1rem; letter-spacing: -.025em; }
 .dashboard-brand small { color: #adb5c4; display: block; font-size: .63rem; margin-top: 3px; }
 .dashboard-navigation { display: grid; gap: 7px; }
-
 .dashboard-navigation button,
 .dashboard-logout {
   align-items: center;
@@ -263,7 +258,6 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
   transition: background-color .18s, color .18s;
   width: 100%;
 }
-
 .dashboard-navigation button:hover,
 .dashboard-logout:hover { background: rgba(255, 255, 255, .07); color: #fff; }
 .dashboard-navigation button.active { background: linear-gradient(100deg, #302a69, #422b88); box-shadow: 0 7px 18px rgba(12, 7, 47, .25); color: #fff; font-weight: 700; }
@@ -271,21 +265,18 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
 .dashboard-logout svg { fill: none; flex: 0 0 20px; height: 20px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 20px; }
 .dashboard-navigation button:focus-visible,
 .dashboard-logout:focus-visible { outline: 2px solid #947eff; outline-offset: 2px; }
-
 .dashboard-sidebar-footer { border-top: 1px solid rgba(255, 255, 255, .07); margin-top: auto; padding-top: 16px; }
 .dashboard-user-card { align-items: center; background: rgba(255, 255, 255, .045); border-radius: 9px; display: flex; gap: 10px; margin-bottom: 9px; min-width: 0; padding: 10px; }
 .dashboard-user-avatar { align-items: center; background: linear-gradient(135deg, #7749f7, #5320da); border-radius: 50%; display: flex; flex: 0 0 36px; font-size: .78rem; font-weight: 800; height: 36px; justify-content: center; }
 .dashboard-user-details { min-width: 0; }
 .dashboard-user-details strong { display: block; font-size: .71rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dashboard-user-details small { color: #a9b1c1; display: block; font-size: .61rem; margin-top: 2px; }
-
 .dashboard-main { min-width: 0; padding: 29px clamp(24px, 3vw, 48px) 30px; }
 .dashboard-topbar { align-items: center; display: flex; justify-content: space-between; margin-bottom: 25px; }
 .dashboard-topbar h1 { color: #13182a; font-size: clamp(1.65rem, 2.5vw, 2rem); font-weight: 800; letter-spacing: -.04em; line-height: 1.15; margin: 0 0 7px; }
 .dashboard-topbar p { color: #687086; font-size: .82rem; }
 .dashboard-date { align-items: center; background: #fff; border: 1px solid #e1e3eb; border-radius: 8px; color: #343a50; display: flex; font-size: .72rem; font-weight: 650; gap: 9px; padding: 12px 14px; }
 .dashboard-date svg { fill: none; height: 18px; stroke: #657087; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; width: 18px; }
-
 .dashboard-overview { display: grid; gap: 17px; }
 .dashboard-summary-grid { display: grid; gap: 14px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .dashboard-summary-card { align-items: center; background: #fff; border: 1px solid #ebeaf1; border-radius: 12px; box-shadow: 0 5px 16px rgba(30, 36, 65, .035); display: flex; gap: 13px; min-height: 112px; min-width: 0; padding: 17px; }
@@ -299,7 +290,6 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
 .dashboard-summary-card.is-orange .dashboard-summary-icon { background: #fff0e2; color: #ee831e; }
 .dashboard-summary-card.is-violet .dashboard-summary-icon { background: #f1edff; color: #6330e0; }
 .dashboard-summary-card.is-blue .dashboard-summary-icon { background: #eaf2ff; color: #347bd8; }
-
 .dashboard-empty-hero { align-items: center; background: #fff; border: 1px solid #ebeaf1; border-radius: 12px; box-shadow: 0 5px 16px rgba(30, 36, 65, .035); display: flex; flex-direction: column; min-height: 405px; padding: 25px 30px 31px; text-align: center; }
 .dashboard-empty-illustration { display: block; height: 182px; max-width: 420px; width: min(100%, 420px); }
 .dashboard-empty-hero h2 { color: #171c30; font-size: 1.22rem; font-weight: 800; letter-spacing: -.025em; margin: 3px 0 8px; }
@@ -308,7 +298,6 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
 .dashboard-empty-hero button span { font-size: 1.15rem; font-weight: 400; line-height: .8; }
 .dashboard-empty-hero button:hover { box-shadow: 0 11px 24px rgba(102, 36, 225, .28); transform: translateY(-1px); }
 .dashboard-empty-hero button:focus-visible { outline: 3px solid rgba(105, 54, 224, .28); outline-offset: 3px; }
-
 .dashboard-guide-grid { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .dashboard-guide-card { align-items: flex-start; background: #fff; border: 1px solid #e7e4f0; border-radius: 11px; display: flex; gap: 13px; min-height: 164px; padding: 20px 17px; }
 .dashboard-guide-icon { align-items: center; background: #f1edff; border-radius: 50%; color: #6330e0; display: flex; flex: 0 0 43px; height: 43px; justify-content: center; }
@@ -324,12 +313,10 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
 .dashboard-guide-card.is-violet .dashboard-guide-icon { background: #f1edff; color: #6330e0; }
 .dashboard-tip { background: #f2efff; border-radius: 8px; color: #6c7287; font-size: .7rem; padding: 12px 18px; text-align: center; }
 .dashboard-tip strong { color: #30364a; }
-
 @media (max-width: 1180px) {
   .dashboard-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .dashboard-guide-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-
 @media (max-width: 760px) {
   .dashboard-shell { grid-template-columns: 76px minmax(0, 1fr); }
   .dashboard-sidebar { padding-inline: 10px; }
@@ -342,7 +329,6 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
   .dashboard-main { padding: 24px 18px; }
   .dashboard-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-
 @media (max-width: 520px) {
   .dashboard-topbar { align-items: flex-start; gap: 15px; }
   .dashboard-topbar h1 { font-size: 1.35rem; }
