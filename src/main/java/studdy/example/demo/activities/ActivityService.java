@@ -8,12 +8,8 @@ import org.springframework.web.server.ResponseStatusException;
 import studdy.example.demo.activities.dto.ActivityResponse;
 import studdy.example.demo.activities.dto.CreateActivityRequest;
 import studdy.example.demo.activities.dto.UpdateActivityRequest;
-
-import studdy.example.demo.dashboard.Dashboard;
-import studdy.example.demo.dashboard.DashboardRepository;
-
 import studdy.example.demo.discipline.Discipline;
-import studdy.example.demo.discipline.DisciplineRepository;
+import studdy.example.demo.discipline.DisciplineAccessService;
 
 import java.util.List;
 import java.util.UUID;
@@ -22,17 +18,14 @@ import java.util.UUID;
 public class ActivityService {
 
     private final ActivityRepository activityRepository;
-    private final DisciplineRepository disciplineRepository;
-    private final DashboardRepository dashboardRepository;
+    private final DisciplineAccessService disciplineAccessService;
 
     public ActivityService(
             ActivityRepository activityRepository,
-            DisciplineRepository disciplineRepository,
-            DashboardRepository dashboardRepository
+            DisciplineAccessService disciplineAccessService
     ) {
         this.activityRepository = activityRepository;
-        this.disciplineRepository = disciplineRepository;
-        this.dashboardRepository = dashboardRepository;
+        this.disciplineAccessService = disciplineAccessService;
     }
 
     @Transactional
@@ -43,7 +36,7 @@ public class ActivityService {
             CreateActivityRequest request
     ) {
 
-        Discipline discipline = findOwnedDiscipline(
+        Discipline discipline = disciplineAccessService.findOwnedDiscipline(
                 userId,
                 dashboardId,
                 disciplineId
@@ -69,7 +62,7 @@ public class ActivityService {
             UUID disciplineId
     ) {
 
-        findOwnedDiscipline(
+        disciplineAccessService.findOwnedDiscipline(
                 userId,
                 dashboardId,
                 disciplineId
@@ -144,39 +137,6 @@ public class ActivityService {
         activityRepository.delete(activity);
     }
 
-    private Dashboard findOwnedDashboard(
-            UUID userId,
-            UUID dashboardId
-    ) {
-
-        return dashboardRepository
-                .findByIdAndOwner_Id(dashboardId, userId)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Dashboard não encontrado."
-                        )
-                );
-    }
-
-    private Discipline findOwnedDiscipline(
-            UUID userId,
-            UUID dashboardId,
-            UUID disciplineId
-    ) {
-
-        findOwnedDashboard(userId, dashboardId);
-
-        return disciplineRepository
-                .findByIdAndDashboard_Id(disciplineId, dashboardId)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "Disciplina não encontrada."
-                        )
-                );
-    }
-
     private Activity findOwnedActivity(
             UUID userId,
             UUID dashboardId,
@@ -184,7 +144,7 @@ public class ActivityService {
             UUID activityId
     ) {
 
-        findOwnedDiscipline(
+        disciplineAccessService.findOwnedDiscipline(
                 userId,
                 dashboardId,
                 disciplineId
