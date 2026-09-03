@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import ActivitiesScreen from './ActivitiesScreen.vue'
 import DisciplinesEmpty from './DisciplinesEmpty.vue'
+import SimulatorNotes from './SimulatorNotes.vue'
 
 const { user, accessToken } = defineProps({
   user: { type: Object, required: true },
@@ -76,6 +77,18 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
           </svg>
           Atividades
         </button>
+      <button
+          type="button"
+          :class="{ active: activeSection === 'simulator' }"
+          :aria-current="activeSection === 'simulator' ? 'page' : undefined"
+          @click="activeSection = 'simulator'"
+        >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 19V5h16v14H4Z" />
+        <path d="M8 15v-3m4 3V9m4 6v-5" />
+        </svg>
+        Simulador de Notas
+      </button>
       </nav>
       <div class="dashboard-sidebar-footer">
         <div class="dashboard-user-card" :title="user.name">
@@ -213,6 +226,9 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
       <ActivitiesScreen
         v-show="activeSection === 'activities'"
         :access-token="accessToken"
+      />
+      <SimulatorNotes
+        v-show="activeSection === 'simulator'"
       />
     </main>
   </div>
