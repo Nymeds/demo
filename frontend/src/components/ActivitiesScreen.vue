@@ -1,11 +1,13 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import ActivityModal from './ActivityModal.vue'
+import AppToast from './AppToast.vue'
 import DeleteActivityModal from './DeleteActivityModal.vue'
 
 const props = defineProps({
   accessToken: { type: String, required: true },
 })
+const emit = defineEmits(['navigate'])
 
 const dashboardId = ref('')
 const disciplines = ref([])
@@ -21,6 +23,9 @@ const sortOrder = ref('dueAsc')
 const showActivityModal = ref(false)
 const editingActivity = ref(null)
 const activityToDelete = ref(null)
+const saving = ref(false)
+const toast = ref({ message: '', type: 'success' })
+let toastTimer
 
 const filters = [
   { value: 'all', label: 'Todas' },
@@ -28,6 +33,19 @@ const filters = [
   { value: 'progress', label: 'Em andamento' },
   { value: 'completed', label: 'Concluídas' },
 ]
+
+function showToast(message, type = 'success') {
+  toast.value = { message, type }
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => {
+    toast.value.message = ''
+  }, 4500)
+}
+
+function closeToast() {
+  clearTimeout(toastTimer)
+  toast.value.message = ''
+}
 
 async function apiRequest(path, options = {}) {
   const response = await fetch(path, {
@@ -44,7 +62,11 @@ async function apiRequest(path, options = {}) {
     : await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error(data.detail || data.message || 'Não foi possível concluir a solicitação.')
+    const fieldErrors = data.errors && typeof data.errors === 'object'
+      ? Object.values(data.errors).filter(Boolean).join(' ')
+      : ''
+
+    throw new Error(fieldErrors || data.detail || data.message || 'Não foi possível concluir a solicitação.')
   }
 
   return data
@@ -107,16 +129,25 @@ async function loadActivities() {
       }),
     )
 
-    activities.value = activityLists.flat()
+    const loadedActivities = activityLists.flat()
+    activities.value = [...new Map(loadedActivities.map(activity => [activity.id, activity])).values()]
   } catch (error) {
     requestError.value = error.message || 'Não foi possível carregar as atividades.'
+    showToast(requestError.value, 'error')
   } finally {
     loading.value = false
   }
 }
 
 function openAddModal() {
+  if (disciplines.value.length === 0) {
+    requestError.value = 'Cadastre uma disciplina antes de criar uma atividade.'
+    showToast(requestError.value, 'error')
+    return
+  }
+
   saveFeedback.value = ''
+  requestError.value = ''
   editingActivity.value = null
   showActivityModal.value = true
 }
@@ -133,7 +164,10 @@ function closeActivityModal() {
 }
 
 async function saveActivity(formData) {
+  if (saving.value) return
+
   requestError.value = ''
+  saving.value = true
 
   try {
     const disciplineId = editingActivity.value?.disciplineId || formData.disciplineId
@@ -155,22 +189,24 @@ async function saveActivity(formData) {
 
     const normalizedActivity = normalizeActivity(savedActivity)
 
-    if (activityId) {
-      const index = activities.value.findIndex(item => item.id === activityId)
+    const index = activities.value.findIndex(item => item.id === normalizedActivity.id)
 
-      if (index >= 0) {
-        activities.value[index] = normalizedActivity
-      }
-
-      saveFeedback.value = 'Atividade atualizada com sucesso.'
+    if (index >= 0) {
+      activities.value[index] = normalizedActivity
     } else {
       activities.value.push(normalizedActivity)
-      saveFeedback.value = 'Atividade adicionada com sucesso.'
     }
 
+    saveFeedback.value = activityId
+      ? 'Atividade atualizada com sucesso.'
+      : 'Atividade adicionada com sucesso.'
+    showToast(saveFeedback.value)
     closeActivityModal()
   } catch (error) {
     requestError.value = error.message || 'Não foi possível salvar a atividade.'
+    showToast(requestError.value, 'error')
+  } finally {
+    saving.value = false
   }
 }
 
@@ -197,9 +233,11 @@ async function confirmDeleteActivity() {
 
     activities.value = activities.value.filter(item => item.id !== activity.id)
     saveFeedback.value = 'Atividade excluída com sucesso.'
+    showToast(saveFeedback.value)
     closeDeleteModal()
   } catch (error) {
     requestError.value = error.message || 'Não foi possível excluir a atividade.'
+    showToast(requestError.value, 'error')
   }
 }
 
@@ -229,8 +267,10 @@ async function completeActivity(activity) {
     }
 
     saveFeedback.value = 'Atividade marcada como concluída.'
+    showToast(saveFeedback.value)
   } catch (error) {
     requestError.value = error.message || 'Não foi possível concluir a atividade.'
+    showToast(requestError.value, 'error')
   }
 }
 
@@ -320,6 +360,7 @@ function isOverdue(activity) {
 }
 
 onMounted(loadActivities)
+onBeforeUnmount(() => clearTimeout(toastTimer))
 </script>
 
 <template>
@@ -462,6 +503,10 @@ onMounted(loadActivities)
         </span>
         <h2>Cadastre uma disciplina primeiro</h2>
         <p>As atividades precisam estar vinculadas a uma disciplina.</p>
+        <button class="activities-empty-button" type="button" @click="emit('navigate', 'disciplines')">
+          <span aria-hidden="true">＋</span>
+          Cadastrar disciplina
+        </button>
       </div>
 
       <div v-else-if="activities.length === 0" class="activities-state-card">
@@ -583,21 +628,13 @@ onMounted(loadActivities)
       </template>
     </section>
 
-    <p v-if="requestError" class="activities-request-error" role="alert">
-      {{ requestError }}
-      <button v-if="!dashboardId" type="button" @click="loadActivities">
-        Tentar novamente
-      </button>
-    </p>
-
-    <p v-if="saveFeedback" class="activities-save-feedback" role="status">
-      {{ saveFeedback }}
-    </p>
+    <AppToast :message="toast.message" :type="toast.type" @close="closeToast" />
 
     <ActivityModal
       v-if="showActivityModal"
       :activity="editingActivity"
       :disciplines="disciplines"
+      :saving="saving"
       @close="closeActivityModal"
       @save="saveActivity"
     />
@@ -880,7 +917,7 @@ onMounted(loadActivities)
   border-bottom: 1px solid #efeff4;
   display: grid;
   grid-template-columns: 4px minmax(0, 1fr) auto;
-  min-height: 132px;
+  min-height: 112px;
   position: relative;
 }
 
@@ -902,7 +939,7 @@ onMounted(loadActivities)
 
 .activity-main {
   min-width: 0;
-  padding: 17px 20px;
+  padding: 15px 20px;
 }
 
 .activity-title-row {
@@ -995,7 +1032,7 @@ onMounted(loadActivities)
 .activity-card-actions {
   gap: 7px;
   justify-content: flex-end;
-  padding: 17px 18px;
+  padding: 15px 18px;
 }
 
 .activity-complete {
