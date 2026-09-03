@@ -59,8 +59,8 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
           @click="activeSection = 'disciplines'"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22V5.5Z" />
-            <path d="M20 5.5A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22V5.5Z" />
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" />
           </svg>
           Disciplinas
         </button>
@@ -223,7 +223,9 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
   color: #151a2d;
   display: grid;
   grid-template-columns: 242px minmax(0, 1fr);
+  max-width: 100%;
   min-height: 100svh;
+  overflow-x: clip;
   width: 100%;
 }
 
@@ -271,7 +273,7 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
 .dashboard-user-details { min-width: 0; }
 .dashboard-user-details strong { display: block; font-size: .71rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dashboard-user-details small { color: #a9b1c1; display: block; font-size: .61rem; margin-top: 2px; }
-.dashboard-main { min-width: 0; padding: 29px clamp(24px, 3vw, 48px) 30px; }
+.dashboard-main { max-width: 100%; min-width: 0; padding: 29px clamp(24px, 3vw, 48px) 30px; }
 .dashboard-topbar { align-items: center; display: flex; justify-content: space-between; margin-bottom: 25px; }
 .dashboard-topbar h1 { color: #13182a; font-size: clamp(1.65rem, 2.5vw, 2rem); font-weight: 800; letter-spacing: -.04em; line-height: 1.15; margin: 0 0 7px; }
 .dashboard-topbar p { color: #687086; font-size: .82rem; }
@@ -317,7 +319,7 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
   .dashboard-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .dashboard-guide-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 760px) {
+@media (max-width: 1100px) {
   .dashboard-shell { grid-template-columns: 76px minmax(0, 1fr); }
   .dashboard-sidebar { padding-inline: 10px; }
   .dashboard-brand { justify-content: center; margin-inline: -10px; padding-inline: 10px; }
@@ -326,6 +328,9 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
   .dashboard-user-card { background: transparent; justify-content: center; padding-inline: 0; }
   .dashboard-navigation button,
   .dashboard-logout { font-size: 0; justify-content: center; padding-inline: 10px; }
+  .dashboard-main { padding: 24px clamp(18px, 3vw, 32px); }
+}
+@media (max-width: 760px) {
   .dashboard-main { padding: 24px 18px; }
   .dashboard-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

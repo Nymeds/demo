@@ -75,9 +75,8 @@ button { cursor: pointer; }
 .password-toggle:focus-visible { border-radius: 5px; outline: 2px solid #7253df; }
 
 .auth-form-options { align-items: center; display: flex; justify-content: space-between; margin-top: -2px; }
-.auth-checkbox { align-items: flex-start; color: #646171; display: flex; font-size: .75rem; font-weight: 450; gap: 8px; line-height: 1.5; }
-.auth-checkbox input { accent-color: #6748d7; height: 15px; margin: 2px 0 0; width: 15px; }
-.auth-checkbox.is-disabled { cursor: not-allowed; opacity: .62; }
+.auth-checkbox { align-items: flex-start; color: #646171; cursor: pointer; display: flex; font-size: .75rem; font-weight: 450; gap: 8px; line-height: 1.5; }
+.auth-checkbox input { accent-color: #6748d7; cursor: pointer; flex: 0 0 auto; height: 15px; margin: 2px 0 0; width: 15px; }
 .disabled-link { color: #7657df; cursor: not-allowed; font-size: .74rem; opacity: .72; }
 .auth-terms { margin: 0; }
 .terms-highlight { color: #6849d7; }

@@ -530,14 +530,19 @@ function statusDetails(status) {
 
 <style scoped>
 .disciplines-page {
+  container: disciplines / inline-size;
   display: grid;
   gap: 22px;
+  min-width: 0;
+  width: 100%;
 }
 
 .disciplines-header {
   align-items: center;
   display: flex;
+  gap: 24px;
   justify-content: space-between;
+  min-width: 0;
 }
 
 .disciplines-heading,
@@ -551,7 +556,9 @@ function statusDetails(status) {
 }
 
 .disciplines-heading {
+  flex: 1 1 auto;
   gap: 13px;
+  min-width: 0;
 }
 
 .disciplines-heading-icon {
@@ -560,6 +567,7 @@ function statusDetails(status) {
   border-radius: 9px;
   color: #6b37e8;
   display: flex;
+  flex: 0 0 43px;
   height: 43px;
   justify-content: center;
   width: 43px;
@@ -588,6 +596,7 @@ function statusDetails(status) {
   letter-spacing: -.04em;
   line-height: 1.1;
   margin: 0 0 6px;
+  overflow-wrap: anywhere;
 }
 
 .disciplines-heading p {
@@ -596,11 +605,18 @@ function statusDetails(status) {
 }
 
 .disciplines-actions {
+  flex: 0 1 auto;
+  flex-wrap: wrap;
   gap: 16px;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
 .disciplines-search {
   color: #747b90;
+  flex: 1 1 255px;
+  max-width: 340px;
+  min-width: 0;
   position: relative;
 }
 
@@ -618,9 +634,10 @@ function statusDetails(status) {
   border: 1px solid #dedfe8;
   border-radius: 8px;
   color: #252a3e;
-  min-width: 255px;
+  min-width: 0;
   outline: none;
   padding: 12px 14px 12px 42px;
+  width: 100%;
 }
 
 .disciplines-search input:focus {
@@ -642,6 +659,7 @@ function statusDetails(status) {
   gap: 8px;
   justify-content: center;
   padding: 12px 18px;
+  white-space: nowrap;
 }
 
 .disciplines-add-button span,
@@ -676,6 +694,7 @@ function statusDetails(status) {
   box-shadow: 0 5px 16px rgba(30, 36, 65, .035);
   display: flex;
   gap: 16px;
+  min-width: 0;
   padding: 18px;
   width: 100%;
 }
@@ -683,7 +702,7 @@ function statusDetails(status) {
 .disciplines-summary-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
 }
 
 .disciplines-total-card > span {
@@ -692,9 +711,14 @@ function statusDetails(status) {
   border-radius: 50%;
   color: #6d38e8;
   display: flex;
+  flex: 0 0 52px;
   height: 52px;
   justify-content: center;
   width: 52px;
+}
+
+.disciplines-total-card > div {
+  min-width: 0;
 }
 
 .disciplines-total-card svg {
@@ -742,14 +766,17 @@ function statusDetails(status) {
 }
 
 .disciplines-toolbar {
+  flex-wrap: wrap;
   gap: 20px;
   justify-content: space-between;
+  min-width: 0;
 }
 
 .disciplines-filters {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  min-width: 0;
 }
 
 .disciplines-filters button,
@@ -773,7 +800,10 @@ function statusDetails(status) {
 }
 
 .disciplines-view-options {
+  flex-wrap: wrap;
   gap: 12px;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
 .clear-filters {
@@ -796,6 +826,7 @@ function statusDetails(status) {
   display: flex;
   font-size: .68rem;
   gap: 8px;
+  min-width: 0;
   padding: 0 9px 0 14px;
 }
 
@@ -809,6 +840,7 @@ function statusDetails(status) {
   color: #43495e;
   outline: none;
   padding: 10px 4px;
+  text-overflow: ellipsis;
 }
 
 .disciplines-view-buttons {
@@ -918,7 +950,10 @@ function statusDetails(status) {
 }
 
 .disciplines-table-scroll {
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
   overflow-x: auto;
+  scrollbar-gutter: stable;
 }
 
 .disciplines-table-card table {
@@ -1149,7 +1184,7 @@ function statusDetails(status) {
 .disciplines-card-grid {
   display: grid;
   gap: 15px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
 }
 
 .disciplines-card-grid > article {
@@ -1158,6 +1193,7 @@ function statusDetails(status) {
   border-radius: 11px;
   border-top: 3px solid var(--card-color);
   box-shadow: 0 5px 16px rgba(30, 36, 65, .035);
+  min-width: 0;
   padding: 18px;
 }
 
@@ -1172,11 +1208,16 @@ function statusDetails(status) {
   gap: 11px;
 }
 
+.disciplines-card-grid article > header > div {
+  min-width: 0;
+}
+
 .disciplines-card-grid h2 {
   color: #252a3d;
   font-size: .78rem;
   font-weight: 400;
   margin: 0 0 4px;
+  overflow-wrap: anywhere;
 }
 
 .disciplines-card-grid header p,
@@ -1189,6 +1230,7 @@ function statusDetails(status) {
   display: grid;
   gap: 5px;
   margin: 18px 0;
+  overflow-wrap: anywhere;
 }
 
 .grid-card-data {
@@ -1293,7 +1335,7 @@ function statusDetails(status) {
   clip: rect(0, 0, 0, 0);
 }
 
-@media (max-width: 980px) {
+@container disciplines (max-width: 900px) {
   .disciplines-header,
   .disciplines-toolbar {
     align-items: stretch;
@@ -1303,10 +1345,12 @@ function statusDetails(status) {
   .disciplines-actions,
   .disciplines-view-options {
     justify-content: space-between;
+    width: 100%;
   }
 
   .disciplines-search {
     flex: 1;
+    max-width: none;
   }
 
   .disciplines-search input {
@@ -1314,13 +1358,9 @@ function statusDetails(status) {
     width: 100%;
   }
 
-  .disciplines-summary-grid,
-  .disciplines-card-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
-@media (max-width: 620px) {
+@container disciplines (max-width: 650px) {
   .disciplines-actions,
   .disciplines-view-options,
   .disciplines-footer {
@@ -1333,8 +1373,19 @@ function statusDetails(status) {
     width: 100%;
   }
 
+  .disciplines-search {
+    flex-basis: auto;
+    width: 100%;
+  }
+
   .disciplines-sort {
     justify-content: space-between;
+    width: 100%;
+  }
+
+  .clear-filters,
+  .disciplines-view-buttons {
+    width: 100%;
   }
 
   .disciplines-view-buttons button {

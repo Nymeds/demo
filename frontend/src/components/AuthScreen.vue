@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import loginPanelImage from '../assets/login-panel.png'
 import registerPanelImage from '../assets/register-panel.png'
 import DashboardScreen from './DashboardScreen.vue'
@@ -10,12 +10,16 @@ const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const acceptedTerms = ref(false)
+const rememberMe = ref(false)
 const showPassword = ref(false)
 const loading = ref(false)
 const feedback = ref('')
 const feedbackType = ref('')
 const authenticatedUser = ref(null)
 const accessToken = ref('')
+
+const persistentTokenKey = 'acad-organize.access-token'
+const sessionTokenKey = 'acad-organize.session-token'
 
 const isLogin = computed(() => mode.value === 'login')
 const title = computed(() => (isLogin.value ? 'Bem-vindo de volta!' : 'Criar conta'))
@@ -24,6 +28,53 @@ const subtitle = computed(() => (
     ? 'Faça login para acessar sua conta.'
     : 'Preencha os dados para começar a organizar seus estudos.'
 ))
+
+function clearStoredTokens() {
+  localStorage.removeItem(persistentTokenKey)
+  sessionStorage.removeItem(sessionTokenKey)
+}
+
+function storeAccessToken(token) {
+  clearStoredTokens()
+
+  if (rememberMe.value) {
+    localStorage.setItem(persistentTokenKey, token)
+  } else {
+    sessionStorage.setItem(sessionTokenKey, token)
+  }
+}
+
+async function restoreSession() {
+  const persistentToken = localStorage.getItem(persistentTokenKey)
+  const storedToken = persistentToken || sessionStorage.getItem(sessionTokenKey)
+
+  if (!storedToken) return
+
+  rememberMe.value = Boolean(persistentToken)
+
+  try {
+    const response = await fetch('/api/v1/users/me', {
+      headers: { Authorization: `Bearer ${storedToken}` },
+    })
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        clearStoredTokens()
+        feedback.value = 'Sua sessão expirou. Entre novamente.'
+        feedbackType.value = 'error'
+      }
+      return
+    }
+
+    authenticatedUser.value = await response.json()
+    accessToken.value = storedToken
+  } catch {
+    feedback.value = 'Não foi possível restaurar sua sessão. Verifique se a API está ativa.'
+    feedbackType.value = 'error'
+  }
+}
+
+onMounted(restoreSession)
 
 function switchMode(nextMode) {
   mode.value = nextMode
@@ -73,6 +124,7 @@ async function submit() {
 
       authenticatedUser.value = await userResponse.json()
       accessToken.value = data.accessToken
+      storeAccessToken(data.accessToken)
     } else {
       feedback.value = 'Conta criada com sucesso. Agora entre com seus dados.'
       feedbackType.value = 'success'
@@ -91,6 +143,7 @@ async function submit() {
 }
 
 function logout() {
+  clearStoredTokens()
   authenticatedUser.value = null
   accessToken.value = ''
   password.value = ''
@@ -176,7 +229,10 @@ function logout() {
             </label>
 
             <div v-if="isLogin" class="auth-form-options">
-              <label class="auth-checkbox is-disabled" title="Funcionalidade ainda não disponível"><input type="checkbox" disabled> <span>Lembrar de mim</span></label>
+              <label class="auth-checkbox">
+                <input v-model="rememberMe" type="checkbox">
+                <span>Lembrar de mim</span>
+              </label>
               <span class="disabled-link" title="Funcionalidade ainda não disponível">Esqueci minha senha</span>
             </div>
 
