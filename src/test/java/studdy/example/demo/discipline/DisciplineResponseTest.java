@@ -24,7 +24,7 @@ class DisciplineResponseTest {
         Discipline discipline = new Discipline(
                 "Cálculo",
                 "Professora Ana",
-                60,
+                "#4F46E5",
                 new BigDecimal("6.00"),
                 new BigDecimal("75.0"),
                 dashboard,
