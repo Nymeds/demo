@@ -59,7 +59,15 @@ async function submit() {
     const data = await response.json().catch(() => ({}))
 
     if (!response.ok) {
-      throw new Error(data.detail || data.message || 'Não foi possível concluir a solicitação.')
+      if ([502, 503, 504].includes(response.status)) {
+        throw new Error('O servidor está indisponível. Verifique se a API está iniciada e tente novamente.')
+      }
+
+      const fieldErrors = data.errors && typeof data.errors === 'object'
+        ? Object.values(data.errors).filter(Boolean).join(' ')
+        : ''
+
+      throw new Error(fieldErrors || data.detail || data.message || `Não foi possível concluir a solicitação (erro ${response.status}).`)
     }
 
     if (isLogin.value) {
@@ -83,7 +91,9 @@ async function submit() {
       acceptedTerms.value = false
     }
   } catch (error) {
-    feedback.value = error.message || 'Não foi possível conectar à API.'
+    feedback.value = error instanceof TypeError
+      ? 'Não foi possível conectar ao servidor. Confirme que a API está iniciada.'
+      : error.message || 'Não foi possível conectar à API.'
     feedbackType.value = 'error'
   } finally {
     loading.value = false
