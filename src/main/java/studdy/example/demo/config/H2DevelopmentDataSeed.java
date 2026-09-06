@@ -35,7 +35,7 @@ import studdy.example.demo.user.UserRepository;
 public class H2DevelopmentDataSeed implements ApplicationRunner {
 
     public static final String DEVELOPER_EMAIL = "desenvolvedor@dev.com";
-    public static final String DEVELOPER_PASSWORD = "123";
+    public static final String DEVELOPER_PASSWORD = "desenvolvedor@dev.com";
 
     private final DataSource dataSource;
     private final PasswordEncoder passwordEncoder;

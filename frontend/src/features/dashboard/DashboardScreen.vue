@@ -1,8 +1,8 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import ActivitiesScreen from './ActivitiesScreen.vue'
-import DisciplinesEmpty from './DisciplinesEmpty.vue'
-import SimulatorNotes from './SimulatorNotes.vue'
+import ActivitiesScreen from '../activities/ActivitiesScreen.vue'
+import DisciplinesEmpty from '../disciplines/DisciplinesEmpty.vue'
+import SimulatorNotes from '../simulator/SimulatorNotes.vue'
 
 const { user, accessToken } = defineProps({
   user: { type: Object, required: true },

@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import ActivityModal from './ActivityModal.vue'
-import AppToast from './AppToast.vue'
+import AppToast from '../../components/ui/AppToast.vue'
 import DeleteActivityModal from './DeleteActivityModal.vue'
 
 const props = defineProps({

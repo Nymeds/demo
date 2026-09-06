@@ -1,8 +1,8 @@
 <script setup>
 import { computed, ref } from 'vue'
-import loginPanelImage from '../assets/login-panel.png'
-import registerPanelImage from '../assets/register-panel.png'
-import DashboardScreen from './DashboardScreen.vue'
+import loginPanelImage from '../../assets/images/login-panel.png'
+import registerPanelImage from '../../assets/images/register-panel.png'
+import DashboardScreen from '../dashboard/DashboardScreen.vue'
 
 const mode = ref('login')
 const name = ref('')
