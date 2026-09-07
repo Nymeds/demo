@@ -711,26 +711,50 @@ const props = defineProps({
   }
 })
 // periodos 
+function getDisciplinePeriod(discipline) {
+  const rawPeriod = String(discipline.periodo ?? '')
+  const rawSemester = String(discipline.semester ?? '')
 
+  // Procura um ano de 4 dígitos, mesmo em valores antigos como "2.2026"
+  const yearMatch = rawPeriod.match(/\d{4}/)
+
+  if (!yearMatch) {
+    return null
+  }
+
+  const year = Number(yearMatch[0])
+
+  let semester = Number(rawSemester)
+
+  // Caso semester não esteja válido, tenta descobrir pelo período antigo
+  if (semester !== 1 && semester !== 2) {
+    const parts = rawPeriod.split('.')
+
+    const possibleSemester = parts
+      .map(Number)
+      .find(value => value === 1 || value === 2)
+
+    semester = possibleSemester ?? 1
+  }
+
+  return {
+    year,
+    semester,
+    value: `${year}.${semester}`
+  }
+}
 const availablePeriods = computed(() => {
   const periods = disciplines.value
-    .filter(discipline =>
-      discipline.periodo &&
-      discipline.semester
-    )
-    .map(discipline => ({
-      year: Number(discipline.periodo),
-      semester: Number(discipline.semester),
-      value: `${discipline.periodo}.${discipline.semester}`
-    }))
+    .map(getDisciplinePeriod)
+    .filter(item => item !== null)
 
-  const unique = [
+  const uniquePeriods = [
     ...new Map(
       periods.map(item => [item.value, item])
     ).values()
   ]
 
-  return unique.sort((a, b) => {
+  return uniquePeriods.sort((a, b) => {
     if (a.year !== b.year) {
       return b.year - a.year
     }
@@ -738,21 +762,17 @@ const availablePeriods = computed(() => {
     return b.semester - a.semester
   })
 })
-
 const calculationType = ref('Média Normal')
 const filteredDisciplines = computed(() => {
-
   if (!selectedPeriod.value) {
     return disciplines.value
   }
 
   return disciplines.value.filter(discipline => {
-    const disciplinePeriod =
-      `${discipline.periodo}.${discipline.semester}`
+    const period = getDisciplinePeriod(discipline)
 
-    return disciplinePeriod === selectedPeriod.value
+    return period?.value === selectedPeriod.value
   })
-
 })
 
 async function apiRequest(path, options = {}) {
@@ -886,17 +906,9 @@ const scenarios = ref([
 
 
 function selectLatestPeriod() {
-
   const periods = disciplines.value
-    .filter(d =>
-      d.periodo &&
-      d.semester
-    )
-    .map(d => ({
-      year: Number(d.periodo),
-      semester: Number(d.semester),
-      value: `${d.periodo}.${d.semester}`
-    }))
+    .map(getDisciplinePeriod)
+    .filter(item => item !== null)
     .sort((a, b) => {
       if (a.year !== b.year) {
         return b.year - a.year
@@ -908,7 +920,6 @@ function selectLatestPeriod() {
   if (periods.length > 0) {
     selectedPeriod.value = periods[0].value
   }
-
 }
 
 
