@@ -14,7 +14,15 @@ const selectedColor = ref(props.discipline?.color ?? '#6432df')
 const passingAverage = ref(props.discipline?.passingAverage ?? 6)
 const minimumAttendancePercentage = ref(props.discipline?.minimumAttendancePercentage ?? 75)
 const timeError = ref('')
+const currentYear = new Date().getFullYear()
 
+const year = ref(
+  props.discipline?.periodo ?? currentYear
+)
+
+const semester = ref(
+  props.discipline?.semestre ?? 1
+)
 const initialSchedules = props.discipline?.schedules?.length
   ? props.discipline.schedules.map((schedule, index) => ({ id: index + 1, ...schedule }))
   : [{ id: 1, dayOfWeek: 'MONDAY', startTime: '', endTime: '' }]
@@ -78,6 +86,10 @@ function submitForm() {
     color: selectedColor.value,
     passingAverage: passingAverage.value,
     minimumAttendancePercentage: minimumAttendancePercentage.value,
+    
+    periodo: Number(year.value),
+    semestre: Number(semester.value),
+    
     schedules: schedules.value.map(({ dayOfWeek, startTime, endTime }) => ({
       dayOfWeek,
       startTime,
@@ -112,6 +124,39 @@ function submitForm() {
           <span>Professor <small>(opcional)</small></span>
           <input v-model.trim="professorName" type="text" maxlength="120" placeholder="Ex.: Prof. João da Silva">
         </label>
+
+        <div class="period-fields">
+
+        <label class="form-field">
+          <span>Ano <strong>*</strong></span>
+
+          <input
+            v-model.number="year"
+            type="number"
+            min="2000"
+            max="2100"
+            required
+          >
+        </label>
+
+        <label class="form-field">
+          <span>Período <strong>*</strong></span>
+
+          <select
+            v-model.number="semester"
+            required
+          >
+            <option :value="1">
+              1º período
+            </option>
+
+            <option :value="2">
+              2º período
+            </option>
+          </select>
+        </label>
+
+      </div>
 
         <div class="performance-fields">
           <label class="form-field">
@@ -520,11 +565,32 @@ button:focus-visible {
   outline: 3px solid rgba(105, 54, 224, .28);
   outline-offset: 2px;
 }
+.period-fields {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 
+.period-fields select {
+  background: #fff;
+  border: 1px solid #dfe1e8;
+  border-radius: 7px;
+  color: #242a3d;
+  outline: none;
+  padding: 12px 14px;
+}
+
+.period-fields select:focus {
+  border-color: #7544eb;
+  box-shadow: 0 0 0 3px rgba(117, 68, 235, .11);
+}
 @media (max-width: 680px) {
   .modal-backdrop {
     align-items: flex-start;
     padding: 12px;
+  }
+   .period-fields {
+    grid-template-columns: 1fr;
   }
 
   .discipline-modal {

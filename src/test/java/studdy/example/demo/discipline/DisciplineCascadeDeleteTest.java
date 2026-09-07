@@ -137,6 +137,9 @@ class DisciplineCascadeDeleteTest {
                 new BigDecimal("75.0"),
                 dashboard,
                 List.of(new ClassSchedule(DayOfWeek.MONDAY, LocalTime.of(8, 0), LocalTime.of(10, 0)))
+                ,
+                "2026.2",
+                "2"
         ));
     }
 

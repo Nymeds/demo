@@ -1,3 +1,4 @@
+
 <template>
   <div class="simulator-page">
 
@@ -126,14 +127,19 @@
 
           </span>
 
-          <select v-model="period">
+          <select v-model="selectedPeriod">
+          <option value="">
+            Todos os períodos
+          </option>
 
-            <option>2025.1</option>
-            <option>2025.2</option>
-            <option>2026.1</option>
-            <option>2026.2</option>
-
-          </select>
+          <option
+            v-for="item in availablePeriods"
+            :key="item"
+            :value="item"
+          >
+            {{ item }}
+          </option>
+        </select>
 
         </div>
 
@@ -588,9 +594,12 @@
         </div>
 
 
-        <button class="add-grade-button">
+        <button class="add-grade-button"
+        :disabled="!selectedDiscipline"
+        @click="openGradeModal"
+        >
 
-          ＋ Adicionar avaliação lançada
+           Adicionar avaliação lançada
 
         </button>
 
@@ -654,79 +663,262 @@
     </div>
 
   </div>
+  <GradeModal
+  v-if="showGradeModal"
+  :saving="savingGrade"
+  @close="closeGradeModal"
+  @save="saveGrade"
+/>
 </template>
 
 
 <script setup>
+import GradeModal from './GradeModal.vue'
+import {
+  computed,
+  onMounted,
+  ref,
+  watch
+} from 'vue'
+const selectedDiscipline = ref('')
+const dashboardId = ref('')
+const disciplines = ref([])
+const notes = ref([])
+const selectedPeriod = ref('')
 
-import { computed, ref } from 'vue'
 
+const props = defineProps({
+  accessToken: {
+    type: String,
+    required: true
+  }
+})
+// periodos 
 
-/* =========================
-   FILTROS
-========================= */
+const availablePeriods = computed(() => {
+  const values = disciplines.value
+    .map(discipline => {
+      if (!discipline.periodo || !discipline.semestre) {
+        return null
+      }
 
-const selectedDiscipline = ref('1')
+      return `${discipline.periodo}.${discipline.semestre}`
+    })
+    .filter(item => item !== null)
 
-const period = ref('2025.1')
+  return [...new Set(values)]
+})
 
 const calculationType = ref('Média Normal')
 
 
-/* =========================
-   DISCIPLINAS
-========================= */
+async function apiRequest(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
 
-const disciplines = ref([
+    headers: {
+      Authorization: `Bearer ${props.accessToken}`,
 
-  {
-    id: 1,
-    name: 'Estruturas de Dados'
-  },
+      ...(options.body
+        ? { 'Content-Type': 'application/json' }
+        : {}),
 
-  {
-    id: 2,
-    name: 'Engenharia de Software'
-  },
+      ...options.headers
+    }
+  })
 
-  {
-    id: 3,
-    name: 'Banco de Dados'
+  const data =
+    response.status === 204
+      ? null
+      : await response.json().catch(() => ({}))
+
+  if (!response.ok) {
+    const fieldErrors =
+      data.errors && typeof data.errors === 'object'
+        ? Object.values(data.errors)
+            .filter(Boolean)
+            .join(' ')
+        : ''
+
+    throw new Error(
+      fieldErrors ||
+      data.detail ||
+      data.message ||
+      'Não foi possível concluir a solicitação.'
+    )
   }
 
-])
+  return data
+}
+
+
+/* =========================
+   Grade
+========================= */
+
+const showGradeModal = ref(false)
+
+function openGradeModal() {
+
+  if (!selectedDiscipline.value) {
+    return
+  }
+
+  showGradeModal.value = true
+}
+
+function closeGradeModal() {
+  showGradeModal.value = false
+}
+
+// salvar a grade 
+const savingGrade = ref(false)
+
+async function saveGrade(formData) {
+
+  if (savingGrade.value) {
+    return
+  }
+
+  savingGrade.value = true
+
+  try {
+
+    const grade =
+      await apiRequest(
+        `/api/v1/dashboards/${dashboardId.value}/disciplines/${selectedDiscipline.value}/grades`,
+        {
+          method: 'POST',
+
+          body: JSON.stringify({
+            assessmentName:
+              formData.assessmentName,
+
+            score:
+              Number(formData.score),
+
+            recordedAt:
+              formData.recordedAt
+          })
+        }
+      )
+
+    notes.value.unshift({
+
+      id: grade.id,
+
+      name:
+        grade.assessmentName,
+
+      value:
+        Number(grade.score),
+
+      recordedAt:
+        grade.recordedAt
+
+    })
+
+    closeGradeModal()
+
+  } catch (error) {
+
+    console.error(
+      'Erro ao adicionar avaliação:',
+      error
+    )
+
+  } finally {
+
+    savingGrade.value = false
+
+  }
+}
 
 
 /* =========================
    NOTAS
 ========================= */
 
-const notes = ref([
+async function loadSimulator() {
+  try {
 
-  {
-    name: 'Prova 1',
-    value: 8.0
-  },
+    const dashboards =
+      await apiRequest('/api/v1/dashboards')
 
-  {
-    name: 'Trabalho 1',
-    value: 9.0
+    let dashboard =
+      dashboards.find(item => item.status === 'ACTIVE')
+      || dashboards[0]
+
+    if (!dashboard) {
+      return
+    }
+
+    dashboardId.value = dashboard.id
+
+    disciplines.value =
+      await apiRequest(
+        `/api/v1/dashboards/${dashboard.id}/disciplines`
+      )
+
+  } catch (error) {
+
+    console.error(
+      'Erro ao carregar simulador:',
+      error
+    )
+
   }
-
-])
+}
 
 
 /* =========================
    CONFIGURAÇÕES
 ========================= */
 
-const passingAverage = ref(6.0)
+// adendo , ta uma bosta é melhor colcoar em uma factoryzinha legal 
 
-const desiredAverage = ref(8.5)
+async function loadGrades() {
 
-const showResult = ref(true)
+  if (
+    !dashboardId.value ||
+    !selectedDiscipline.value
+  ) {
 
-const requiredGrade = ref(8.5)
+    notes.value = []
+
+    return
+  }
+
+  try {
+
+    const grades =
+      await apiRequest(
+        `/api/v1/dashboards/${dashboardId.value}/disciplines/${selectedDiscipline.value}/grades`
+      )
+
+    notes.value =
+      grades.map(grade => ({
+        id: grade.id,
+
+        name:
+          grade.assessmentName,
+
+        value:
+          Number(grade.score),
+
+        recordedAt:
+          grade.recordedAt
+      }))
+
+  } catch (error) {
+
+    console.error(
+      'Erro ao carregar notas:',
+      error
+    )
+
+  }
+}
 
 
 /* =========================
@@ -753,14 +945,8 @@ const currentAverage = computed(() => {
    CENÁRIOS
 ========================= */
 
-const scenarios = [
-  5,
-  6,
-  7,
-  8,
-  9,
-  10
-]
+
+
 
 
 /* =========================
@@ -817,6 +1003,16 @@ function projectedAverage(nextGrade) {
   )
 
 }
+
+// Pra montar essa bomba
+onMounted(() => {
+  loadSimulator()
+})
+
+// toda vez que mudar a cadeia do dashboard e disciplina, recarrega as notas
+watch( selectedDiscipline, () => {
+  loadGrades()
+})
 
 </script>
 

@@ -51,6 +51,9 @@ class DisciplineGradePersistenceTest {
                         new BigDecimal("75.0"),
                         dashboard,
                         List.of()
+                        ,
+                        "2026.2",
+                        "2"
                 )
         );
         Grade grade = gradeRepository.save(new Grade(

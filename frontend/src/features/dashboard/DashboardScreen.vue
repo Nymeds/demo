@@ -378,7 +378,9 @@ watch(activeSection, section => {
         @navigate="activeSection = $event"
       />
       <SimulatorNotes
-        v-show="activeSection === 'simulator'"
+        v-if="activeSection === 'simulator'"
+        :access-token="accessToken"
+        @navigate="activeSection = $event"
       />
     </main>
   </div>

@@ -95,7 +95,9 @@ public class H2DevelopmentDataSeed implements ApplicationRunner {
                 List.of(
                         new ClassSchedule(DayOfWeek.MONDAY, LocalTime.of(19, 0), LocalTime.of(20, 40)),
                         new ClassSchedule(DayOfWeek.WEDNESDAY, LocalTime.of(19, 0), LocalTime.of(20, 40))
-                )
+                ),
+                "2026.2",
+                "2"
         ));
 
         Discipline databases = disciplineRepository.save(new Discipline(
@@ -110,6 +112,9 @@ public class H2DevelopmentDataSeed implements ApplicationRunner {
                         LocalTime.of(20, 50),
                         LocalTime.of(22, 30)
                 ))
+                ,
+                "2026.2",
+                "2"
         ));
 
         Discipline ux = disciplineRepository.save(new Discipline(
@@ -124,6 +129,9 @@ public class H2DevelopmentDataSeed implements ApplicationRunner {
                         LocalTime.of(19, 0),
                         LocalTime.of(22, 30)
                 ))
+                ,
+                "2026.2",
+                "2"
         ));
 
         LocalDate today = LocalDate.now();
