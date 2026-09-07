@@ -193,7 +193,7 @@ function clearFilters() {
 
 const filteredDisciplines = computed(() => {
   const search = searchTerm.value.trim().toLocaleLowerCase('pt-BR')
-
+  
   return disciplines.value
     .filter(discipline => {
       const matchesSearch = !search

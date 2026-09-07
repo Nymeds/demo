@@ -19,9 +19,12 @@ const currentYear = new Date().getFullYear()
 const year = ref(
   props.discipline?.periodo ?? currentYear
 )
+const periodo = ref(
+  props.discipline?.periodo ?? String(currentYear)
+)
 
 const semester = ref(
-  props.discipline?.semestre ?? 1
+  props.discipline?.semester ?? '1'
 )
 const initialSchedules = props.discipline?.schedules?.length
   ? props.discipline.schedules.map((schedule, index) => ({ id: index + 1, ...schedule }))
@@ -80,22 +83,24 @@ function submitForm() {
 
   timeError.value = ''
 
-  emit('save', {
-    name: name.value.trim(),
-    professorName: professorName.value.trim(),
-    color: selectedColor.value,
-    passingAverage: passingAverage.value,
-    minimumAttendancePercentage: minimumAttendancePercentage.value,
-    
-    periodo: Number(year.value),
-    semestre: Number(semester.value),
-    
-    schedules: schedules.value.map(({ dayOfWeek, startTime, endTime }) => ({
+ emit('save', {
+  name: name.value.trim(),
+  professorName: professorName.value.trim(),
+  color: selectedColor.value,
+  passingAverage: passingAverage.value,
+  minimumAttendancePercentage: minimumAttendancePercentage.value,
+
+  periodo: String(periodo.value),
+  semester: String(semester.value),
+
+  schedules: schedules.value.map(
+    ({ dayOfWeek, startTime, endTime }) => ({
       dayOfWeek,
       startTime,
-      endTime,
-    })),
-  })
+      endTime
+    })
+  )
+})
 }
 </script>
 
@@ -131,29 +136,30 @@ function submitForm() {
           <span>Ano <strong>*</strong></span>
 
           <input
-            v-model.number="year"
+            v-model="periodo"
             type="number"
-            min="2000"
-            max="2100"
+            min="1900"
+            max="2200"
             required
           >
         </label>
 
         <label class="form-field">
-          <span>Período <strong>*</strong></span>
+          <span>Semestre <strong>*</strong></span>
 
           <select
-            v-model.number="semester"
+            v-model="semester"
             required
           >
-            <option :value="1">
-              1º período
+            <option value="1">
+              1º semestre
             </option>
 
-            <option :value="2">
-              2º período
+            <option value="2">
+              2º semestre
             </option>
           </select>
+
         </label>
 
       </div>

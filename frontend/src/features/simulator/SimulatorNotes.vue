@@ -90,7 +90,7 @@
             </option>
 
             <option
-              v-for="discipline in disciplines"
+              v-for="discipline in filteredDisciplines"
               :key="discipline.id"
               :value="discipline.id"
             >
@@ -128,17 +128,19 @@
           </span>
 
           <select v-model="selectedPeriod">
+
           <option value="">
             Todos os períodos
           </option>
 
           <option
             v-for="item in availablePeriods"
-            :key="item"
-            :value="item"
+            :key="item.value"
+            :value="item.value"
           >
-            {{ item }}
+            {{ item.value }}
           </option>
+
         </select>
 
         </div>
@@ -696,21 +698,47 @@ const props = defineProps({
 // periodos 
 
 const availablePeriods = computed(() => {
-  const values = disciplines.value
-    .map(discipline => {
-      if (!discipline.periodo || !discipline.semestre) {
-        return null
-      }
+  const periods = disciplines.value
+    .filter(discipline =>
+      discipline.periodo &&
+      discipline.semester
+    )
+    .map(discipline => ({
+      year: Number(discipline.periodo),
+      semester: Number(discipline.semester),
+      value: `${discipline.periodo}.${discipline.semester}`
+    }))
 
-      return `${discipline.periodo}.${discipline.semestre}`
-    })
-    .filter(item => item !== null)
+  const unique = [
+    ...new Map(
+      periods.map(item => [item.value, item])
+    ).values()
+  ]
 
-  return [...new Set(values)]
+  return unique.sort((a, b) => {
+    if (a.year !== b.year) {
+      return b.year - a.year
+    }
+
+    return b.semester - a.semester
+  })
 })
 
 const calculationType = ref('Média Normal')
+const filteredDisciplines = computed(() => {
 
+  if (!selectedPeriod.value) {
+    return disciplines.value
+  }
+
+  return disciplines.value.filter(discipline => {
+    const disciplinePeriod =
+      `${discipline.periodo}.${discipline.semester}`
+
+    return disciplinePeriod === selectedPeriod.value
+  })
+
+})
 
 async function apiRequest(path, options = {}) {
   const response = await fetch(path, {
@@ -835,6 +863,33 @@ async function saveGrade(formData) {
 }
 
 
+function selectLatestPeriod() {
+
+  const periods = disciplines.value
+    .filter(d =>
+      d.periodo &&
+      d.semester
+    )
+    .map(d => ({
+      year: Number(d.periodo),
+      semester: Number(d.semester),
+      value: `${d.periodo}.${d.semester}`
+    }))
+    .sort((a, b) => {
+      if (a.year !== b.year) {
+        return b.year - a.year
+      }
+
+      return b.semester - a.semester
+    })
+
+  if (periods.length > 0) {
+    selectedPeriod.value = periods[0].value
+  }
+
+}
+
+
 /* =========================
    NOTAS
 ========================= */
@@ -859,7 +914,7 @@ async function loadSimulator() {
       await apiRequest(
         `/api/v1/dashboards/${dashboard.id}/disciplines`
       )
-
+    selectLatestPeriod()
   } catch (error) {
 
     console.error(
