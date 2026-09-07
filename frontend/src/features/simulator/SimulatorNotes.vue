@@ -296,18 +296,25 @@
 
         <!-- MENSAGEM -->
         <div
-          class="status-message"
-          :class="
-            currentAverage >= passingAverage
-              ? 'success'
-              : 'warning'
-          "
-        >
+        class="status-message"
+        :class="{
+          success:
+            notes.length > 0 &&
+            currentAverage >= passingAverage,
+
+          warning:
+            notes.length > 0 &&
+            currentAverage < passingAverage,
+
+          neutral:
+            notes.length === 0
+        }"
+      >
 
           <div class="status-icon">
 
             <svg
-              v-if="currentAverage >= passingAverage"
+              v-if="notes.length > 0 && currentAverage >= passingAverage"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -323,23 +330,31 @@
           <div>
 
             <strong>
+            <template v-if="notes.length === 0">
+              Nenhuma avaliação lançada.
+            </template>
 
-              {{
-                currentAverage >= passingAverage
-                  ? 'Você está acima da sua média de aprovação!'
-                  : 'Você ainda está abaixo da média de aprovação.'
-              }}
+            <template v-else-if="currentAverage >= passingAverage">
+              Você está acima da sua média de aprovação!
+            </template>
 
-            </strong>
+            <template v-else>
+              Você ainda está abaixo da média de aprovação.
+            </template>
+          </strong>
 
             <span>
+              <template v-if="notes.length === 0">
+                Adicione suas avaliações para começar.
+              </template>
 
-              {{
-                currentAverage >= passingAverage
-                  ? 'Continue mantendo um bom desempenho.'
-                  : 'Use o simulador para descobrir quanto precisa tirar.'
-              }}
+              <template v-else-if="currentAverage >= passingAverage">
+                Continue mantendo um bom desempenho.
+              </template>
 
+              <template v-else>
+                Use o simulador para descobrir quanto precisa tirar.
+              </template>
             </span>
 
           </div>
@@ -390,10 +405,10 @@
             </label>
 
             <input
-              type="number"
-              value="10"
-              disabled
-            />
+            type="number"
+            :value="maxGrade"
+            disabled
+          />
 
           </div>
 
@@ -403,6 +418,7 @@
         <!-- BOTÃO -->
         <button
           class="simulate-button"
+          :disabled="!selectedDiscipline"
           @click="simulate"
         >
           Simular
@@ -452,7 +468,7 @@
           class="result-message"
         >
 
-          <template v-if="requiredGrade > 10">
+          <template v-if="requiredGrade > maxGrade">
 
             A nota necessária ultrapassa a nota máxima.
 
@@ -519,8 +535,8 @@
 
 
           <div
-            v-for="(note, index) in notes"
-            :key="index"
+            v-for="note in notes"
+            :key="note.id"
             class="grade-row"
           >
 
@@ -554,9 +570,9 @@
             </strong>
 
 
-            <span>
-              10,0
-            </span>
+           <span>
+             {{ formatNumber(maxGrade) }}
+          </span>
 
 
             <button class="more-button">
@@ -596,13 +612,12 @@
         </div>
 
 
-        <button class="add-grade-button"
-        :disabled="!selectedDiscipline"
-        @click="openGradeModal"
+        <button
+          class="add-grade-button"
+          :disabled="!selectedDiscipline"
+          @click="openGradeModal"
         >
-
-           Adicionar avaliação lançada
-
+          ＋ Adicionar avaliação lançada
         </button>
 
       </section>
@@ -803,64 +818,71 @@ function closeGradeModal() {
 const savingGrade = ref(false)
 
 async function saveGrade(formData) {
-
   if (savingGrade.value) {
+    return
+  }
+
+  if (
+    !dashboardId.value ||
+    !selectedDiscipline.value
+  ) {
     return
   }
 
   savingGrade.value = true
 
   try {
+    await apiRequest(
+      `/api/v1/dashboards/${dashboardId.value}/disciplines/${selectedDiscipline.value}/grades`,
+      {
+        method: 'POST',
 
-    const grade =
-      await apiRequest(
-        `/api/v1/dashboards/${dashboardId.value}/disciplines/${selectedDiscipline.value}/grades`,
-        {
-          method: 'POST',
+        body: JSON.stringify({
+          assessmentName:
+            formData.assessmentName,
 
-          body: JSON.stringify({
-            assessmentName:
-              formData.assessmentName,
+          score:
+            Number(formData.score),
 
-            score:
-              Number(formData.score),
+          recordedAt:
+            formData.recordedAt
+        })
+      }
+    )
 
-            recordedAt:
-              formData.recordedAt
-          })
-        }
-      )
+    await loadGrades()
 
-    notes.value.unshift({
-
-      id: grade.id,
-
-      name:
-        grade.assessmentName,
-
-      value:
-        Number(grade.score),
-
-      recordedAt:
-        grade.recordedAt
-
-    })
+    showResult.value = false
 
     closeGradeModal()
 
   } catch (error) {
-
     console.error(
       'Erro ao adicionar avaliação:',
       error
     )
 
   } finally {
-
     savingGrade.value = false
-
   }
 }
+//dados mockados
+const passingAverage = ref(6)
+const desiredAverage = ref(6)
+
+const requiredGrade = ref(0)
+const showResult = ref(false)
+
+const maxGrade = ref(10)
+
+const scenarios = ref([
+  5,
+  6,
+  7,
+  8,
+  9,
+  10
+])
 
 
 function selectLatestPeriod() {
@@ -933,45 +955,41 @@ async function loadSimulator() {
 // adendo , ta uma bosta é melhor colcoar em uma factoryzinha legal 
 
 async function loadGrades() {
-
   if (
     !dashboardId.value ||
     !selectedDiscipline.value
   ) {
-
     notes.value = []
-
     return
   }
 
   try {
+    const grades = await apiRequest(
+      `/api/v1/dashboards/${dashboardId.value}/disciplines/${selectedDiscipline.value}/grades`
+    )
 
-    const grades =
-      await apiRequest(
-        `/api/v1/dashboards/${dashboardId.value}/disciplines/${selectedDiscipline.value}/grades`
-      )
-
-    notes.value =
-      grades.map(grade => ({
+    notes.value = grades
+      .map(grade => ({
         id: grade.id,
-
-        name:
-          grade.assessmentName,
-
-        value:
-          Number(grade.score),
-
-        recordedAt:
-          grade.recordedAt
+        name: grade.assessmentName,
+        value: Number(grade.score),
+        recordedAt: grade.recordedAt
       }))
+      .sort((a, b) => {
+        return (
+          new Date(b.recordedAt).getTime()
+          -
+          new Date(a.recordedAt).getTime()
+        )
+      })
 
   } catch (error) {
+    notes.value = []
 
     console.error(
       'Erro ao carregar notas:',
       error
     )
-
   }
 }
 
@@ -981,7 +999,6 @@ async function loadGrades() {
 ========================= */
 
 const currentAverage = computed(() => {
-
   if (notes.value.length === 0) {
     return 0
   }
@@ -992,13 +1009,7 @@ const currentAverage = computed(() => {
   )
 
   return total / notes.value.length
-
 })
-
-
-/* =========================
-   CENÁRIOS
-========================= */
 
 
 
@@ -1009,11 +1020,15 @@ const currentAverage = computed(() => {
 ========================= */
 
 function formatNumber(value) {
+  const number = Number(value)
 
-  return Number(value)
+  if (Number.isNaN(number)) {
+    return '0,0'
+  }
+
+  return number
     .toFixed(1)
     .replace('.', ',')
-
 }
 
 
@@ -1022,16 +1037,39 @@ function formatNumber(value) {
 ========================= */
 
 function simulate() {
+  if (!selectedDiscipline.value) {
+    return
+  }
+
+  const target = Number(desiredAverage.value)
+
+  if (
+    Number.isNaN(target) ||
+    target < 0 ||
+    target > maxGrade.value
+  ) {
+    return
+  }
 
   const numberOfNotes = notes.value.length
 
+  if (numberOfNotes === 0) {
+    requiredGrade.value = target
+    showResult.value = true
+    return
+  }
+
+  const totalCurrentGrades =
+    notes.value.reduce(
+      (sum, note) => sum + Number(note.value),
+      0
+    )
+
   requiredGrade.value =
-    desiredAverage.value * (numberOfNotes + 1)
-    -
-    currentAverage.value * numberOfNotes
+    target * (numberOfNotes + 1)
+    - totalCurrentGrades
 
   showResult.value = true
-
 }
 
 
@@ -1040,23 +1078,25 @@ function simulate() {
 ========================= */
 
 function projectedAverage(nextGrade) {
+  const grade = Number(nextGrade)
 
   const numberOfNotes = notes.value.length
 
   if (numberOfNotes === 0) {
-    return Number(nextGrade)
+    return grade
   }
 
-  return (
-    (
-      currentAverage.value * numberOfNotes
-      +
-      Number(nextGrade)
+  const totalCurrentGrades =
+    notes.value.reduce(
+      (sum, note) => sum + Number(note.value),
+      0
     )
-    /
-    (numberOfNotes + 1)
-  )
 
+  return (
+    totalCurrentGrades + grade
+  ) / (
+    numberOfNotes + 1
+  )
 }
 
 // Pra montar essa bomba
@@ -1064,9 +1104,36 @@ onMounted(() => {
   loadSimulator()
 })
 
-// toda vez que mudar a cadeia do dashboard e disciplina, recarrega as notas
-watch( selectedDiscipline, () => {
-  loadGrades()
+// ao trocar o período, limpa a disciplina e os resultados anteriores
+watch(selectedPeriod, () => {
+  selectedDiscipline.value = ''
+  notes.value = []
+  showResult.value = false
+  requiredGrade.value = 0
+})
+
+// toda vez que mudar a disciplina, recarrega as notas
+watch(selectedDiscipline, async () => {
+  showResult.value = false
+
+  if (!selectedDiscipline.value) {
+    notes.value = []
+    return
+  }
+
+  const discipline = disciplines.value.find(
+    item => item.id === selectedDiscipline.value
+  )
+
+  if (discipline) {
+    passingAverage.value =
+      Number(discipline.passingAverage ?? 6)
+
+    desiredAverage.value =
+      Number(discipline.passingAverage ?? 6)
+  }
+
+  await loadGrades()
 })
 
 </script>
@@ -1685,6 +1752,11 @@ watch( selectedDiscipline, () => {
 
 }
 
+.status-message.neutral {
+  background: #f2f2f6;
+  color: #686579 !important;
+}
+
 
 .status-icon {
 
@@ -1867,6 +1939,11 @@ watch( selectedDiscipline, () => {
 
   background: #5726ce;
 
+}
+
+.simulate-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 
