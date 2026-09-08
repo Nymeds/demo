@@ -380,7 +380,7 @@
 
           <!-- MÉDIA DESEJADA -->
           <div class="field">
-
+ 
             <label>
               Média desejada
             </label>
@@ -391,6 +391,7 @@
               min="0"
               max="10"
               step="0.1"
+              @change="simulate"
               placeholder="8,5"
             />
 
@@ -763,6 +764,9 @@ const availablePeriods = computed(() => {
   })
 })
 const calculationType = ref('Média Normal')
+
+
+
 const filteredDisciplines = computed(() => {
   if (!selectedPeriod.value) {
     return disciplines.value
@@ -932,7 +936,6 @@ async function loadSimulator() {
 
     const dashboards =
       await apiRequest('/api/v1/dashboards')
-
     let dashboard =
       dashboards.find(item => item.status === 'ACTIVE')
       || dashboards[0]
