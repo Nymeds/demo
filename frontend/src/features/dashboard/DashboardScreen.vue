@@ -17,6 +17,29 @@ const dashboardLoading = ref(true)
 const dashboardError = ref('')
 const disciplines = ref([])
 const activities = ref([])
+const currentDateTime = ref(new Date())
+
+const weekDayNumbers = {
+  SUNDAY: 0,
+  MONDAY: 1,
+  TUESDAY: 2,
+  WEDNESDAY: 3,
+  THURSDAY: 4,
+  FRIDAY: 5,
+  SATURDAY: 6,
+}
+
+const weekDayLabels = {
+  SUNDAY: 'Dom',
+  MONDAY: 'Seg',
+  TUESDAY: 'Ter',
+  WEDNESDAY: 'Qua',
+  THURSDAY: 'Qui',
+  FRIDAY: 'Sex',
+  SATURDAY: 'Sáb',
+}
+
+let clockTimer
 
 const firstName = computed(() => {
   const rawName = user.name?.trim() || 'estudante'
@@ -108,11 +131,35 @@ const completionPercentage = computed(() => activities.value.length
   ? Math.round((completedActivities.value / activities.value.length) * 100)
   : 0)
 const dashboardActivities = computed(() => [...activities.value]
+  .filter(activity => activity.status !== 'COMPLETED')
   .sort((first, second) => {
-    const statusOrder = Number(first.status === 'COMPLETED') - Number(second.status === 'COMPLETED')
-    return statusOrder || first.dueDate.localeCompare(second.dueDate)
+    return first.dueDate.localeCompare(second.dueDate)
   })
-  .slice(0, 5))
+  .slice(0, 3))
+const upcomingClasses = computed(() => disciplines.value
+  .flatMap(discipline => (discipline.schedules || []).map((schedule, scheduleIndex) => {
+    const dayNumber = weekDayNumbers[schedule.dayOfWeek]
+    const [hours, minutes] = String(schedule.startTime || '').split(':').map(Number)
+
+    if (dayNumber === undefined || !Number.isInteger(hours) || !Number.isInteger(minutes)) return null
+
+    const startsAt = new Date(currentDateTime.value)
+    const daysUntilClass = (dayNumber - startsAt.getDay() + 7) % 7
+    startsAt.setDate(startsAt.getDate() + daysUntilClass)
+    startsAt.setHours(hours, minutes, 0, 0)
+
+    if (startsAt <= currentDateTime.value) startsAt.setDate(startsAt.getDate() + 7)
+
+    return {
+      id: `${discipline.id}-${scheduleIndex}`,
+      discipline,
+      schedule,
+      startsAt,
+    }
+  }))
+  .filter(Boolean)
+  .sort((first, second) => first.startsAt - second.startsAt)
+  .slice(0, 3))
 
 function formatAverage(value) {
   return value === null ? '—' : value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -120,6 +167,11 @@ function formatAverage(value) {
 
 function formatDate(date) {
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' })
+    .format(new Date(`${date}T12:00:00`))
+}
+
+function formatCompactDate(date) {
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' })
     .format(new Date(`${date}T12:00:00`))
 }
 
@@ -134,9 +186,38 @@ function activityStatus(activity) {
   return { label: 'Pendente', className: 'is-pending' }
 }
 
+function formatClassSchedule(upcomingClass) {
+  const { schedule, startsAt } = upcomingClass
+  const todayStart = new Date(currentDateTime.value)
+  todayStart.setHours(0, 0, 0, 0)
+  const classStart = new Date(startsAt)
+  classStart.setHours(0, 0, 0, 0)
+  const daysUntilClass = Math.round((classStart - todayStart) / 86400000)
+  const dayLabel = daysUntilClass === 0
+    ? 'Hoje'
+    : daysUntilClass === 1
+      ? 'Amanhã'
+      : weekDayLabels[schedule.dayOfWeek]
+  const startTime = String(schedule.startTime).slice(0, 5)
+  const endTime = String(schedule.endTime).slice(0, 5)
+
+  return `${dayLabel} ${startTime}–${endTime}`
+}
+
+function classDateTime(upcomingClass) {
+  const date = upcomingClass.startsAt
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}T${String(upcomingClass.schedule.startTime).slice(0, 5)}`
+}
+
 onMounted(() => {
   loadDashboard()
   loadSidebarAvatar()
+  clockTimer = window.setInterval(() => {
+    currentDateTime.value = new Date()
+  }, 60000)
 })
 watch(activeSection, section => {
   if (section === 'dashboard') loadDashboard()
@@ -145,7 +226,10 @@ watch(
   () => [user.hasProfilePhoto, user.profilePhotoUrl, user.updatedAt],
   loadSidebarAvatar,
 )
-onBeforeUnmount(clearSidebarAvatar)
+onBeforeUnmount(() => {
+  clearSidebarAvatar()
+  window.clearInterval(clockTimer)
+})
 </script>
 <template>
   <div class="dashboard-shell">
@@ -331,34 +415,81 @@ onBeforeUnmount(clearSidebarAvatar)
           </button>
         </article>
         <div v-else class="dashboard-content-grid">
-          <section class="dashboard-panel dashboard-activities-panel" aria-labelledby="dashboard-activities-title">
+          <section class="dashboard-panel dashboard-classes-panel" aria-labelledby="dashboard-classes-title">
             <header class="dashboard-panel-header">
               <div>
-                <span class="dashboard-eyebrow">Agenda acadêmica</span>
-                <h2 id="dashboard-activities-title">Atividades recentes</h2>
+                <span class="dashboard-eyebrow">Próximas aulas</span>
+                <h2 id="dashboard-classes-title">Suas próximas aulas</h2>
               </div>
-              <button type="button" @click="activeSection = 'activities'">Ver todas <span aria-hidden="true">→</span></button>
+              <button type="button" @click="activeSection = 'disciplines'">Ver todas <span aria-hidden="true">→</span></button>
             </header>
 
-            <div v-if="dashboardActivities.length === 0" class="dashboard-panel-empty">
-              <span aria-hidden="true">✓</span>
-              <div><strong>Nenhuma atividade cadastrada</strong><p>Crie uma atividade para acompanhar seus prazos por aqui.</p></div>
-              <button type="button" @click="activeSection = 'activities'">Criar atividade</button>
+            <div v-if="upcomingClasses.length === 0" class="dashboard-panel-empty dashboard-classes-empty">
+              <span aria-hidden="true">
+                <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18" /></svg>
+              </span>
+              <div><strong>Nenhum horário de aula cadastrado</strong><p>Adicione os dias e horários nas suas disciplinas para visualizar as próximas aulas.</p></div>
+              <button type="button" @click="activeSection = 'disciplines'">Cadastrar horários</button>
             </div>
 
-            <ul v-else class="dashboard-activity-list">
-              <li v-for="activity in dashboardActivities" :key="activity.id">
-                <time :datetime="activity.dueDate"><strong>{{ formatDate(activity.dueDate).split(' ')[0] }}</strong><small>{{ formatDate(activity.dueDate).split(' ')[1] }}</small></time>
-                <div class="dashboard-activity-info">
-                  <strong>{{ activity.title }}</strong>
-                  <small>{{ disciplineName(activity.disciplineId) }}</small>
+            <ul v-else class="dashboard-class-list">
+              <li v-for="upcomingClass in upcomingClasses" :key="upcomingClass.id">
+                <span
+                  class="dashboard-class-icon"
+                  :style="{ '--discipline-color': upcomingClass.discipline.color || '#6d3ce8' }"
+                  aria-hidden="true"
+                >
+                  <svg viewBox="0 0 24 24"><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" /></svg>
+                </span>
+                <div class="dashboard-class-info">
+                  <strong>{{ upcomingClass.discipline.name }}</strong>
+                  <small>Prof: {{ upcomingClass.discipline.professorName || 'Não informado' }}</small>
                 </div>
-                <span :class="['dashboard-activity-status', activityStatus(activity).className]">{{ activityStatus(activity).label }}</span>
+                <time class="dashboard-class-time" :datetime="classDateTime(upcomingClass)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18" /></svg>
+                  <span>{{ formatClassSchedule(upcomingClass) }}</span>
+                </time>
+                <button
+                  class="dashboard-class-open"
+                  type="button"
+                  :aria-label="`Ver disciplina ${upcomingClass.discipline.name}`"
+                  @click="activeSection = 'disciplines'"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+                </button>
               </li>
             </ul>
           </section>
 
           <aside class="dashboard-side-column">
+            <section class="dashboard-panel dashboard-side-activities" aria-labelledby="dashboard-activities-title">
+              <header class="dashboard-panel-header">
+                <h2 id="dashboard-activities-title">Atividades pendentes</h2>
+                <button type="button" @click="activeSection = 'activities'">Ver todas <span aria-hidden="true">→</span></button>
+              </header>
+
+              <div v-if="dashboardActivities.length === 0" class="dashboard-compact-empty">
+                <span aria-hidden="true">✓</span>
+                <p>Você não possui atividades pendentes.</p>
+              </div>
+
+              <ul v-else class="dashboard-compact-activity-list">
+                <li v-for="activity in dashboardActivities" :key="activity.id">
+                  <span class="dashboard-compact-activity-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4V2m6 2V2M8 9h8m-8 4h6" /></svg>
+                  </span>
+                  <div class="dashboard-activity-info">
+                    <strong>{{ activity.title }}</strong>
+                    <small>{{ disciplineName(activity.disciplineId) }}</small>
+                  </div>
+                  <div class="dashboard-compact-activity-meta">
+                    <time :datetime="activity.dueDate">{{ formatCompactDate(activity.dueDate) }}</time>
+                    <span :class="['dashboard-activity-status', activityStatus(activity).className]">{{ activityStatus(activity).label }}</span>
+                  </div>
+                </li>
+              </ul>
+            </section>
+
             <section class="dashboard-panel dashboard-progress-panel" aria-labelledby="dashboard-progress-title">
               <span class="dashboard-eyebrow">Seu ritmo</span>
               <h2 id="dashboard-progress-title">Progresso das atividades</h2>
@@ -545,6 +676,21 @@ onBeforeUnmount(clearSidebarAvatar)
 .dashboard-panel h2 { color: #171c30; font-size: 1rem; font-weight: 800; letter-spacing: -.02em; margin: 3px 0 0; }
 .dashboard-eyebrow { color: #7240df; display: block; font-size: .61rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
 .dashboard-panel-header button { background: transparent; border: 0; color: #6734d8; cursor: pointer; font-size: .7rem; font-weight: 750; padding: 7px; }
+.dashboard-class-list { list-style: none; margin: 0; padding: 0 22px; }
+.dashboard-class-list li { align-items: center; border-bottom: 1px solid #eff0f5; display: grid; gap: 16px; grid-template-columns: 52px minmax(0, 1fr) minmax(170px, auto) 28px; min-height: 86px; padding: 14px 3px; }
+.dashboard-class-list li:last-child { border-bottom: 0; }
+.dashboard-class-icon { align-items: center; background: #f0ebff; border-radius: 12px; color: var(--discipline-color); display: flex; height: 50px; justify-content: center; width: 50px; }
+.dashboard-class-icon svg { fill: none; height: 25px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.9; width: 25px; }
+.dashboard-class-info { min-width: 0; }
+.dashboard-class-info strong { color: #1f2539; display: block; font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-class-info small { color: #626b82; display: block; font-size: .68rem; margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dashboard-class-time { align-items: center; color: #26324e; display: flex; font-size: .72rem; font-weight: 650; gap: 9px; white-space: nowrap; }
+.dashboard-class-time svg { fill: none; height: 18px; stroke: #5c66a0; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 18px; }
+.dashboard-class-open { align-items: center; background: transparent; border: 0; border-radius: 7px; color: #52618a; cursor: pointer; display: flex; height: 28px; justify-content: center; padding: 0; width: 28px; }
+.dashboard-class-open:hover { background: #f2effb; color: #6530dc; }
+.dashboard-class-open:focus-visible { outline: 2px solid #8261dd; outline-offset: 2px; }
+.dashboard-class-open svg { fill: none; height: 18px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; width: 18px; }
+.dashboard-classes-empty > span svg { fill: none; height: 21px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 21px; }
 .dashboard-activity-list { list-style: none; margin: 0; padding: 0 22px; }
 .dashboard-activity-list li { align-items: center; border-bottom: 1px solid #eff0f5; display: grid; gap: 13px; grid-template-columns: 48px minmax(0, 1fr) auto; padding: 14px 0; }
 .dashboard-activity-list li:last-child { border-bottom: 0; }
@@ -554,7 +700,7 @@ onBeforeUnmount(clearSidebarAvatar)
 .dashboard-activity-info { min-width: 0; }
 .dashboard-activity-info strong { color: #22283b; display: block; font-size: .76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dashboard-activity-info small { color: #83899a; display: block; font-size: .63rem; margin-top: 4px; }
-.dashboard-activity-status { border-radius: 999px; font-size: .55rem; font-weight: 800; padding: 5px 8px; }
+.dashboard-activity-status { border-radius: 999px; font-size: .61rem; font-weight: 800; padding: 6px 10px; white-space: nowrap; }
 .dashboard-activity-status.is-completed { background: #e9f8ef; color: #23894f; }
 .dashboard-activity-status.is-overdue { background: #fff0ef; color: #c4463e; }
 .dashboard-activity-status.is-progress { background: #eaf2ff; color: #3471c7; }
@@ -566,6 +712,19 @@ onBeforeUnmount(clearSidebarAvatar)
 .dashboard-panel-empty p { color: #7b8192; font-size: .63rem; margin-top: 3px; }
 .dashboard-panel-empty button { background: #6832df; border: 0; border-radius: 8px; color: #fff; cursor: pointer; font-size: .62rem; font-weight: 750; padding: 9px 11px; }
 .dashboard-side-column { display: grid; gap: 17px; }
+.dashboard-side-activities .dashboard-panel-header { padding: 16px 18px 13px; }
+.dashboard-side-activities .dashboard-panel-header h2 { color: #6933db; font-size: .66rem; letter-spacing: .07em; margin: 0; text-transform: uppercase; }
+.dashboard-compact-activity-list { list-style: none; margin: 0; padding: 0 18px; }
+.dashboard-compact-activity-list li { align-items: center; border-bottom: 1px solid #eff0f5; display: grid; gap: 10px; grid-template-columns: 36px minmax(0, 1fr) auto; min-height: 62px; padding: 9px 0; }
+.dashboard-compact-activity-list li:last-child { border-bottom: 0; }
+.dashboard-compact-activity-icon { align-items: center; background: #f0ebff; border-radius: 9px; color: #6631db; display: flex; height: 36px; justify-content: center; width: 36px; }
+.dashboard-compact-activity-icon svg { fill: none; height: 18px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 18px; }
+.dashboard-side-activities .dashboard-activity-info { padding-right: 45px; }
+.dashboard-compact-activity-meta { align-items: center; display: flex; gap: 22px; justify-content: space-between; white-space: nowrap; width: min(230px, 100%); }
+.dashboard-compact-activity-list time { color: #252b40; font-size: .67rem; font-weight: 750; transform: translateX(-45px); white-space: nowrap; }
+.dashboard-compact-empty { align-items: center; color: #71798e; display: flex; font-size: .68rem; gap: 9px; min-height: 80px; padding: 17px 19px; }
+.dashboard-compact-empty > span { align-items: center; background: #e9f8ef; border-radius: 50%; color: #23894f; display: flex; flex: 0 0 28px; height: 28px; justify-content: center; }
+.dashboard-compact-empty p { margin: 0; }
 .dashboard-progress-panel, .dashboard-actions-panel { padding: 20px; }
 .dashboard-progress-value { align-items: flex-end; display: flex; gap: 9px; margin: 18px 0 10px; }
 .dashboard-progress-value strong { color: #5f2bd5; font-size: 1.7rem; line-height: 1; }
@@ -587,6 +746,7 @@ onBeforeUnmount(clearSidebarAvatar)
   .dashboard-guide-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-content-grid { grid-template-columns: 1fr; }
   .dashboard-side-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-actions-panel { grid-column: 1 / -1; }
 }
 @media (max-width: 1100px) {
   .dashboard-shell { grid-template-columns: 76px minmax(0, 1fr); }
@@ -613,6 +773,7 @@ onBeforeUnmount(clearSidebarAvatar)
   .dashboard-welcome { max-width: calc(100% - 64px); }
   .dashboard-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-side-column { grid-template-columns: 1fr; }
+  .dashboard-actions-panel { grid-column: auto; }
 }
 @media (max-width: 520px) {
   .dashboard-topbar { align-items: flex-start; gap: 15px; padding: 22px 19px; }
@@ -627,6 +788,16 @@ onBeforeUnmount(clearSidebarAvatar)
   .dashboard-empty-hero { min-height: 370px; padding-inline: 20px; }
   .dashboard-empty-illustration { height: auto; }
   .dashboard-panel-header { padding-inline: 16px; }
+  .dashboard-class-list { padding-inline: 16px; }
+  .dashboard-class-list li { gap: 10px; grid-template-columns: 44px minmax(0, 1fr) 26px; padding-block: 13px; }
+  .dashboard-class-icon { height: 42px; width: 42px; }
+  .dashboard-class-time { grid-column: 2; font-size: .66rem; }
+  .dashboard-class-open { grid-column: 3; grid-row: 1 / span 2; }
+  .dashboard-compact-activity-list { padding-inline: 16px; }
+  .dashboard-compact-activity-list li { align-items: start; grid-template-columns: 36px minmax(0, 1fr); }
+  .dashboard-side-activities .dashboard-activity-info { padding-right: 0; }
+  .dashboard-compact-activity-meta { grid-column: 2; justify-self: start; }
+  .dashboard-compact-activity-list time { transform: none; }
   .dashboard-activity-list { padding-inline: 16px; }
   .dashboard-activity-list li { grid-template-columns: 42px minmax(0, 1fr); }
   .dashboard-activity-list time { height: 42px; }
