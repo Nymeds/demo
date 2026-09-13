@@ -1,7 +1,8 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ActivitiesScreen from '../activities/ActivitiesScreen.vue'
 import DisciplinesEmpty from '../disciplines/DisciplinesEmpty.vue'
+import ProfileScreen from '../profile/ProfileScreen.vue'
 import SimulatorNotes from '../simulator/SimulatorNotes.vue'
 
 const { user, accessToken } = defineProps({
@@ -9,8 +10,9 @@ const { user, accessToken } = defineProps({
   accessToken: { type: String, required: true },
 })
 
-const emit = defineEmits(['logout'])
+const emit = defineEmits(['logout', 'user-updated'])
 const activeSection = ref('dashboard')
+const sidebarAvatarUrl = ref('')
 const dashboardLoading = ref(true)
 const dashboardError = ref('')
 const disciplines = ref([])
@@ -70,6 +72,27 @@ async function loadDashboard() {
   }
 }
 
+function clearSidebarAvatar() {
+  if (sidebarAvatarUrl.value) URL.revokeObjectURL(sidebarAvatarUrl.value)
+  sidebarAvatarUrl.value = ''
+}
+
+async function loadSidebarAvatar() {
+  clearSidebarAvatar()
+  if (!user.hasProfilePhoto || !user.profilePhotoUrl) return
+
+  try {
+    const response = await fetch(user.profilePhotoUrl, {
+      cache: 'no-store',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!response.ok) return
+    sidebarAvatarUrl.value = URL.createObjectURL(await response.blob())
+  } catch {
+    // O avatar com as iniciais permanece como alternativa quando a imagem falhar.
+  }
+}
+
 const pendingActivities = computed(() => activities.value.filter(activity => activity.status !== 'COMPLETED'))
 const generalAverage = computed(() => {
   const values = disciplines.value.map(discipline => discipline.average).filter(value => typeof value === 'number')
@@ -111,10 +134,18 @@ function activityStatus(activity) {
   return { label: 'Pendente', className: 'is-pending' }
 }
 
-onMounted(loadDashboard)
+onMounted(() => {
+  loadDashboard()
+  loadSidebarAvatar()
+})
 watch(activeSection, section => {
   if (section === 'dashboard') loadDashboard()
 })
+watch(
+  () => [user.hasProfilePhoto, user.profilePhotoUrl, user.updatedAt],
+  loadSidebarAvatar,
+)
+onBeforeUnmount(clearSidebarAvatar)
 </script>
 <template>
   <div class="dashboard-shell">
@@ -168,27 +199,35 @@ watch(activeSection, section => {
           </svg>
           Atividades
         </button>
-      <button
+        <button
           type="button"
           :class="{ active: activeSection === 'simulator' }"
           :aria-current="activeSection === 'simulator' ? 'page' : undefined"
           @click="activeSection = 'simulator'"
         >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4 19V5h16v14H4Z" />
-        <path d="M8 15v-3m4 3V9m4 6v-5" />
-        </svg>
-        Simulador de Notas
-      </button>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 19V5h16v14H4Z" />
+            <path d="M8 15v-3m4 3V9m4 6v-5" />
+          </svg>
+          Simulador de Notas
+        </button>
       </nav>
       <div class="dashboard-sidebar-footer">
-        <div class="dashboard-user-card" :title="user.name">
-          <span class="dashboard-user-avatar" aria-hidden="true">{{ userInitial }}</span>
+        <button
+          class="dashboard-user-card"
+          type="button"
+          :title="`Abrir perfil de ${user.name}`"
+          @click="activeSection = 'profile'"
+        >
+          <span class="dashboard-user-avatar" aria-hidden="true">
+            <img v-if="sidebarAvatarUrl" :src="sidebarAvatarUrl" alt="" />
+            <template v-else>{{ userInitial }}</template>
+          </span>
           <span class="dashboard-user-details">
             <strong>{{ user.name }}</strong>
-            <small>Usuário conectado</small>
+            <small>Ver perfil</small>
           </span>
-        </div>
+        </button>
         <button class="dashboard-logout" type="button" @click="emit('logout')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10" />
@@ -382,6 +421,12 @@ watch(activeSection, section => {
         :access-token="accessToken"
         @navigate="activeSection = $event"
       />
+      <ProfileScreen
+        v-if="activeSection === 'profile'"
+        :access-token="accessToken"
+        :user="user"
+        @updated="emit('user-updated', $event)"
+      />
     </main>
   </div>
 </template>
@@ -436,8 +481,11 @@ watch(activeSection, section => {
 .dashboard-navigation button:focus-visible,
 .dashboard-logout:focus-visible { outline: 2px solid #947eff; outline-offset: 2px; }
 .dashboard-sidebar-footer { border-top: 1px solid rgba(255, 255, 255, .07); margin-top: auto; padding-top: 16px; }
-.dashboard-user-card { align-items: center; background: rgba(255, 255, 255, .045); border-radius: 9px; display: flex; gap: 10px; margin-bottom: 9px; min-width: 0; padding: 10px; }
-.dashboard-user-avatar { align-items: center; background: linear-gradient(135deg, #7749f7, #5320da); border-radius: 50%; display: flex; flex: 0 0 36px; font-size: .78rem; font-weight: 800; height: 36px; justify-content: center; }
+.dashboard-user-card { align-items: center; background: rgba(255, 255, 255, .045); border: 0; border-radius: 9px; color: inherit; cursor: pointer; display: flex; gap: 10px; margin-bottom: 9px; min-width: 0; padding: 10px; text-align: left; transition: background-color .18s; width: 100%; }
+.dashboard-user-card:hover { background: rgba(255, 255, 255, .09); }
+.dashboard-user-card:focus-visible { outline: 2px solid #947eff; outline-offset: 2px; }
+.dashboard-user-avatar { align-items: center; background: linear-gradient(135deg, #7749f7, #5320da); border-radius: 50%; display: flex; flex: 0 0 36px; font-size: .78rem; font-weight: 800; height: 36px; justify-content: center; overflow: hidden; }
+.dashboard-user-avatar img { height: 100%; object-fit: cover; width: 100%; }
 .dashboard-user-details { min-width: 0; }
 .dashboard-user-details strong { display: block; font-size: .71rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dashboard-user-details small { color: #a9b1c1; display: block; font-size: .61rem; margin-top: 2px; }
@@ -555,8 +603,8 @@ watch(activeSection, section => {
   .dashboard-shell { display: block; }
   .dashboard-sidebar { align-items: stretch; bottom: 0; display: grid; grid-template-columns: minmax(0, 1fr) 64px; height: auto; left: 0; padding: 7px 10px max(7px, env(safe-area-inset-bottom)); position: fixed; right: 0; top: auto; z-index: 80; }
   .dashboard-brand, .dashboard-user-card { display: none; }
-  .dashboard-navigation { display: grid; gap: 4px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .dashboard-navigation button, .dashboard-logout { flex-direction: column; font-size: .57rem; gap: 3px; justify-content: center; padding: 7px 5px; text-align: center; }
+  .dashboard-navigation { display: grid; gap: 3px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .dashboard-navigation button, .dashboard-logout { flex-direction: column; font-size: .52rem; gap: 3px; justify-content: center; line-height: 1.05; min-width: 0; padding: 7px 2px; text-align: center; }
   .dashboard-navigation button.active { background: rgba(108, 65, 226, .42); box-shadow: none; }
   .dashboard-navigation svg, .dashboard-logout svg { height: 18px; width: 18px; }
   .dashboard-sidebar-footer { border: 0; margin: 0; padding: 0; }

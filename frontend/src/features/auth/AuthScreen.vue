@@ -159,6 +159,10 @@ function logout() {
   password.value = ''
   feedback.value = ''
 }
+
+function updateAuthenticatedUser(updatedUser) {
+  authenticatedUser.value = { ...authenticatedUser.value, ...updatedUser }
+}
 </script>
 
 <template>
@@ -167,6 +171,7 @@ function logout() {
     :user="authenticatedUser"
     :access-token="accessToken"
     @logout="logout"
+    @user-updated="updateAuthenticatedUser"
   />
 
   <main v-else class="auth-page">
