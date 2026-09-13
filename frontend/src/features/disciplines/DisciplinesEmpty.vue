@@ -1005,14 +1005,15 @@ function statusDetails(status) {
 
 .disciplines-table-card th {
   color: #495066;
-  font-size: .66rem;
+  font-size: .72rem;
   font-weight: 750;
   white-space: nowrap;
 }
 
 .disciplines-table-card td {
   color: #555c70;
-  font-size: .68rem;
+  font-size: .78rem;
+  line-height: 1.4;
 }
 
 .disciplines-table-card tbody tr:last-child td {
@@ -1037,7 +1038,7 @@ function statusDetails(status) {
 
 .discipline-name {
   color: #24293c;
-  font-size: .7rem;
+  font-size: .8rem;
   font-weight: 400;
 }
 
@@ -1070,7 +1071,7 @@ function statusDetails(status) {
 .discipline-schedules span {
   align-items: center;
   display: flex;
-  font-size: .73rem;
+  font-size: .78rem;
   gap: 6px;
   white-space: nowrap;
 }
@@ -1087,7 +1088,7 @@ function statusDetails(status) {
 
 .discipline-average {
   color: #1a9a54 !important;
-  font-size: .78rem !important;
+  font-size: .86rem !important;
   font-weight: 800;
 }
 
@@ -1148,6 +1149,10 @@ function statusDetails(status) {
 .discipline-status.is-neutral {
   background: #eff0f4;
   color: #646b7d;
+}
+
+.disciplines-table-card .discipline-status {
+  font-size: .68rem;
 }
 
 .discipline-actions-cell {
