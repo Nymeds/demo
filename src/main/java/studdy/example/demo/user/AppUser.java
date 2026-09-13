@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Getter
@@ -24,6 +25,22 @@ public class AppUser {
     @Column(nullable = false, unique = true, length = 150)
     private String email;
 
+    @Column(unique = true, length = 30)
+    private String username;
+
+    @Column(length = 20)
+    private String phone;
+
+    @Column(name = "birth_date")
+    private LocalDate birthDate;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 24)
+    private Gender gender;
+
+    @Column(length = 120)
+    private String location;
+
     @Column(nullable = false, name = "password_hash")
     private String passwordHash;
 
@@ -36,6 +53,28 @@ public class AppUser {
         this.name = name;
         this.email = email;
         this.passwordHash = passwordHash;
+    }
+
+    public void updateProfile(
+            String name,
+            String email,
+            String username,
+            String phone,
+            LocalDate birthDate,
+            Gender gender,
+            String location
+    ) {
+        this.name = name;
+        this.email = email;
+        this.username = username;
+        this.phone = phone;
+        this.birthDate = birthDate;
+        this.gender = gender;
+        this.location = location;
+    }
+
+    public void markProfileUpdated() {
+        updatedAt = Instant.now();
     }
 
     @PrePersist
