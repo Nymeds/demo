@@ -44,7 +44,9 @@ public class DisciplineService {
                 request.passingAverage(),
                 request.minimumAttendancePercentage(),
                 dashboard,
-                toSchedules(request.schedules())
+                toSchedules(request.schedules()),
+                request.semester(),
+                request.periodo()
         );
 
         return toResponse(disciplineRepository.save(discipline));

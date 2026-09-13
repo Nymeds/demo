@@ -73,7 +73,14 @@ public class Discipline {
 
     @OneToOne(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true)
     private Frequency frequency;
-    
+
+    // semestre
+    @Column(name = "semester", nullable = false)
+    private String semester;
+
+    @Column(name = "periodo", nullable = false)
+    private String periodo;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -87,7 +94,9 @@ public class Discipline {
             BigDecimal passingAverage,
             BigDecimal minimumAttendancePercentage,
             Dashboard dashboard,
-            List<ClassSchedule> schedules
+            List<ClassSchedule> schedules,
+            String semester,
+            String periodo
     ) {
         this.name = name;
         this.professorName = professorName;
@@ -96,6 +105,8 @@ public class Discipline {
         this.minimumAttendancePercentage = normalizeMinimumAttendancePercentage(minimumAttendancePercentage);
         this.dashboard = dashboard;
         this.schedules = new ArrayList<>(schedules);
+        this.semester = semester;
+        this.periodo = periodo;
     }
 
     public void update(

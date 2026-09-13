@@ -70,7 +70,9 @@ class CalendarEventDisciplineDeletionTest {
                 new BigDecimal("6.00"),
                 new BigDecimal("75.00"),
                 dashboard,
-                List.of()
+                List.of(),
+                "2026.2",
+                "2"
         ));
     }
 

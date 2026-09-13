@@ -277,6 +277,9 @@ class ActivityServiceTest {
                         new BigDecimal("75.00"),
                         dashboard,
                         List.of()
+                        ,
+                        "2023.1",
+                        "1"
                 )
         );
     }
