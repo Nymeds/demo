@@ -281,8 +281,8 @@ function statusDetails(status) {
       <div class="disciplines-heading">
         <span class="disciplines-heading-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24">
-            <path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22V5.5Z" />
-            <path d="M20 5.5A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22V5.5Z" />
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" />
           </svg>
         </span>
         <div>
@@ -311,7 +311,7 @@ function statusDetails(status) {
     <div class="disciplines-summary-grid">
       <article class="disciplines-total-card is-purple">
         <span aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22V5.5Z" /><path d="M20 5.5A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22V5.5Z" /></svg>
+          <svg viewBox="0 0 24 24"><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" /></svg>
         </span>
         <div>
           <p>Total de disciplinas</p>
@@ -448,7 +448,7 @@ function statusDetails(status) {
               <td>
                 <div class="discipline-name-cell">
                   <span class="discipline-color" :style="{ backgroundColor: `${disciplineColor(discipline)}1f`, color: disciplineColor(discipline) }" aria-hidden="true">
-                    <svg viewBox="0 0 24 24"><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22V5.5Z" /><path d="M20 5.5A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22V5.5Z" /></svg>
+                    <svg viewBox="0 0 24 24"><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" /></svg>
                   </span>
                   <span class="discipline-name">{{ discipline.name }}</span>
                 </div>
@@ -500,7 +500,7 @@ function statusDetails(status) {
       <article v-for="discipline in filteredDisciplines" :key="discipline.id" :style="{ '--card-color': disciplineColor(discipline) }">
         <header>
           <span class="discipline-color" :style="{ backgroundColor: `${disciplineColor(discipline)}1f`, color: disciplineColor(discipline) }" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22V5.5Z" /><path d="M20 5.5A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22V5.5Z" /></svg>
+            <svg viewBox="0 0 24 24"><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" /></svg>
           </span>
           <div><h2>{{ discipline.name }}</h2><p>{{ discipline.professorName || 'Professor não informado' }}</p></div>
         </header>
@@ -629,22 +629,23 @@ function statusDetails(status) {
 .disciplines-actions {
   flex: 0 1 auto;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 11px;
   justify-content: flex-end;
   min-width: 0;
 }
 
 .disciplines-search {
   color: #747b90;
-  flex: 1 1 255px;
-  max-width: 340px;
+  flex: 0 1 245px;
+  max-width: 245px;
   min-width: 0;
   position: relative;
+  width: 245px;
 }
 
 .disciplines-search svg {
   height: 18px;
-  left: 14px;
+  left: 12px;
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
@@ -656,9 +657,10 @@ function statusDetails(status) {
   border: 1px solid #dedfe8;
   border-radius: 8px;
   color: #252a3e;
+  font-size: .72rem;
   min-width: 0;
   outline: none;
-  padding: 12px 14px 12px 42px;
+  padding: 11px 12px 11px 38px;
   width: 100%;
 }
 
@@ -673,20 +675,20 @@ function statusDetails(status) {
   background: linear-gradient(100deg, #5d20df, #7419f5);
   border: 0;
   border-radius: 7px;
-  box-shadow: 0 8px 18px rgba(101, 31, 225, .2);
+  box-shadow: 0 8px 18px rgba(101, 31, 225, .18);
   color: #fff;
   display: flex;
-  font-size: .76rem;
+  font-size: .72rem;
   font-weight: 700;
-  gap: 8px;
+  gap: 7px;
   justify-content: center;
-  padding: 12px 18px;
+  padding: 11px 15px;
   white-space: nowrap;
 }
 
 .disciplines-add-button span,
 .disciplines-empty-button span {
-  font-size: 1.12rem;
+  font-size: 1.05rem;
   font-weight: 400;
   line-height: .8;
 }
@@ -1371,8 +1373,8 @@ function statusDetails(status) {
   }
 
   .disciplines-search {
-    flex: 1;
-    max-width: none;
+    flex: 0 1 245px;
+    max-width: 245px;
   }
 
   .disciplines-search input {
@@ -1397,6 +1399,7 @@ function statusDetails(status) {
 
   .disciplines-search {
     flex-basis: auto;
+    max-width: none;
     width: 100%;
   }
 

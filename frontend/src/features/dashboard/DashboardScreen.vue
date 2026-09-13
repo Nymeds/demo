@@ -220,7 +220,7 @@ watch(activeSection, section => {
         <div class="dashboard-summary-grid" aria-label="Resumo acadêmico">
           <article class="dashboard-summary-card is-purple">
             <span class="dashboard-summary-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22V5.5Z" /><path d="M20 5.5A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22V5.5Z" /></svg>
+              <svg viewBox="0 0 24 24"><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" /></svg>
             </span>
             <div><p>Disciplinas</p><strong>{{ dashboardLoading ? '—' : disciplines.length }}</strong><small>{{ disciplines.length ? 'Cadastradas' : 'Nenhuma ainda' }}</small></div>
           </article>
@@ -338,7 +338,7 @@ watch(activeSection, section => {
         <div v-if="!dashboardLoading && disciplines.length === 0" class="dashboard-guide-grid" aria-label="Próximos passos">
           <article class="dashboard-guide-card is-purple">
             <span class="dashboard-guide-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22V5.5Z" /><path d="M20 5.5A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22V5.5Z" /></svg>
+              <svg viewBox="0 0 24 24"><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" /></svg>
             </span>
             <div><h3>Adicione suas disciplinas</h3><p>Comece pelas matérias que você está cursando.</p><button type="button" @click="activeSection = 'disciplines'">Cadastrar disciplina <span aria-hidden="true">→</span></button></div>
           </article>

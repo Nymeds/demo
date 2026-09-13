@@ -11,10 +11,11 @@ const isEditing = computed(() => Boolean(props.discipline))
 const name = ref(props.discipline?.name ?? '')
 const professorName = ref(props.discipline?.professorName ?? '')
 const selectedColor = ref(props.discipline?.color ?? '#6432df')
-const passingAverage = ref(props.discipline?.passingAverage ?? 6)
-const minimumAttendancePercentage = ref(props.discipline?.minimumAttendancePercentage ?? 75)
 const timeError = ref('')
 const currentYear = new Date().getFullYear()
+
+const defaultPassingAverage = 6
+const defaultMinimumAttendancePercentage = 75
 
 const year = ref(
   props.discipline?.periodo ?? currentYear
@@ -87,8 +88,8 @@ function submitForm() {
   name: name.value.trim(),
   professorName: professorName.value.trim(),
   color: selectedColor.value,
-  passingAverage: passingAverage.value,
-  minimumAttendancePercentage: minimumAttendancePercentage.value,
+  passingAverage: props.discipline?.passingAverage ?? defaultPassingAverage,
+  minimumAttendancePercentage: props.discipline?.minimumAttendancePercentage ?? defaultMinimumAttendancePercentage,
 
   periodo: String(periodo.value),
   semester: String(semester.value),
@@ -163,18 +164,6 @@ function submitForm() {
         </label>
 
       </div>
-
-        <div class="performance-fields">
-          <label class="form-field">
-            <span>Média de aprovação <strong>*</strong></span>
-            <input v-model.number="passingAverage" type="number" min="0" max="10" step="0.01" required>
-          </label>
-
-          <label class="form-field">
-            <span>Frequência mínima (%) <strong>*</strong></span>
-            <input v-model.number="minimumAttendancePercentage" type="number" min="0" max="100" step="0.01" required>
-          </label>
-        </div>
 
         <fieldset class="schedule-fieldset">
           <legend>Horário das aulas <strong>*</strong></legend>
@@ -319,12 +308,6 @@ function submitForm() {
 .discipline-modal form {
   display: grid;
   gap: 21px;
-}
-
-.performance-fields {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .form-field {
@@ -611,10 +594,6 @@ button:focus-visible {
 
   .schedule-row {
     grid-template-columns: 1fr 1fr 43px;
-  }
-
-  .performance-fields {
-    grid-template-columns: 1fr;
   }
 
   .schedule-row select {

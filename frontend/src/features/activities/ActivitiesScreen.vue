@@ -497,8 +497,8 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
       <div v-else-if="disciplines.length === 0" class="activities-state-card">
         <span class="activities-state-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24">
-            <path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v17H7.5A3.5 3.5 0 0 0 4 22V5.5Z" />
-            <path d="M20 5.5A3.5 3.5 0 0 0 16.5 2H13v17h3.5A3.5 3.5 0 0 1 20 22V5.5Z" />
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" />
           </svg>
         </span>
         <h2>Cadastre uma disciplina primeiro</h2>
