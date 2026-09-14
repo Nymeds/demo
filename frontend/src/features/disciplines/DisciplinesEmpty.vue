@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppToast from '../../components/ui/AppToast.vue'
 import DisciplineModal from './DisciplineModal.vue'
 import DeleteDisciplineModal from './DeleteDisciplineModal.vue'
@@ -15,6 +15,9 @@ const sortOrder = ref('nameAsc')
 const showAddModal = ref(false)
 const editingDiscipline = ref(null)
 const disciplineToDelete = ref(null)
+const statusMenu = ref(null)
+const statusMenuElement = ref(null)
+const statusUpdating = ref(false)
 const saveFeedback = ref('')
 const requestError = ref('')
 const loading = ref(true)
@@ -28,6 +31,12 @@ const filters = [
   { value: 'active', label: 'Em andamento' },
   { value: 'finished', label: 'Concluídas' },
   { value: 'locked', label: 'Trancadas' },
+]
+
+const statusOptions = [
+  { value: 'IN_PROGRESS', label: 'Em andamento', className: 'is-progress' },
+  { value: 'COMPLETED', label: 'Concluída', className: 'is-success' },
+  { value: 'LOCKED', label: 'Trancada', className: 'is-neutral' },
 ]
 
 function showToast(message, type = 'success') {
@@ -50,6 +59,7 @@ function openAddModal() {
 }
 
 function openEditModal(discipline) {
+  closeStatusMenu()
   saveFeedback.value = ''
   editingDiscipline.value = discipline
   showAddModal.value = true
@@ -89,6 +99,7 @@ function normalizeDiscipline(discipline) {
   return {
     ...discipline,
     color: discipline.color || '#6432df',
+    status: discipline.status || 'IN_PROGRESS',
     schedules: discipline.schedules.map(schedule => ({
       ...schedule,
       startTime: schedule.startTime.slice(0, 5),
@@ -155,7 +166,76 @@ async function saveDiscipline(formData) {
 }
 
 function askToDeleteDiscipline(discipline) {
+  closeStatusMenu()
   disciplineToDelete.value = discipline
+}
+
+function closeStatusMenu() {
+  statusMenu.value = null
+}
+
+async function toggleStatusMenu(discipline, event) {
+  if (statusMenu.value?.disciplineId === discipline.id) {
+    closeStatusMenu()
+    return
+  }
+
+  const trigger = event.currentTarget
+  const bounds = trigger.getBoundingClientRect()
+  const menuWidth = 190
+  const menuHeight = 156
+  const left = Math.max(12, Math.min(bounds.right - menuWidth, window.innerWidth - menuWidth - 12))
+  const spaceBelow = window.innerHeight - bounds.bottom
+  const top = spaceBelow >= menuHeight + 12
+    ? bounds.bottom + 7
+    : Math.max(12, bounds.top - menuHeight - 7)
+
+  statusMenu.value = {
+    disciplineId: discipline.id,
+    disciplineName: discipline.name,
+    currentStatus: discipline.status,
+    left,
+    top,
+  }
+
+  await nextTick()
+  statusMenuElement.value?.querySelector('button')?.focus()
+}
+
+async function changeDisciplineStatus(status) {
+  const menu = statusMenu.value
+  if (!menu || statusUpdating.value) return
+
+  if (status === menu.currentStatus) {
+    closeStatusMenu()
+    return
+  }
+
+  statusUpdating.value = true
+  requestError.value = ''
+
+  try {
+    const updated = normalizeDiscipline(await apiRequest(
+      `/api/v1/dashboards/${dashboardId.value}/disciplines/${menu.disciplineId}/status`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      },
+    ))
+    const index = disciplines.value.findIndex(item => item.id === menu.disciplineId)
+    if (index !== -1) disciplines.value[index] = updated
+    showToast(`Situação alterada para ${statusDetails(status).label.toLocaleLowerCase('pt-BR')}.`)
+    closeStatusMenu()
+  } catch (error) {
+    requestError.value = error.message || 'Não foi possível alterar a situação da disciplina.'
+    showToast(requestError.value, 'error')
+  } finally {
+    statusUpdating.value = false
+  }
+}
+
+function handleStatusMenuKeydown(event) {
+  if (event.key === 'Escape') closeStatusMenu()
 }
 
 function closeDeleteModal() {
@@ -182,8 +262,18 @@ async function confirmDeleteDiscipline() {
   }
 }
 
-onMounted(loadDisciplines)
-onBeforeUnmount(() => clearTimeout(toastTimer))
+onMounted(() => {
+  loadDisciplines()
+  document.addEventListener('click', closeStatusMenu)
+  window.addEventListener('resize', closeStatusMenu)
+  window.addEventListener('keydown', handleStatusMenuKeydown)
+})
+onBeforeUnmount(() => {
+  clearTimeout(toastTimer)
+  document.removeEventListener('click', closeStatusMenu)
+  window.removeEventListener('resize', closeStatusMenu)
+  window.removeEventListener('keydown', handleStatusMenuKeydown)
+})
 
 function clearFilters() {
   searchTerm.value = ''
@@ -202,7 +292,7 @@ const filteredDisciplines = computed(() => {
 
       const matchesFilter = activeFilter.value === 'all'
         || (activeFilter.value === 'active' && discipline.status === 'IN_PROGRESS')
-        || (activeFilter.value === 'finished' && discipline.status === 'APPROVED')
+        || (activeFilter.value === 'finished' && discipline.status === 'COMPLETED')
         || (activeFilter.value === 'locked' && discipline.status === 'LOCKED')
 
       return matchesSearch && matchesFilter
@@ -263,15 +353,11 @@ function disciplineColor(discipline) {
 function statusDetails(status) {
   const statuses = {
     IN_PROGRESS: { label: 'Em andamento', className: 'is-progress' },
-    APPROVED: { label: 'Concluída', className: 'is-success' },
+    COMPLETED: { label: 'Concluída', className: 'is-success' },
     LOCKED: { label: 'Trancada', className: 'is-neutral' },
-    FAILED_BY_GRADE: { label: 'Atenção', className: 'is-warning' },
-    FAILED_BY_ATTENDANCE: { label: 'Atenção', className: 'is-warning' },
-    FAILED_BY_GRADE_AND_ATTENDANCE: { label: 'Atenção', className: 'is-warning' },
-    NO_DATA: { label: 'Não iniciada', className: 'is-neutral' },
   }
 
-  return statuses[status] ?? statuses.NO_DATA
+  return statuses[status] ?? statuses.IN_PROGRESS
 }
 </script>
 
@@ -436,7 +522,7 @@ function statusDetails(status) {
             <tr>
               <th>Disciplina</th>
               <th>Professor</th>
-              <th>Horários</th>
+              <th><span class="schedule-column-heading">Horários</span></th>
               <th>Média</th>
               <th>Frequência</th>
               <th>Situação</th>
@@ -450,15 +536,21 @@ function statusDetails(status) {
                   <span class="discipline-color" :style="{ backgroundColor: `${disciplineColor(discipline)}1f`, color: disciplineColor(discipline) }" aria-hidden="true">
                     <svg viewBox="0 0 24 24"><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" /></svg>
                   </span>
-                  <span class="discipline-name">{{ discipline.name }}</span>
+                  <span class="discipline-name" :title="discipline.name">{{ discipline.name }}</span>
                 </div>
               </td>
-              <td>{{ discipline.professorName || 'Não informado' }}</td>
+              <td class="discipline-professor" :title="discipline.professorName || 'Não informado'">
+                {{ discipline.professorName || 'Não informado' }}
+              </td>
               <td>
                 <div class="discipline-schedules">
-                  <span v-for="(schedule, index) in discipline.schedules" :key="index">
+                  <span
+                    v-for="(schedule, index) in discipline.schedules"
+                    :key="index"
+                    :title="`${dayLabels[schedule.dayOfWeek]} ${schedule.startTime}–${schedule.endTime}`"
+                  >
                     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18" /></svg>
-                    {{ dayLabels[schedule.dayOfWeek] }} {{ schedule.startTime }}–{{ schedule.endTime }}
+                    <span>{{ dayLabels[schedule.dayOfWeek] }} {{ schedule.startTime }}–{{ schedule.endTime }}</span>
                   </span>
                 </div>
               </td>
@@ -480,6 +572,17 @@ function statusDetails(status) {
               </td>
               <td>
                 <div class="discipline-actions-cell">
+                  <button
+                    class="status-menu-trigger"
+                    type="button"
+                    :aria-label="`Alterar situação de ${discipline.name}`"
+                    aria-haspopup="menu"
+                    :aria-expanded="statusMenu?.disciplineId === discipline.id"
+                    title="Alterar situação"
+                    @click.stop="toggleStatusMenu(discipline, $event)"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="19" cy="12" r="1.7" /></svg>
+                  </button>
                   <button type="button" aria-label="Editar disciplina" title="Editar" @click="openEditModal(discipline)">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4-1 11-11-3-3L5 16l-1 4Z" /><path d="m14 7 3 3" /></svg>
                   </button>
@@ -514,6 +617,17 @@ function statusDetails(status) {
         <footer>
           <span :class="['discipline-status', statusDetails(discipline.status).className]">{{ statusDetails(discipline.status).label }}</span>
           <div class="discipline-actions-cell">
+            <button
+              class="status-menu-trigger"
+              type="button"
+              :aria-label="`Alterar situação de ${discipline.name}`"
+              aria-haspopup="menu"
+              :aria-expanded="statusMenu?.disciplineId === discipline.id"
+              title="Alterar situação"
+              @click.stop="toggleStatusMenu(discipline, $event)"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="19" cy="12" r="1.7" /></svg>
+            </button>
             <button type="button" aria-label="Editar disciplina" @click="openEditModal(discipline)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4-1 11-11-3-3L5 16l-1 4Z" /><path d="m14 7 3 3" /></svg></button>
             <button class="delete-action" type="button" aria-label="Excluir disciplina" @click="askToDeleteDiscipline(discipline)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" /></svg></button>
           </div>
@@ -524,6 +638,34 @@ function statusDetails(status) {
     </section>
 
     <AppToast :message="toast.message" :type="toast.type" @close="closeToast" />
+
+    <Teleport to="body">
+      <div
+        v-if="statusMenu"
+        ref="statusMenuElement"
+        class="discipline-status-menu"
+        :style="{ left: `${statusMenu.left}px`, top: `${statusMenu.top}px` }"
+        role="menu"
+        :aria-label="`Alterar situação de ${statusMenu.disciplineName}`"
+        @click.stop
+      >
+        <p>Alterar situação</p>
+        <button
+          v-for="option in statusOptions"
+          :key="option.value"
+          type="button"
+          role="menuitemradio"
+          :aria-checked="statusMenu.currentStatus === option.value"
+          :class="{ active: statusMenu.currentStatus === option.value }"
+          :disabled="statusUpdating"
+          @click="changeDisciplineStatus(option.value)"
+        >
+          <span :class="['status-option-dot', option.className]" aria-hidden="true"></span>
+          {{ option.label }}
+          <svg v-if="statusMenu.currentStatus === option.value" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>
+        </button>
+      </div>
+    </Teleport>
 
     <footer class="disciplines-footer">
       <p>Mostrando {{ filteredDisciplines.length }} de {{ disciplines.length }} disciplinas</p>
@@ -982,18 +1124,18 @@ function statusDetails(status) {
 
 .disciplines-table-card table {
   border-collapse: collapse;
-  min-width: 970px;
+  min-width: 1100px;
   table-layout: fixed;
   width: 100%;
 }
 
-.column-discipline { width: 22%; }
-.column-professor { width: 17%; }
-.column-schedules { width: 20%; }
-.column-average { width: 8%; }
-.column-attendance { width: 13%; }
-.column-status { width: 12%; }
-.column-actions { width: 8%; }
+.column-discipline { width: 27%; }
+.column-professor { width: 12%; }
+.column-schedules { width: 14%; }
+.column-average { width: 9%; }
+.column-attendance { width: 15%; }
+.column-status { width: 11%; }
+.column-actions { width: 12%; }
 
 .disciplines-table-card th,
 .disciplines-table-card td {
@@ -1029,17 +1171,40 @@ function statusDetails(status) {
   text-align: center;
 }
 
+.disciplines-table-card th:nth-child(3),
+.disciplines-table-card td:nth-child(3),
+.disciplines-table-card th:nth-child(4),
+.disciplines-table-card td:nth-child(4),
+.disciplines-table-card th:nth-child(5),
+.disciplines-table-card td:nth-child(5),
+.disciplines-table-card th:nth-child(6),
+.disciplines-table-card td:nth-child(6) {
+  text-align: center;
+}
+
 .discipline-name-cell {
   align-items: center;
   display: flex;
   gap: 11px;
-  min-width: 185px;
+  min-width: 0;
+  width: 100%;
 }
 
 .discipline-name {
   color: #24293c;
+  display: block;
   font-size: .8rem;
   font-weight: 400;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.discipline-professor {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .discipline-color {
@@ -1065,18 +1230,33 @@ function statusDetails(status) {
 .discipline-schedules {
   display: grid;
   gap: 5px;
-  min-width: 150px;
+  min-width: 0;
+  transform: translateX(-25%);
 }
 
-.discipline-schedules span {
+.schedule-column-heading {
+  display: block;
+  transform: translateX(-25%);
+}
+
+.discipline-schedules > span {
   align-items: center;
   display: flex;
   font-size: .78rem;
   gap: 6px;
+  justify-content: center;
+  min-width: 0;
+}
+
+.discipline-schedules > span > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .discipline-schedules svg {
+  flex: 0 0 14px;
   fill: none;
   height: 14px;
   stroke: #687087;
@@ -1099,7 +1279,9 @@ function statusDetails(status) {
 .discipline-attendance {
   display: grid;
   gap: 6px;
+  margin-inline: auto;
   min-width: 82px;
+  width: 82px;
 }
 
 .discipline-attendance > span:first-child {
@@ -1158,7 +1340,7 @@ function statusDetails(status) {
 .discipline-actions-cell {
   align-items: center;
   display: flex;
-  gap: 7px;
+  gap: 3px;
   justify-content: center;
 }
 
@@ -1201,6 +1383,88 @@ function statusDetails(status) {
 .discipline-actions-cell .delete-action svg {
   height: 21px;
   width: 21px;
+}
+
+.discipline-actions-cell .status-menu-trigger svg {
+  fill: currentColor;
+  height: 18px;
+  stroke: none;
+  width: 18px;
+}
+
+.discipline-status-menu {
+  background: #fff;
+  border: 1px solid #e1e2e9;
+  border-radius: 10px;
+  box-shadow: 0 14px 35px rgba(26, 30, 48, .18);
+  padding: 7px;
+  position: fixed;
+  width: 190px;
+  z-index: 300;
+}
+
+.discipline-status-menu p {
+  color: #747b8e;
+  font-size: .63rem;
+  font-weight: 700;
+  padding: 7px 9px 6px;
+}
+
+.discipline-status-menu button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: #343a4e;
+  display: flex;
+  font-size: .72rem;
+  gap: 9px;
+  padding: 9px;
+  text-align: left;
+  width: 100%;
+}
+
+.discipline-status-menu button:hover,
+.discipline-status-menu button:focus-visible,
+.discipline-status-menu button.active {
+  background: #f4f1ff;
+  color: #5f2bcf;
+}
+
+.discipline-status-menu button:focus-visible {
+  outline: 2px solid rgba(105, 54, 224, .28);
+  outline-offset: -2px;
+}
+
+.discipline-status-menu button:disabled {
+  cursor: wait;
+}
+
+.discipline-status-menu button > svg {
+  fill: none;
+  height: 15px;
+  margin-left: auto;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+  width: 15px;
+}
+
+.status-option-dot {
+  background: #8b91a1;
+  border-radius: 50%;
+  flex: 0 0 8px;
+  height: 8px;
+  width: 8px;
+}
+
+.status-option-dot.is-progress {
+  background: #7544eb;
+}
+
+.status-option-dot.is-success {
+  background: #25a65d;
 }
 
 .disciplines-no-results {

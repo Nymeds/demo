@@ -88,6 +88,18 @@ public class DisciplineService {
     }
 
     @Transactional
+    public DisciplineResponse updateStatus(
+            UUID userId,
+            UUID dashboardId,
+            UUID disciplineId,
+            DisciplineLifecycleStatus status
+    ) {
+        Discipline discipline = disciplineAccessService.findOwnedDiscipline(userId, dashboardId, disciplineId);
+        discipline.changeStatus(status);
+        return toResponse(discipline);
+    }
+
+    @Transactional
     public void delete(UUID userId, UUID dashboardId, UUID disciplineId) {
         disciplineRepository.delete(disciplineAccessService.findOwnedDiscipline(userId, dashboardId, disciplineId));
     }

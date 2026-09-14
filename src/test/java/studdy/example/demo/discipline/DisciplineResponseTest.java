@@ -46,6 +46,7 @@ class DisciplineResponseTest {
 
         assertEquals(new BigDecimal("5.50"), response.average());
         assertEquals(new BigDecimal("6.00"), response.passingAverage());
-        assertEquals(DisciplineStatus.FAILED_BY_GRADE, response.status());
+        assertEquals(DisciplineLifecycleStatus.IN_PROGRESS, response.status());
+        assertEquals(DisciplineStatus.FAILED_BY_GRADE, response.performanceStatus());
     }
 }

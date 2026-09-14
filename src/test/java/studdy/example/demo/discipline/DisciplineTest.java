@@ -37,9 +37,36 @@ class DisciplineTest {
     void updatesThePassingAverageOfAnExistingDiscipline() {
         Discipline discipline = newDiscipline(new BigDecimal("6.00"));
 
-        discipline.update("Cálculo II", "Professora Ana", "#4F46E5", new BigDecimal("8.00"), new BigDecimal("75.0"), List.of());
+        discipline.update(
+                "Cálculo II",
+                "Professora Ana",
+                "#4F46E5",
+                new BigDecimal("8.00"),
+                new BigDecimal("75.0"),
+                List.of()
+        );
 
         assertEquals(new BigDecimal("8.00"), discipline.getPassingAverage());
+    }
+
+    @Test
+    void startsInProgressAndAllowsAStudentToChangeTheLifecycleStatus() {
+        Discipline discipline = newDiscipline(new BigDecimal("6.00"));
+
+        assertEquals(DisciplineLifecycleStatus.IN_PROGRESS, discipline.getStatus());
+
+        discipline.update(
+                discipline.getName(),
+                discipline.getProfessorName(),
+                discipline.getColor(),
+                discipline.getPassingAverage(),
+                discipline.getMinimumAttendancePercentage(),
+                discipline.getSchedules()
+        );
+
+        discipline.changeStatus(DisciplineLifecycleStatus.COMPLETED);
+
+        assertEquals(DisciplineLifecycleStatus.COMPLETED, discipline.getStatus());
     }
 
     @Test
