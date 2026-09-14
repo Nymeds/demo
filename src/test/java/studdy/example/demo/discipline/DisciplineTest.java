@@ -52,7 +52,9 @@ class DisciplineTest {
                 new BigDecimal("6.00"),
                 new BigDecimal("75.0"),
                 dashboard,
-                List.of()
+                List.of(),
+                "2026.2",
+                "2"
         );
 
         assertEquals(new BigDecimal("6.00"), discipline.getPassingAverage());
@@ -88,7 +90,9 @@ class DisciplineTest {
                 passingAverage,
                 minimumAttendancePercentage,
                 dashboard,
-                List.of()
+                List.of(),
+                "2026.2",
+                "2"
         );
     }
 }

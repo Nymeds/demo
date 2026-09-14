@@ -22,7 +22,9 @@ public record DisciplineResponse(
         BigDecimal attendancePercentage,
         DisciplineStatus status,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        String semester,
+        String periodo
 ) {
 
     public static DisciplineResponse from(Discipline discipline, AcademicPerformance performance) {
@@ -44,6 +46,9 @@ public record DisciplineResponse(
                 performance.status(),
                 discipline.getCreatedAt(),
                 discipline.getUpdatedAt()
+                ,
+                discipline.getSemester(),
+                discipline.getPeriodo()
         );
     }
 }

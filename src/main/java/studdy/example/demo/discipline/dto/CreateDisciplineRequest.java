@@ -37,6 +37,12 @@ public record CreateDisciplineRequest(
 
         @NotNull(message = "A lista de horários é obrigatória.")
         @Size(min = 1, message = "A disciplina deve ter pelo menos um horário.")
-        List<@Valid ClassScheduleRequest> schedules
+        List<@Valid ClassScheduleRequest> schedules,
+
+        @NotBlank(message = "O semestre é obrigatório.")
+        String semester,
+
+        @NotBlank(message = "O período é obrigatório.")
+        String periodo
 ) {
 }

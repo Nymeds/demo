@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import AppToast from './AppToast.vue'
+import AppToast from '../../components/ui/AppToast.vue'
 import DisciplineModal from './DisciplineModal.vue'
 import DeleteDisciplineModal from './DeleteDisciplineModal.vue'
 
@@ -193,7 +193,7 @@ function clearFilters() {
 
 const filteredDisciplines = computed(() => {
   const search = searchTerm.value.trim().toLocaleLowerCase('pt-BR')
-
+  
   return disciplines.value
     .filter(discipline => {
       const matchesSearch = !search
