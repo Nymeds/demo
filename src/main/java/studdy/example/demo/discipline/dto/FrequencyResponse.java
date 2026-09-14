@@ -6,10 +6,9 @@ import java.util.UUID;
 public record FrequencyResponse(
     UUID id,
     UUID disciplineId,
-    Integer totalClasses,
     Integer absences,
     BigDecimal attendancePercentage,
-    Integer minimumAttendanceClasses,
+    BigDecimal lossPerAbsence,
     Integer maximumAbsences
 ) {
 }

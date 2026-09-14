@@ -1,8 +1,9 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { attendanceAfterAbsences } from './frequencyRules.js'
 
 const props = defineProps({
-  // Linhas montadas na FrequencyPage: id, name, configured, totalClasses,
+  // Linhas montadas na FrequencyPage: id, name, configured,
   // absences, attendancePercentage e minimumPercentage.
   rows: { type: Array, required: true },
   initialDisciplineId: { type: String, default: '' },
@@ -22,7 +23,7 @@ function todayIso() {
 }
 
 const date = ref(todayIso())
-const selectedId = ref(props.initialDisciplineId || props.rows.find(row => row.configured)?.id || '')
+const selectedId = ref(props.initialDisciplineId || props.rows[0]?.id || '')
 const quantity = ref(1)
 const reason = ref(reasons[0])
 const note = ref('')
@@ -36,18 +37,16 @@ watch(selected, () => {
 
 const preview = computed(() => {
   const row = selected.value
-  if (!row?.configured) return null
+  if (!row) return null
 
   const amount = Number(quantity.value) || 0
-  const nextAbsences = Math.min(row.absences + amount, row.totalClasses)
-  const next = ((row.totalClasses - nextAbsences) / row.totalClasses) * 100
+  const next = attendanceAfterAbsences(row.absences + amount)
 
   return {
     current: row.attendancePercentage,
     next,
     impact: row.attendancePercentage - next,
     below: next < row.minimumPercentage,
-    exceeds: row.absences + amount > row.totalClasses,
   }
 })
 
@@ -65,21 +64,10 @@ function submitForm() {
     return
   }
 
-  if (!row.configured) {
-    formError.value = 'Configure a frequência desta disciplina antes de registrar faltas.'
-    return
-  }
-
   const amount = Number(quantity.value)
 
   if (!Number.isInteger(amount) || amount < 1) {
     formError.value = 'A quantidade de faltas precisa ser um número inteiro maior que zero.'
-    return
-  }
-
-  // O backend rejeita absences maior que totalClasses com 400.
-  if (row.absences + amount > row.totalClasses) {
-    formError.value = `O total de faltas ficaria acima das ${row.totalClasses} aulas do período.`
     return
   }
 
@@ -128,7 +116,7 @@ function submitForm() {
           <select v-model="selectedId" required>
             <option value="" disabled>Selecione uma disciplina</option>
             <option v-for="row in rows" :key="row.id" :value="row.id">
-              {{ row.name }}{{ row.configured ? '' : ' (frequência não configurada)' }}
+              {{ row.name }}
             </option>
           </select>
         </label>
@@ -173,7 +161,7 @@ function submitForm() {
             </div>
             <div>
               <small>Impacto</small>
-              <span class="impact-badge">-{{ formatPercentage(preview.impact, 1) }}</span>
+              <span class="impact-badge">-{{ preview.impact.toLocaleString('pt-BR') }}%</span>
             </div>
             <div>
               <small>Nova frequência</small>
@@ -188,14 +176,14 @@ function submitForm() {
 
         <p v-else class="warning-box">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2.7 20h18.6L12 4Z" /><path d="M12 10v4m0 3v.5" /></svg>
-          <span>Configure a frequência desta disciplina para calcular o impacto das faltas.</span>
+          <span>Selecione uma disciplina para visualizar o impacto das faltas.</span>
         </p>
 
         <p v-if="formError" class="form-error" role="alert">{{ formError }}</p>
 
         <footer class="modal-footer">
           <button class="cancel-button" type="button" @click="emit('close')">Cancelar</button>
-          <button class="save-button" type="submit" :disabled="!selected?.configured">
+          <button class="save-button" type="submit" :disabled="!selected">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18m-6 5 2 2 4-4" /></svg>
             Registrar falta
           </button>

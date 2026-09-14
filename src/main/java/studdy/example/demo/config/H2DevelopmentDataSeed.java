@@ -173,9 +173,9 @@ public class H2DevelopmentDataSeed implements ApplicationRunner {
         ));
 
         frequencyRepository.saveAll(List.of(
-                new Frequency(algorithms, 24, 2),
-                new Frequency(databases, 18, 1),
-                new Frequency(ux, 20, 2)
+                new Frequency(algorithms, 2),
+                new Frequency(databases, 1),
+                new Frequency(ux, 2)
         ));
     }
 

@@ -74,6 +74,9 @@ public class Discipline {
     @OneToOne(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true)
     private Frequency frequency;
 
+    @OneToMany(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<AbsenceRecord> absenceRecords = new ArrayList<>();
+
     // semestre
     @Column(name = "semester", nullable = false)
     private String semester;

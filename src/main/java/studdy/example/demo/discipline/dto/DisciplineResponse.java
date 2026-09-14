@@ -42,7 +42,7 @@ public record DisciplineResponse(
                 schedules,
                 performance.average(),
                 performance.passingAverage(),
-                null,
+                discipline.getFrequency() == null ? new BigDecimal("100.00") : discipline.getFrequency().attendancePercentage(),
                 performance.status(),
                 discipline.getCreatedAt(),
                 discipline.getUpdatedAt()

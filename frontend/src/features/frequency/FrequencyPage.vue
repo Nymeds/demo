@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppToast from '../../components/ui/AppToast.vue'
 import FrequencyConfigModal from './FrequencyConfigModal.vue'
 import RegisterAbsenceModal from './RegisterAbsenceModal.vue'
-import ResetFrequencyModal from './ResetFrequencyModal.vue'
+import { LOSS_PER_ABSENCE, maximumAbsencesFor } from './frequencyRules.js'
 
 const props = defineProps({
   accessToken: { type: String, required: true },
@@ -17,19 +17,16 @@ const loading = ref(true)
 const requestError = ref('')
 const dashboardId = ref('')
 const disciplines = ref([])
+const searchTerm = ref('')
 const periodFilter = ref('all')
 const situationFilter = ref('all')
 const showConfigModal = ref(false)
 const showAbsenceModal = ref(false)
 const modalTargetId = ref('')
-const rowToReset = ref(null)
 const showAllHistory = ref(false)
 const toast = ref({ message: '', type: 'success' })
 
-// O backend guarda apenas o contador de faltas. Data, motivo e observação
-// vivem aqui enquanto a sessão estiver aberta.
 const absenceHistory = ref([])
-let historyId = 1
 let toastTimer
 
 const situationFilters = [
@@ -37,14 +34,12 @@ const situationFilters = [
   { value: 'good', label: 'Ótimo' },
   { value: 'warning', label: 'Atenção' },
   { value: 'bad', label: 'Ruim' },
-  { value: 'empty', label: 'Não iniciado' },
 ]
 
 const situationDetails = {
   good: { label: 'Ótimo', className: 'is-success' },
   warning: { label: 'Atenção', className: 'is-warning' },
   bad: { label: 'Ruim', className: 'is-danger' },
-  empty: { label: 'Não iniciado', className: 'is-neutral' },
 }
 
 function showToast(message, type = 'success') {
@@ -91,6 +86,11 @@ async function apiRequest(path, options = {}) {
 
 function frequencyPath(disciplineId) {
   return `/api/v1/dashboards/${dashboardId.value}/disciplines/${disciplineId}/frequency`
+}
+
+function absencePath(disciplineId, recordId = '') {
+  const base = `${frequencyPath(disciplineId)}/absences`
+  return recordId ? `${base}/${recordId}` : base
 }
 
 function disciplinePath(disciplineId) {
@@ -144,12 +144,25 @@ async function loadData() {
     dashboardId.value = dashboard.id
     const savedDisciplines = await apiRequest(`/api/v1/dashboards/${dashboard.id}/disciplines`)
 
-    disciplines.value = await Promise.all(
-      savedDisciplines.map(async discipline => ({
-        ...normalizeDiscipline(discipline),
-        frequency: await loadFrequency(discipline.id),
-      })),
-    )
+    const loadedDisciplines = await Promise.all(savedDisciplines.map(async discipline => {
+      const [frequency, history] = await Promise.all([
+        loadFrequency(discipline.id),
+        loadAbsenceHistory(discipline.id),
+      ])
+
+      return {
+        discipline: { ...normalizeDiscipline(discipline), frequency },
+        history,
+      }
+    }))
+
+    disciplines.value = loadedDisciplines.map(item => item.discipline)
+    absenceHistory.value = loadedDisciplines
+      .flatMap(item => item.history)
+      .sort((first, second) => {
+        const dateOrder = second.date.localeCompare(first.date)
+        return dateOrder || second.createdAt.localeCompare(first.createdAt)
+      })
   } catch (error) {
     requestError.value = error.message || 'Não foi possível carregar a frequência.'
     showToast(requestError.value, 'error')
@@ -191,12 +204,11 @@ function buildRow(discipline) {
     return {
       ...base,
       configured: false,
-      totalClasses: null,
       absences: 0,
-      attendancePercentage: null,
-      lossPerAbsence: null,
-      remainingAbsences: null,
-      situation: 'empty',
+      attendancePercentage: 100,
+      lossPerAbsence: LOSS_PER_ABSENCE,
+      remainingAbsences: maximumAbsencesFor(minimumPercentage),
+      situation: situationOf(100, minimumPercentage, maximumAbsencesFor(minimumPercentage)),
     }
   }
 
@@ -205,10 +217,9 @@ function buildRow(discipline) {
   return {
     ...base,
     configured: true,
-    totalClasses: frequency.totalClasses,
     absences: frequency.absences,
     attendancePercentage: frequency.attendancePercentage,
-    lossPerAbsence: frequency.totalClasses > 0 ? 100 / frequency.totalClasses : null,
+    lossPerAbsence: LOSS_PER_ABSENCE,
     remainingAbsences,
     situation: situationOf(frequency.attendancePercentage, minimumPercentage, remainingAbsences),
   }
@@ -221,21 +232,22 @@ const periodOptions = computed(() => {
   return [...periods].sort().reverse()
 })
 
-const rowsInPeriod = computed(() => (
-  periodFilter.value === 'all'
-    ? rows.value
-    : rows.value.filter(row => row.period === periodFilter.value)
-))
+const filteredRows = computed(() => {
+  const search = searchTerm.value.trim().toLocaleLowerCase('pt-BR')
 
-const filteredRows = computed(() => (
-  situationFilter.value === 'all'
-    ? rowsInPeriod.value
-    : rowsInPeriod.value.filter(row => row.situation === situationFilter.value)
-))
+  return rows.value.filter(row => {
+    const matchesSearch = !search
+      || row.name.toLocaleLowerCase('pt-BR').includes(search)
+      || row.subtitle.toLocaleLowerCase('pt-BR').includes(search)
+    const matchesPeriod = periodFilter.value === 'all' || row.period === periodFilter.value
+    const matchesSituation = situationFilter.value === 'all' || row.situation === situationFilter.value
+
+    return matchesSearch && matchesPeriod && matchesSituation
+  })
+})
 
 const averageAttendance = computed(() => {
-  const values = rowsInPeriod.value
-    .filter(row => row.configured)
+  const values = rows.value
     .map(row => row.attendancePercentage)
 
   return values.length
@@ -244,8 +256,18 @@ const averageAttendance = computed(() => {
 })
 
 const totalAbsences = computed(() => (
-  rowsInPeriod.value.reduce((total, row) => total + row.absences, 0)
+  rows.value.reduce((total, row) => total + row.absences, 0)
 ))
+
+function clearFilters() {
+  searchTerm.value = ''
+  periodFilter.value = 'all'
+  situationFilter.value = 'all'
+}
+
+async function loadAbsenceHistory(disciplineId) {
+  return apiRequest(absencePath(disciplineId))
+}
 
 const averageLabel = computed(() => {
   const average = averageAttendance.value
@@ -317,7 +339,7 @@ function disciplinePayload(discipline, minimumAttendancePercentage) {
   }
 }
 
-async function saveConfig({ disciplineId, totalClasses, minimumAttendancePercentage }) {
+async function saveConfig({ disciplineId, minimumAttendancePercentage }) {
   requestError.value = ''
 
   try {
@@ -342,7 +364,6 @@ async function saveConfig({ disciplineId, totalClasses, minimumAttendancePercent
     const frequency = normalizeFrequency(await apiRequest(frequencyPath(disciplineId), {
       method: hasFrequency ? 'PUT' : 'POST',
       body: JSON.stringify({
-        totalClasses,
         absences: discipline.frequency?.absences ?? 0,
       }),
     }))
@@ -360,29 +381,19 @@ async function registerAbsence({ disciplineId, date, quantity, reason, note }) {
   requestError.value = ''
 
   try {
-    const discipline = disciplines.value.find(item => item.id === disciplineId)
-    const current = discipline.frequency
-
-    const frequency = normalizeFrequency(await apiRequest(frequencyPath(disciplineId), {
-      method: 'PUT',
+    const entry = await apiRequest(absencePath(disciplineId), {
+      method: 'POST',
       body: JSON.stringify({
-        totalClasses: current.totalClasses,
-        absences: current.absences + quantity,
+        date,
+        quantity,
+        reason,
+        note,
       }),
-    }))
+    })
+    const frequency = await loadFrequency(disciplineId)
 
     replaceFrequency(disciplineId, frequency)
-
-    absenceHistory.value.unshift({
-      id: historyId++,
-      disciplineId,
-      disciplineName: discipline.name,
-      date,
-      quantity,
-      reason,
-      note,
-      impact: current.attendancePercentage - frequency.attendancePercentage,
-    })
+    absenceHistory.value.unshift(entry)
 
     closeModals()
     showToast(quantity > 1 ? 'Faltas registradas.' : 'Falta registrada.')
@@ -403,13 +414,8 @@ async function undoAbsence(entry) {
       return
     }
 
-    const frequency = normalizeFrequency(await apiRequest(frequencyPath(entry.disciplineId), {
-      method: 'PUT',
-      body: JSON.stringify({
-        totalClasses: discipline.frequency.totalClasses,
-        absences: Math.max(discipline.frequency.absences - entry.quantity, 0),
-      }),
-    }))
+    await apiRequest(absencePath(entry.disciplineId, entry.id), { method: 'DELETE' })
+    const frequency = await loadFrequency(entry.disciplineId)
 
     replaceFrequency(entry.disciplineId, frequency)
     absenceHistory.value = absenceHistory.value.filter(item => item.id !== entry.id)
@@ -420,61 +426,32 @@ async function undoAbsence(entry) {
   }
 }
 
-function askToReset(row) {
-  rowToReset.value = row
-}
-
-function closeResetModal() {
-  rowToReset.value = null
-}
-
-async function confirmReset() {
-  if (!rowToReset.value) return
-
-  const { id, totalClasses } = rowToReset.value
-  requestError.value = ''
-
-  try {
-    const frequency = normalizeFrequency(await apiRequest(frequencyPath(id), {
-      method: 'PUT',
-      body: JSON.stringify({ totalClasses, absences: 0 }),
-    }))
-
-    replaceFrequency(id, frequency)
-    absenceHistory.value = absenceHistory.value.filter(entry => entry.disciplineId !== id)
-    closeResetModal()
-    showToast('Faltas zeradas.')
-  } catch (error) {
-    requestError.value = error.message || 'Não foi possível zerar as faltas.'
-    showToast(requestError.value, 'error')
-  }
-}
 </script>
 
 <template>
   <section class="frequency-page" aria-labelledby="frequency-title">
     <header class="frequency-header">
       <div class="frequency-heading">
-        <h1 id="frequency-title">Frequência</h1>
-        <p>Acompanhe suas faltas e a frequência em cada disciplina.</p>
+        <span class="frequency-heading-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="5" width="18" height="16" rx="2" />
+            <path d="M16 3v4M8 3v4M3 11h18m-13 5 2 2 4-4" />
+          </svg>
+        </span>
+        <div>
+          <h1 id="frequency-title">Frequência</h1>
+          <p>Acompanhe suas faltas e a frequência em cada disciplina.</p>
+        </div>
       </div>
 
       <div class="frequency-actions">
-        <label class="frequency-select">
-          <span>Período</span>
-          <select v-model="periodFilter">
-            <option value="all">Todos</option>
-            <option v-for="period in periodOptions" :key="period" :value="period">{{ period }}</option>
-          </select>
-        </label>
-
-        <label class="frequency-select">
-          <span>Situação</span>
-          <select v-model="situationFilter">
-            <option v-for="option in situationFilters" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
+        <label class="frequency-search">
+          <span class="sr-only">Buscar disciplina</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-4-4" />
+          </svg>
+          <input v-model="searchTerm" type="search" placeholder="Buscar disciplina...">
         </label>
 
         <button
@@ -487,18 +464,6 @@ async function confirmReset() {
           Registrar falta
         </button>
 
-        <button
-          class="secondary-button"
-          type="button"
-          :disabled="loading || !dashboardId"
-          @click="openConfigModal()"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="3.2" />
-            <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z" />
-          </svg>
-          Configurar frequência
-        </button>
       </div>
     </header>
 
@@ -509,8 +474,8 @@ async function confirmReset() {
         </span>
         <div>
           <p>Disciplinas cadastradas</p>
-          <strong>{{ rowsInPeriod.length }}</strong>
-          <small>{{ periodFilter === 'all' ? 'Todas as disciplinas' : `Período ${periodFilter}` }}</small>
+          <strong>{{ rows.length }}</strong>
+          <small>Todas as disciplinas</small>
         </div>
       </article>
 
@@ -532,9 +497,35 @@ async function confirmReset() {
         <div>
           <p>Total de faltas</p>
           <strong>{{ totalAbsences }}</strong>
-          <small>{{ periodFilter === 'all' ? 'Em todos os períodos' : 'Neste período' }}</small>
+          <small>Em todos os períodos</small>
         </div>
       </article>
+    </div>
+
+    <div class="frequency-toolbar">
+      <div class="frequency-situation-filters" aria-label="Filtrar por situação">
+        <button
+          v-for="option in situationFilters"
+          :key="option.value"
+          type="button"
+          :class="{ active: situationFilter === option.value }"
+          @click="situationFilter = option.value"
+        >
+          {{ option.label }}
+        </button>
+      </div>
+
+      <div class="frequency-filter-options">
+        <label class="frequency-period-filter">
+          <span>Período:</span>
+          <select v-model="periodFilter" aria-label="Filtrar frequência por período">
+            <option value="all">Todos</option>
+            <option v-for="period in periodOptions" :key="period" :value="period">{{ period }}</option>
+          </select>
+        </label>
+
+        <button class="clear-filters" type="button" @click="clearFilters">Limpar filtros</button>
+      </div>
     </div>
 
     <article v-if="loading" class="frequency-loading-card" aria-live="polite">
@@ -591,8 +582,8 @@ async function confirmReset() {
                   </span>
                 </div>
               </td>
-              <td>{{ row.configured ? formatPercentage(row.minimumPercentage) : '—' }}</td>
-              <td>{{ row.configured ? formatPercentage(row.lossPerAbsence, 1) : '—' }}</td>
+              <td>{{ formatPercentage(row.minimumPercentage) }}</td>
+              <td>{{ row.lossPerAbsence }}%</td>
               <td class="absences-cell">{{ row.absences }}</td>
               <td>
                 <div class="attendance-cell">
@@ -601,7 +592,6 @@ async function confirmReset() {
                   </span>
                   <span class="attendance-track" aria-hidden="true">
                     <span
-                      v-if="row.configured"
                       :class="barClass(row)"
                       :style="{ width: `${Math.min(row.attendancePercentage, 100)}%` }"
                     ></span>
@@ -622,16 +612,6 @@ async function confirmReset() {
                     @click="openConfigModal(row.id)"
                   >
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4-1 11-11-3-3L5 16l-1 4Z" /><path d="m14 7 3 3" /></svg>
-                  </button>
-                  <button
-                    class="reset-action"
-                    type="button"
-                    :disabled="!row.configured || row.absences === 0"
-                    aria-label="Zerar faltas da disciplina"
-                    title="Zerar faltas"
-                    @click="askToReset(row)"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" /></svg>
                   </button>
                 </div>
               </td>
@@ -665,7 +645,7 @@ async function confirmReset() {
       </header>
 
       <p v-if="absenceHistory.length === 0" class="frequency-no-results">
-        Nenhuma falta registrada nesta sessão. Os lançamentos aparecem aqui assim que você registrar uma falta.
+        Nenhuma falta registrada. Os lançamentos aparecem aqui assim que você registrar uma falta.
       </p>
 
       <div v-else class="frequency-table-scroll">
@@ -686,11 +666,11 @@ async function confirmReset() {
               <td>{{ entry.disciplineName }}</td>
               <td>{{ entry.reason }}</td>
               <td>{{ entry.note || '—' }}</td>
-              <td><span class="impact-badge">-{{ formatPercentage(entry.impact, 1) }}</span></td>
+              <td><span class="impact-badge">-{{ entry.impact.toLocaleString('pt-BR') }}%</span></td>
               <td>
                 <div class="frequency-actions-cell">
                   <button
-                    class="reset-action"
+                    class="undo-action"
                     type="button"
                     aria-label="Desfazer lançamento de falta"
                     title="Desfazer lançamento"
@@ -724,13 +704,6 @@ async function confirmReset() {
       @save="registerAbsence"
     />
 
-    <ResetFrequencyModal
-      v-if="rowToReset"
-      :discipline-name="rowToReset.name"
-      :absences="rowToReset.absences"
-      @close="closeResetModal"
-      @confirm="confirmReset"
-    />
   </section>
 </template>
 
@@ -742,6 +715,8 @@ async function confirmReset() {
 
 .frequency-header,
 .frequency-actions,
+.frequency-toolbar,
+.frequency-filter-options,
 .frequency-total-card,
 .table-card-header {
   align-items: center;
@@ -751,6 +726,36 @@ async function confirmReset() {
 .frequency-header {
   gap: 20px;
   justify-content: space-between;
+}
+
+.frequency-heading {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  gap: 13px;
+  min-width: 0;
+}
+
+.frequency-heading-icon {
+  align-items: center;
+  background: #f0eaff;
+  border-radius: 9px;
+  color: #6b37e8;
+  display: flex;
+  flex: 0 0 43px;
+  height: 43px;
+  justify-content: center;
+  width: 43px;
+}
+
+.frequency-heading-icon svg {
+  fill: none;
+  height: 25px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  width: 25px;
 }
 
 .frequency-heading h1 {
@@ -769,60 +774,73 @@ async function confirmReset() {
 
 .frequency-actions {
   flex-wrap: wrap;
-  gap: 13px;
+  gap: 11px;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
-.frequency-select {
-  color: #282d40;
-  display: grid;
-  font-size: .68rem;
-  font-weight: 700;
-  gap: 6px;
+.frequency-search {
+  color: #747b90;
+  flex: 0 1 245px;
+  max-width: 245px;
+  min-width: 0;
+  position: relative;
+  width: 245px;
 }
 
-.frequency-select select {
-  appearance: none;
-  background-color: #fff;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23575e73' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-position: right 14px center;
-  background-repeat: no-repeat;
+.frequency-search svg {
+  fill: none;
+  height: 18px;
+  left: 12px;
+  position: absolute;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+}
+
+.frequency-search input {
+  background: #fff;
   border: 1px solid #dedfe8;
   border-radius: 8px;
-  color: #242a3d;
-  font-weight: 400;
-  min-width: 140px;
+  color: #252a3e;
+  font-size: .72rem;
+  min-width: 0;
   outline: none;
-  padding: 11px 38px 11px 14px;
+  padding: 11px 12px 11px 38px;
+  width: 100%;
 }
 
-.frequency-select select:focus {
+.frequency-search input:focus,
+.frequency-period-filter:focus-within {
   border-color: #7544eb;
   box-shadow: 0 0 0 3px rgba(117, 68, 235, .12);
 }
 
-.primary-button,
-.secondary-button {
+.primary-button {
   align-items: center;
-  align-self: flex-end;
   border-radius: 7px;
   display: flex;
-  font-size: .76rem;
+  font-size: .72rem;
   font-weight: 700;
-  gap: 8px;
+  gap: 7px;
   justify-content: center;
-  min-height: 42px;
-  padding: 12px 18px;
+  padding: 11px 15px;
+  white-space: nowrap;
 }
 
 .primary-button {
   background: linear-gradient(100deg, #5d20df, #7419f5);
   border: 0;
-  box-shadow: 0 8px 18px rgba(101, 31, 225, .2);
+  box-shadow: 0 8px 18px rgba(101, 31, 225, .18);
   color: #fff;
 }
 
 .primary-button span {
-  font-size: 1.12rem;
+  font-size: 1.05rem;
   font-weight: 400;
   line-height: .8;
 }
@@ -832,35 +850,12 @@ async function confirmReset() {
   transform: translateY(-1px);
 }
 
-.secondary-button {
-  background: #fff;
-  border: 1px solid #cfc4ef;
-  color: #6030cb;
-}
-
-.secondary-button:hover {
-  border-color: #7650df;
-  box-shadow: 0 6px 14px rgba(101, 31, 225, .12);
-}
-
-.secondary-button svg {
-  fill: none;
-  height: 17px;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.7;
-  width: 17px;
-}
-
-.primary-button:disabled,
-.secondary-button:disabled {
+.primary-button:disabled {
   cursor: wait;
   opacity: .6;
 }
 
 .primary-button:focus-visible,
-.secondary-button:focus-visible,
 .see-all:focus-visible,
 .frequency-actions-cell button:focus-visible {
   outline: 3px solid rgba(105, 54, 224, .28);
@@ -871,6 +866,91 @@ async function confirmReset() {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.frequency-toolbar {
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.frequency-situation-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+
+.frequency-situation-filters button,
+.frequency-period-filter,
+.clear-filters {
+  background: #fff;
+  border: 1px solid #e1e2e9;
+  color: #34394c;
+}
+
+.frequency-situation-filters button {
+  border-radius: 7px;
+  font-size: .7rem;
+  padding: 10px 17px;
+}
+
+.frequency-situation-filters button.active {
+  border-color: #6f36e7;
+  color: #6126d8;
+  font-weight: 700;
+}
+
+.frequency-filter-options {
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.frequency-period-filter {
+  align-items: center;
+  border-radius: 7px;
+  display: flex;
+  font-size: .68rem;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 9px 0 14px;
+}
+
+.frequency-period-filter span {
+  font-weight: 700;
+}
+
+.frequency-period-filter select {
+  background: transparent;
+  border: 0;
+  color: #43495e;
+  outline: none;
+  padding: 10px 4px;
+}
+
+.clear-filters {
+  border-radius: 7px;
+  color: #535a70;
+  font-size: .68rem;
+  padding: 11px 13px;
+}
+
+.clear-filters:hover {
+  border-color: #7650df;
+  color: #6030cb;
+}
+
+.sr-only {
+  clip: rect(0, 0, 0, 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
 }
 
 .frequency-total-card {
@@ -1248,11 +1328,11 @@ async function confirmReset() {
   color: #6532d8;
 }
 
-.frequency-actions-cell button.reset-action {
+.frequency-actions-cell button.undo-action {
   color: #e13f32;
 }
 
-.frequency-actions-cell button.reset-action:hover {
+.frequency-actions-cell button.undo-action:hover {
   background: #fff0ed;
   color: #e24c39;
 }
@@ -1285,9 +1365,16 @@ async function confirmReset() {
 }
 
 @media (max-width: 980px) {
-  .frequency-header {
+  .frequency-header,
+  .frequency-toolbar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .frequency-actions,
+  .frequency-filter-options {
+    justify-content: space-between;
+    width: 100%;
   }
 
   .frequency-summary-grid {
@@ -1296,14 +1383,22 @@ async function confirmReset() {
 }
 
 @media (max-width: 620px) {
-  .frequency-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+  .frequency-actions,
+  .frequency-filter-options {
+    align-items: stretch;
+    flex-direction: column;
   }
 
+  .frequency-search,
+  .frequency-period-filter,
   .primary-button,
-  .secondary-button {
-    grid-column: 1 / -1;
+  .clear-filters {
+    max-width: none;
+    width: 100%;
+  }
+
+  .frequency-period-filter {
+    justify-content: space-between;
   }
 }
 </style>

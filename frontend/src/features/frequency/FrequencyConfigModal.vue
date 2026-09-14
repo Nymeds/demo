@@ -1,9 +1,10 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { LOSS_PER_ABSENCE, attendanceAfterAbsences, maximumAbsencesFor } from './frequencyRules.js'
 
 const props = defineProps({
   // Linhas montadas na FrequencyPage: id, name, color, minimumPercentage,
-  // configured, totalClasses e absences.
+  // configured e absences.
   rows: { type: Array, required: true },
   initialDisciplineId: { type: String, default: '' },
 })
@@ -11,11 +12,9 @@ const props = defineProps({
 const emit = defineEmits(['close', 'save'])
 
 const DEFAULT_MINIMUM = 75
-const DEFAULT_TOTAL_CLASSES = 20
 
 const selectedId = ref(props.initialDisciplineId || props.rows[0]?.id || '')
 const minimumAttendance = ref(DEFAULT_MINIMUM)
-const totalClasses = ref(DEFAULT_TOTAL_CLASSES)
 const formError = ref('')
 
 const selected = computed(() => props.rows.find(row => row.id === selectedId.value) ?? null)
@@ -23,34 +22,21 @@ const selected = computed(() => props.rows.find(row => row.id === selectedId.val
 function applySelected(row) {
   if (!row) return
   minimumAttendance.value = Number(row.minimumPercentage) || DEFAULT_MINIMUM
-  totalClasses.value = row.totalClasses ?? DEFAULT_TOTAL_CLASSES
   formError.value = ''
 }
 
 applySelected(selected.value)
 watch(selected, applySelected)
 
-const total = computed(() => Number(totalClasses.value) || 0)
 const minimum = computed(() => Number(minimumAttendance.value) || 0)
-
-const lossPerAbsence = computed(() => (total.value > 0 ? 100 / total.value : 0))
-
-// Mesmo arredondamento do FrequencyService: meia aula a menos não cumpre a exigência.
-const minimumClasses = computed(() => (
-  total.value > 0 ? Math.ceil((total.value * minimum.value) / 100) : 0
-))
-
-const maximumAbsences = computed(() => Math.max(total.value - minimumClasses.value, 0))
+const maximumAbsences = computed(() => maximumAbsencesFor(minimum.value))
 
 const simulation = computed(() => {
-  if (total.value <= 0) return []
-
-  const steps = [...new Set([0, 1, maximumAbsences.value])]
-    .filter(absences => absences <= total.value)
+  const steps = [...new Set([0, 1, maximumAbsences.value, maximumAbsences.value + 1])]
     .sort((first, second) => first - second)
 
   return steps.map(absences => {
-    const percentage = ((total.value - absences) / total.value) * 100
+    const percentage = attendanceAfterAbsences(absences)
     return { absences, percentage, below: percentage < minimum.value }
   })
 })
@@ -65,19 +51,8 @@ function submitForm() {
     return
   }
 
-  if (!Number.isInteger(total.value) || total.value <= 0) {
-    formError.value = 'O total de aulas precisa ser um número inteiro maior que zero.'
-    return
-  }
-
   if (minimum.value <= 0 || minimum.value > 100) {
     formError.value = 'A frequência mínima precisa estar entre 1% e 100%.'
-    return
-  }
-
-  if (selected.value.absences > total.value) {
-    formError.value = `Esta disciplina já tem ${selected.value.absences} faltas registradas. `
-      + 'O total de aulas precisa ser maior ou igual a esse número.'
     return
   }
 
@@ -85,7 +60,6 @@ function submitForm() {
 
   emit('save', {
     disciplineId: selected.value.id,
-    totalClasses: total.value,
     minimumAttendancePercentage: minimum.value,
   })
 }
@@ -120,28 +94,18 @@ function submitForm() {
           </select>
         </label>
 
-        <div class="paired-fields">
-          <label class="form-field">
-            <span>Frequência mínima permitida <strong>*</strong></span>
-            <div class="input-with-suffix">
-              <input v-model.number="minimumAttendance" type="number" min="1" max="100" step="1" required>
-              <span aria-hidden="true">%</span>
-            </div>
-          </label>
-
-          <label class="form-field">
-            <span>Total de aulas no período <strong>*</strong></span>
-            <div class="input-with-suffix">
-              <input v-model.number="totalClasses" type="number" min="1" step="1" required>
-              <span aria-hidden="true">aulas</span>
-            </div>
-          </label>
-        </div>
+        <label class="form-field">
+          <span>Frequência mínima exigida <strong>*</strong></span>
+          <div class="input-with-suffix">
+            <input v-model.number="minimumAttendance" type="number" min="1" max="100" step="1" required>
+            <span aria-hidden="true">%</span>
+          </div>
+        </label>
 
         <p class="info-box">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v5m0-8.5v.5" /></svg>
           <span>
-            Cada falta reduzirá {{ formatPercentage(lossPerAbsence, 1) }} da frequência desta disciplina.
+            A frequência começa em 100%. Cada falta desconta {{ LOSS_PER_ABSENCE }}%, até o mínimo de 0%.
           </span>
         </p>
 
@@ -162,7 +126,7 @@ function submitForm() {
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2.7 20h18.6L12 4Z" /><path d="M12 10v4m0 3v.5" /></svg>
             <span>
               Abaixo de {{ formatPercentage(minimum) }}, a situação será considerada ruim. Você pode faltar
-              até {{ maximumAbsences }} {{ maximumAbsences === 1 ? 'aula' : 'aulas' }} no período.
+              até {{ maximumAbsences }} {{ maximumAbsences === 1 ? 'vez' : 'vezes' }} nesta disciplina sem ficar abaixo do mínimo.
             </span>
           </p>
         </section>
