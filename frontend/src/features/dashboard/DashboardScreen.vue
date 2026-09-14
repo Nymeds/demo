@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ActivitiesScreen from '../activities/ActivitiesScreen.vue'
 import DisciplinesEmpty from '../disciplines/DisciplinesEmpty.vue'
+import FrequencyPage from '../frequency/FrequencyPage.vue'
 import ProfileScreen from '../profile/ProfileScreen.vue'
 import SimulatorNotes from '../simulator/SimulatorNotes.vue'
 
@@ -285,6 +286,18 @@ onBeforeUnmount(() => {
         </button>
         <button
           type="button"
+          :class="{ active: activeSection === 'frequency' }"
+          :aria-current="activeSection === 'frequency' ? 'page' : undefined"
+          @click="activeSection = 'frequency'"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="16" rx="2" />
+            <path d="M16 3v4M8 3v4M3 11h18m-13 5 2 2 4-4" />
+          </svg>
+          Frequência
+        </button>
+        <button
+          type="button"
           :class="{ active: activeSection === 'simulator' }"
           :aria-current="activeSection === 'simulator' ? 'page' : undefined"
           @click="activeSection = 'simulator'"
@@ -547,6 +560,10 @@ onBeforeUnmount(() => {
         :access-token="accessToken"
         @navigate="activeSection = $event"
       />
+      <FrequencyPage
+        v-if="activeSection === 'frequency'"
+        :access-token="accessToken"
+      />
       <SimulatorNotes
         v-if="activeSection === 'simulator'"
         :access-token="accessToken"
@@ -574,6 +591,7 @@ onBeforeUnmount(() => {
 }
 
 .dashboard-sidebar {
+  --navigation-icon-size: 20px;
   background: linear-gradient(180deg, #111a2f 0%, #091326 100%);
   color: #fff;
   display: flex;
@@ -608,7 +626,7 @@ onBeforeUnmount(() => {
 .dashboard-logout:hover { background: rgba(255, 255, 255, .07); color: #fff; }
 .dashboard-navigation button.active { background: linear-gradient(100deg, #5431b5, #6b3ad6); box-shadow: 0 10px 24px rgba(32, 12, 88, .35); color: #fff; font-weight: 750; }
 .dashboard-navigation svg,
-.dashboard-logout svg { fill: none; flex: 0 0 20px; height: 20px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 20px; }
+.dashboard-logout svg { display: block; fill: none; flex: 0 0 var(--navigation-icon-size); height: var(--navigation-icon-size); stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: var(--navigation-icon-size); }
 .dashboard-navigation button:focus-visible,
 .dashboard-logout:focus-visible { outline: 2px solid #947eff; outline-offset: 2px; }
 .dashboard-sidebar-footer { border-top: 1px solid rgba(255, 255, 255, .07); margin-top: auto; padding-top: 16px; }
@@ -766,7 +784,7 @@ onBeforeUnmount(() => {
   .dashboard-navigation { display: grid; gap: 3px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .dashboard-navigation button, .dashboard-logout { flex-direction: column; font-size: .52rem; gap: 3px; justify-content: center; line-height: 1.05; min-width: 0; padding: 7px 2px; text-align: center; }
   .dashboard-navigation button.active { background: rgba(108, 65, 226, .42); box-shadow: none; }
-  .dashboard-navigation svg, .dashboard-logout svg { height: 18px; width: 18px; }
+  .dashboard-sidebar { --navigation-icon-size: 18px; }
   .dashboard-sidebar-footer { border: 0; margin: 0; padding: 0; }
   .dashboard-main { padding: 22px 16px 92px; }
   .dashboard-topbar { align-items: flex-start; padding: 24px; }
