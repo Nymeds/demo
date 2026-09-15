@@ -2,7 +2,10 @@
 import { computed, ref } from 'vue'
 import loginPanelImage from '../../assets/images/login-panel.png'
 import registerPanelImage from '../../assets/images/register-panel.png'
+import { useAvatar } from '../../composables/useAvatar'
 import DashboardScreen from '../dashboard/DashboardScreen.vue'
+
+const { clearAvatar } = useAvatar()
 
 const mode = ref('login')
 const name = ref('')
@@ -100,11 +103,34 @@ async function submit() {
   }
 }
 
-function logout() {
+const LOGOUT_MESSAGES = Object.freeze({
+  'account-deleted': { text: 'Sua conta e todos os seus dados foram excluídos.', type: 'success' },
+  'session-expired': { text: 'Sua sessão expirou. Entre novamente para continuar.', type: 'error' },
+})
+
+function logout(reason) {
+  const message = LOGOUT_MESSAGES[reason]
+
   authenticatedUser.value = null
   accessToken.value = ''
   password.value = ''
-  feedback.value = ''
+  // A foto do usuário anterior não pode aparecer para quem entrar em seguida.
+  clearAvatar()
+  feedback.value = message?.text || ''
+  feedbackType.value = message?.type || ''
+
+  if (reason === 'account-deleted') {
+    email.value = ''
+  }
+}
+
+function updateAuthenticatedUser(profile) {
+  authenticatedUser.value = { ...authenticatedUser.value, ...profile }
+  email.value = profile.email
+}
+
+function refreshAccessToken(token) {
+  accessToken.value = token
 }
 </script>
 
@@ -114,6 +140,8 @@ function logout() {
     :user="authenticatedUser"
     :access-token="accessToken"
     @logout="logout"
+    @user-updated="updateAuthenticatedUser"
+    @token-refreshed="refreshAccessToken"
   />
 
   <main v-else class="auth-page">

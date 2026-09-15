@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 public record UpdateGradeRequest(
         @NotBlank(message = "O nome da avaliação é obrigatório.")
@@ -24,6 +25,13 @@ public record UpdateGradeRequest(
 
         @NotNull(message = "A data do registro é obrigatória.")
         @PastOrPresent(message = "A data do registro não pode estar no futuro.")
-        LocalDate recordedAt
+        LocalDate recordedAt,
+
+        // Prova ou trabalho da mesma disciplina que comprova a nota; opcional para notas avulsas.
+        UUID activityId
 ) {
+
+    public UpdateGradeRequest(String assessmentName, BigDecimal score, LocalDate recordedAt) {
+        this(assessmentName, score, recordedAt, null);
+    }
 }

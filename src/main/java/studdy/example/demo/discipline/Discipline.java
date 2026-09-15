@@ -16,6 +16,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OrderColumn;
@@ -33,7 +34,8 @@ import studdy.example.demo.grade.Grade;
 
 @Getter
 @Entity
-@Table(name = "disciplines")
+// Índice na chave do dashboard: toda listagem de disciplinas e a tela Notas filtram por ela.
+@Table(name = "disciplines", indexes = @Index(name = "idx_disciplines_dashboard_id", columnList = "dashboard_id"))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Discipline {
 

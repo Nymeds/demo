@@ -6,6 +6,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
@@ -14,6 +15,9 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
+import studdy.example.demo.activities.Activity;
 import studdy.example.demo.discipline.Discipline;
 
 import java.math.BigDecimal;
@@ -23,7 +27,8 @@ import java.util.UUID;
 
 @Getter
 @Entity
-@Table(name = "grades")
+// Índice na chave da disciplina: a lista de notas e a tela Notas agrupam por ela.
+@Table(name = "grades", indexes = @Index(name = "idx_grades_discipline_id", columnList = "discipline_id"))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Grade {
 
@@ -34,6 +39,14 @@ public class Grade {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "discipline_id", nullable = false)
     private Discipline discipline;
+
+    // Prova ou trabalho cadastrado em Atividades que comprova de onde a nota veio (relatório: RF06).
+    // É opcional para as notas antigas. Cada atividade recebe no máximo uma nota, e excluir a
+    // atividade mantém a nota, só sem o vínculo.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "activity_id", unique = true)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
+    private Activity activity;
 
     @Column(name = "assessment_name", nullable = false, length = 120)
     private String assessmentName;
@@ -62,6 +75,17 @@ public class Grade {
         this.recordedAt = recordedAt;
     }
 
+    public Grade(
+            Discipline discipline,
+            String assessmentName,
+            BigDecimal score,
+            LocalDate recordedAt,
+            Activity activity
+    ) {
+        this(discipline, assessmentName, score, recordedAt);
+        this.activity = activity;
+    }
+
     public void update(
             String assessmentName,
             BigDecimal score,
@@ -70,6 +94,16 @@ public class Grade {
         this.assessmentName = assessmentName;
         this.score = score;
         this.recordedAt = recordedAt;
+    }
+
+    public void update(
+            String assessmentName,
+            BigDecimal score,
+            LocalDate recordedAt,
+            Activity activity
+    ) {
+        update(assessmentName, score, recordedAt);
+        this.activity = activity;
     }
 
     @PrePersist

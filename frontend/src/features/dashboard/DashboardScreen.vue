@@ -3,13 +3,18 @@ import { computed, onMounted, ref, watch } from 'vue'
 import ActivitiesScreen from '../activities/ActivitiesScreen.vue'
 import DisciplinesEmpty from '../disciplines/DisciplinesEmpty.vue'
 import SimulatorNotes from '../simulator/SimulatorNotes.vue'
+import GradesScreen from '../grades/GradesScreen.vue'
+import SettingsScreen from '../settings/SettingsScreen.vue'
+import { createSettingsApi, sectionFromPreference } from '../settings/settingsApi'
+import { useAvatar } from '../../composables/useAvatar'
+import SidebarUserMenu from './SidebarUserMenu.vue'
 
 const { user, accessToken } = defineProps({
   user: { type: Object, required: true },
   accessToken: { type: String, required: true },
 })
 
-const emit = defineEmits(['logout'])
+const emit = defineEmits(['logout', 'user-updated', 'token-refreshed'])
 const activeSection = ref('dashboard')
 const dashboardLoading = ref(true)
 const dashboardError = ref('')
@@ -111,7 +116,36 @@ function activityStatus(activity) {
   return { label: 'Pendente', className: 'is-pending' }
 }
 
-onMounted(loadDashboard)
+// Abre a tela inicial escolhida em Configurações, a menos que o estudante já tenha navegado.
+async function applyStartSection() {
+  try {
+    const preferences = await apiRequest('/api/v1/settings/preferences')
+
+    if (activeSection.value === 'dashboard') {
+      activeSection.value = sectionFromPreference(preferences.startSection)
+    }
+  } catch (error) {
+    // A preferência é só conveniência: sem ela o dashboard continua sendo a tela inicial.
+    console.warn('Não foi possível aplicar a tela inicial preferida.', error.message)
+  }
+}
+
+const { loadAvatar } = useAvatar()
+
+async function loadSidebarAvatar() {
+  try {
+    await loadAvatar(createSettingsApi(() => accessToken))
+  } catch (error) {
+    // Sem a foto, a caixa do usuário continua mostrando a inicial do nome.
+    console.warn('Não foi possível carregar a foto de perfil.', error.message)
+  }
+}
+
+onMounted(() => {
+  loadDashboard()
+  applyStartSection()
+  loadSidebarAvatar()
+})
 watch(activeSection, section => {
   if (section === 'dashboard') loadDashboard()
 })
@@ -168,6 +202,18 @@ watch(activeSection, section => {
           </svg>
           Atividades
         </button>
+        <button
+          type="button"
+          :class="{ active: activeSection === 'grades' }"
+          :aria-current="activeSection === 'grades' ? 'page' : undefined"
+          @click="activeSection = 'grades'"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 17l6-6 4 4 8-8" />
+            <path d="M14 7h7v7" />
+          </svg>
+          Notas
+        </button>
       <button
           type="button"
           :class="{ active: activeSection === 'simulator' }"
@@ -182,13 +228,12 @@ watch(activeSection, section => {
       </button>
       </nav>
       <div class="dashboard-sidebar-footer">
-        <div class="dashboard-user-card" :title="user.name">
-          <span class="dashboard-user-avatar" aria-hidden="true">{{ userInitial }}</span>
-          <span class="dashboard-user-details">
-            <strong>{{ user.name }}</strong>
-            <small>Usuário conectado</small>
-          </span>
-        </div>
+        <SidebarUserMenu
+          :name="user.name"
+          :initial="userInitial"
+          :settings-active="activeSection === 'settings'"
+          @open-settings="activeSection = 'settings'"
+        />
         <button class="dashboard-logout" type="button" @click="emit('logout')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10" />
@@ -377,10 +422,24 @@ watch(activeSection, section => {
         :access-token="accessToken"
         @navigate="activeSection = $event"
       />
+      <GradesScreen
+        v-if="activeSection === 'grades'"
+        :access-token="accessToken"
+        @navigate="activeSection = $event"
+        @session-expired="emit('logout', 'session-expired')"
+      />
       <SimulatorNotes
         v-if="activeSection === 'simulator'"
         :access-token="accessToken"
         @navigate="activeSection = $event"
+      />
+      <SettingsScreen
+        v-if="activeSection === 'settings'"
+        :access-token="accessToken"
+        @profile-updated="emit('user-updated', $event)"
+        @token-refreshed="emit('token-refreshed', $event)"
+        @account-deleted="emit('logout', 'account-deleted')"
+        @session-expired="emit('logout', 'session-expired')"
       />
     </main>
   </div>
@@ -434,11 +493,6 @@ watch(activeSection, section => {
 .dashboard-navigation button:focus-visible,
 .dashboard-logout:focus-visible { outline: 2px solid #947eff; outline-offset: 2px; }
 .dashboard-sidebar-footer { border-top: 1px solid rgba(255, 255, 255, .07); margin-top: auto; padding-top: 16px; }
-.dashboard-user-card { align-items: center; background: rgba(255, 255, 255, .045); border-radius: 9px; display: flex; gap: 10px; margin-bottom: 9px; min-width: 0; padding: 10px; }
-.dashboard-user-avatar { align-items: center; background: linear-gradient(135deg, #7749f7, #5320da); border-radius: 50%; display: flex; flex: 0 0 36px; font-size: .78rem; font-weight: 800; height: 36px; justify-content: center; }
-.dashboard-user-details { min-width: 0; }
-.dashboard-user-details strong { display: block; font-size: .71rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dashboard-user-details small { color: #a9b1c1; display: block; font-size: .61rem; margin-top: 2px; }
 .dashboard-main { margin: 0 auto; min-width: 0; padding: 30px clamp(24px, 3vw, 48px) 48px; width: 100%; }
 .dashboard-topbar { align-items: center; background: linear-gradient(120deg, #5730b7 0%, #7043d7 52%, #875ceb 100%); border-radius: 20px; box-shadow: 0 18px 42px rgba(91, 51, 184, .2); color: #fff; display: flex; justify-content: space-between; margin-bottom: 22px; overflow: hidden; padding: 28px 30px; position: relative; }
 .dashboard-topbar::after { background: rgba(255, 255, 255, .08); border-radius: 50%; content: ''; height: 240px; position: absolute; right: -65px; top: -125px; width: 240px; }
@@ -540,13 +594,14 @@ watch(activeSection, section => {
 }
 @media (max-width: 760px) {
   .dashboard-shell { display: block; }
-  .dashboard-sidebar { align-items: stretch; bottom: 0; display: grid; grid-template-columns: minmax(0, 1fr) 64px; height: auto; left: 0; padding: 7px 10px max(7px, env(safe-area-inset-bottom)); position: fixed; right: 0; top: auto; z-index: 80; }
-  .dashboard-brand, .dashboard-user-card { display: none; }
-  .dashboard-navigation { display: grid; gap: 4px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .dashboard-sidebar { align-items: stretch; bottom: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; height: auto; left: 0; padding: 7px 10px max(7px, env(safe-area-inset-bottom)); position: fixed; right: 0; top: auto; z-index: 80; }
+  .dashboard-brand { display: none; }
+  .dashboard-navigation { display: grid; gap: 4px; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; }
   .dashboard-navigation button, .dashboard-logout { flex-direction: column; font-size: .57rem; gap: 3px; justify-content: center; padding: 7px 5px; text-align: center; }
   .dashboard-navigation button.active { background: rgba(108, 65, 226, .42); box-shadow: none; }
   .dashboard-navigation svg, .dashboard-logout svg { height: 18px; width: 18px; }
-  .dashboard-sidebar-footer { border: 0; margin: 0; padding: 0; }
+  .dashboard-sidebar-footer { align-items: stretch; border: 0; display: flex; gap: 4px; margin: 0; padding: 0; }
+  .dashboard-logout { width: 58px; }
   .dashboard-main { padding: 22px 16px 92px; }
   .dashboard-topbar { align-items: flex-start; padding: 24px; }
   .dashboard-welcome { max-width: calc(100% - 64px); }

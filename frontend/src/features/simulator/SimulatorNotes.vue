@@ -46,7 +46,7 @@
 
         </button>
 
-        <button class="help-button">
+        <button ref="helpButton" class="help-button" type="button" @click="showHelp = true">
 
           <span class="help-icon">?</span>
 
@@ -83,7 +83,7 @@
 
           </span>
 
-          <select v-model="selectedDiscipline">
+          <select ref="disciplineSelect" v-model="selectedDiscipline" aria-label="Disciplina">
 
             <option value="">
               Selecione uma disciplina
@@ -392,8 +392,20 @@
               max="10"
               step="0.1"
               @change="simulate"
+              @keydown="blockInvalidNumberKeys"
+              :aria-invalid="Boolean(desiredAverageError)"
+              aria-describedby="desired-average-error"
               placeholder="8,5"
             />
+
+            <p
+              v-if="desiredAverageError"
+              id="desired-average-error"
+              class="field-error"
+              role="alert"
+            >
+              {{ desiredAverageError }}
+            </p>
 
           </div>
 
@@ -439,7 +451,7 @@
             </span>
 
             <strong>
-              {{ formatNumber(requiredGrade) }}
+              {{ formatNumber(displayedRequiredGrade) }}
             </strong>
 
           </div>
@@ -559,9 +571,10 @@
 
               </div>
 
-              <span>
-                {{ note.name }}
-              </span>
+              <div class="evaluation-text">
+                <span>{{ note.name }}</span>
+                <small>{{ linkedActivityLabel(note) }}</small>
+              </div>
 
             </div>
 
@@ -614,12 +627,23 @@
 
 
         <button
+          ref="addGradeButton"
           class="add-grade-button"
-          :disabled="!selectedDiscipline"
+          type="button"
+          :aria-describedby="addGradeHint ? 'add-grade-hint' : undefined"
           @click="openGradeModal"
         >
           ＋ Adicionar avaliação lançada
         </button>
+
+        <p
+          v-if="addGradeHint"
+          id="add-grade-hint"
+          class="add-grade-hint"
+          role="alert"
+        >
+          {{ addGradeHint }}
+        </p>
 
       </section>
 
@@ -682,22 +706,47 @@
 
   </div>
   <GradeModal
-  v-if="showGradeModal"
-  :saving="savingGrade"
-  @close="closeGradeModal"
-  @save="saveGrade"
-/>
+    v-if="showGradeModal"
+    :activities="activities"
+    :activities-status="activitiesStatus"
+    :graded-activity-ids="gradedActivityIds"
+    :discipline-name="selectedDisciplineName"
+    :saving="savingGrade"
+    :error-message="gradeError"
+    @close="closeGradeModal"
+    @save="saveGrade"
+    @retry="loadActivities"
+    @go-to-activities="goToActivities"
+  />
+  <SimulatorHelpModal
+    v-if="showHelp"
+    @close="closeHelp"
+  />
 </template>
 
 
 <script setup>
 import GradeModal from './GradeModal.vue'
+import SimulatorHelpModal from './SimulatorHelpModal.vue'
+import { periodKeyOf } from '../grades/gradesPresentation'
 import {
   computed,
+  nextTick,
   onMounted,
   ref,
   watch
 } from 'vue'
+
+// Explicação passo a passo aberta pelo botão "Como funciona?"
+const showHelp = ref(false)
+const helpButton = ref(null)
+
+async function closeHelp() {
+  showHelp.value = false
+  await nextTick()
+  helpButton.value?.focus()
+}
+
 const selectedDiscipline = ref('')
 const dashboardId = ref('')
 const disciplines = ref([])
@@ -711,37 +760,24 @@ const props = defineProps({
     required: true
   }
 })
+
+const emit = defineEmits(['navigate'])
 // periodos 
+// Mesma regra de período da tela Notas: o ano pode estar em "periodo" ou em "semester"
+// (disciplinas antigas gravam "2026.2" em semester e "2" em periodo).
 function getDisciplinePeriod(discipline) {
-  const rawPeriod = String(discipline.periodo ?? '')
-  const rawSemester = String(discipline.semester ?? '')
+  const key = periodKeyOf(discipline)
 
-  // Procura um ano de 4 dígitos, mesmo em valores antigos como "2.2026"
-  const yearMatch = rawPeriod.match(/\d{4}/)
-
-  if (!yearMatch) {
+  if (!key) {
     return null
   }
 
-  const year = Number(yearMatch[0])
-
-  let semester = Number(rawSemester)
-
-  // Caso semester não esteja válido, tenta descobrir pelo período antigo
-  if (semester !== 1 && semester !== 2) {
-    const parts = rawPeriod.split('.')
-
-    const possibleSemester = parts
-      .map(Number)
-      .find(value => value === 1 || value === 2)
-
-    semester = possibleSemester ?? 1
-  }
+  const [year, semester] = key.split('.').map(Number)
 
   return {
     year,
     semester,
-    value: `${year}.${semester}`
+    value: key
   }
 }
 const availablePeriods = computed(() => {
@@ -824,18 +860,94 @@ async function apiRequest(path, options = {}) {
 ========================= */
 
 const showGradeModal = ref(false)
+const addGradeHint = ref('')
+const addGradeButton = ref(null)
+const disciplineSelect = ref(null)
 
-function openGradeModal() {
+// Provas e trabalhos da disciplina: a nota lançada fica vinculada a um deles (relatório, RF06).
+const activities = ref([])
+const activitiesStatus = ref('idle')
 
-  if (!selectedDiscipline.value) {
+const gradedActivityIds = computed(() =>
+  notes.value
+    .map(note => note.activityId)
+    .filter(Boolean)
+)
+
+const selectedDisciplineName = computed(() =>
+  disciplines.value.find(item => item.id === selectedDiscipline.value)?.name ?? ''
+)
+
+function linkedActivityLabel(note) {
+  if (!note.activityId) {
+    return 'Sem avaliação vinculada'
+  }
+
+  const activity = activities.value.find(item => item.id === note.activityId)
+
+  return activity ? `Vinculada a ${activity.title}` : 'Avaliação vinculada'
+}
+
+async function loadActivities() {
+  const disciplineId = selectedDiscipline.value
+
+  if (!dashboardId.value || !disciplineId) {
+    activities.value = []
+    activitiesStatus.value = 'idle'
     return
+  }
+
+  activitiesStatus.value = 'loading'
+
+  try {
+    const result = await apiRequest(
+      `/api/v1/dashboards/${dashboardId.value}/disciplines/${disciplineId}/activities`
+    )
+
+    // Ignora a resposta se a disciplina mudou enquanto a requisição estava em andamento.
+    if (disciplineId !== selectedDiscipline.value) {
+      return
+    }
+
+    activities.value = result
+    activitiesStatus.value = 'ready'
+  } catch {
+    if (disciplineId !== selectedDiscipline.value) {
+      return
+    }
+
+    activities.value = []
+    activitiesStatus.value = 'error'
+  }
+}
+
+// Sem disciplina escolhida o botão explica o que falta, em vez de ficar sem resposta.
+function openGradeModal() {
+  if (!selectedDiscipline.value) {
+    addGradeHint.value = 'Selecione uma disciplina acima para lançar a nota.'
+    disciplineSelect.value?.focus()
+    return
+  }
+
+  addGradeHint.value = ''
+  gradeError.value = ''
+
+  if (activitiesStatus.value === 'idle' || activitiesStatus.value === 'error') {
+    loadActivities()
   }
 
   showGradeModal.value = true
 }
 
-function closeGradeModal() {
+async function closeGradeModal() {
   showGradeModal.value = false
+  await nextTick()
+  addGradeButton.value?.focus()
+}
+
+function goToActivities() {
+  showGradeModal.value = false
+  emit('navigate', 'activities')
 }
 
 // salvar a grade 
@@ -869,7 +981,10 @@ async function saveGrade(formData) {
             Number(formData.score),
 
           recordedAt:
-            formData.recordedAt
+            formData.recordedAt,
+
+          activityId:
+            formData.activityId
         })
       }
     )
@@ -881,15 +996,16 @@ async function saveGrade(formData) {
     closeGradeModal()
 
   } catch (error) {
-    console.error(
-      'Erro ao adicionar avaliação:',
-      error
-    )
+    // A mensagem aparece dentro do modal, em vez de a falha passar despercebida.
+    gradeError.value =
+      error.message || 'Não foi possível adicionar a avaliação.'
 
   } finally {
     savingGrade.value = false
   }
 }
+
+const gradeError = ref('')
 //dados mockados
 const passingAverage = ref(6)
 const desiredAverage = ref(6)
@@ -987,7 +1103,8 @@ async function loadGrades() {
         id: grade.id,
         name: grade.assessmentName,
         value: Number(grade.score),
-        recordedAt: grade.recordedAt
+        recordedAt: grade.recordedAt,
+        activityId: grade.activityId ?? null
       }))
       .sort((a, b) => {
         return (
@@ -1050,20 +1167,49 @@ function formatNumber(value) {
    SIMULAR
 ========================= */
 
+const desiredAverageError = ref('')
+
+// Com a meta já alcançada a conta dá negativo; na tela isso aparece como 0,0.
+const displayedRequiredGrade = computed(() =>
+  Math.max(0, requiredGrade.value)
+)
+
+// Notas e médias são positivas: "-", "+" e "e" (notação científica) não são digitáveis.
+function blockInvalidNumberKeys(event) {
+  if (['-', '+', 'e', 'E'].includes(event.key)) {
+    event.preventDefault()
+  }
+}
+
+function validateDesiredAverage(value) {
+  if (value === '' || value === null || Number.isNaN(Number(value))) {
+    return 'Informe a média desejada.'
+  }
+
+  if (Number(value) < 0) {
+    return 'A média desejada não pode ser negativa.'
+  }
+
+  if (Number(value) > maxGrade.value) {
+    return 'A média desejada deve ser de no máximo 10.'
+  }
+
+  return ''
+}
+
 function simulate() {
   if (!selectedDiscipline.value) {
     return
   }
 
-  const target = Number(desiredAverage.value)
+  desiredAverageError.value = validateDesiredAverage(desiredAverage.value)
 
-  if (
-    Number.isNaN(target) ||
-    target < 0 ||
-    target > maxGrade.value
-  ) {
+  if (desiredAverageError.value) {
+    showResult.value = false
     return
   }
+
+  const target = Number(desiredAverage.value)
 
   const numberOfNotes = notes.value.length
 
@@ -1129,6 +1275,9 @@ watch(selectedPeriod, () => {
 // toda vez que mudar a disciplina, recarrega as notas
 watch(selectedDiscipline, async () => {
   showResult.value = false
+  addGradeHint.value = ''
+  activities.value = []
+  activitiesStatus.value = 'idle'
 
   if (!selectedDiscipline.value) {
     notes.value = []
@@ -1147,13 +1296,21 @@ watch(selectedDiscipline, async () => {
       Number(discipline.passingAverage ?? 6)
   }
 
-  await loadGrades()
+  await Promise.all([loadGrades(), loadActivities()])
 })
 
 </script>
 
 
 <style scoped>
+
+.field-error {
+  color: #c4463e;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 6px 0 0;
+}
+
 
 /* =========================
    PÁGINA
@@ -2196,6 +2353,57 @@ watch(selectedDiscipline, async () => {
   color: #6330e0 !important;
 
   cursor: pointer;
+
+}
+
+
+.add-grade-button:hover {
+
+  border-color: #6330e0;
+
+  background: #f7f3ff;
+
+}
+
+
+.add-grade-button:focus-visible {
+
+  outline: 2px solid rgba(99, 48, 224, 0.45);
+
+  outline-offset: 2px;
+
+}
+
+
+.add-grade-hint {
+
+  margin: 8px 0 0;
+
+  color: #b4520c;
+
+  font-size: 12px;
+
+  font-weight: 600;
+
+}
+
+
+.evaluation-text {
+
+  display: grid;
+
+  gap: 2px;
+
+  min-width: 0;
+
+}
+
+
+.evaluation-text small {
+
+  color: #8a879b !important;
+
+  font-size: 10px;
 
 }
 
