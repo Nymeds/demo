@@ -5,6 +5,7 @@ import DisciplinesEmpty from '../disciplines/DisciplinesEmpty.vue'
 import FrequencyPage from '../frequency/FrequencyPage.vue'
 import ProfileScreen from '../profile/ProfileScreen.vue'
 import SimulatorNotes from '../simulator/SimulatorNotes.vue'
+import { frequencySituation } from '../frequency/frequencyRules.js'
 
 const { user, accessToken } = defineProps({
   user: { type: Object, required: true },
@@ -18,6 +19,7 @@ const dashboardLoading = ref(true)
 const dashboardError = ref('')
 const disciplines = ref([])
 const activities = ref([])
+const selectedFrequencyDisciplineId = ref('')
 const currentDateTime = ref(new Date())
 
 const weekDayNumbers = {
@@ -81,10 +83,14 @@ async function loadDashboard() {
     if (!dashboard) {
       disciplines.value = []
       activities.value = []
+      selectedFrequencyDisciplineId.value = ''
       return
     }
 
     disciplines.value = await apiRequest(`/api/v1/dashboards/${dashboard.id}/disciplines`)
+    if (!disciplines.value.some(discipline => discipline.id === selectedFrequencyDisciplineId.value)) {
+      selectedFrequencyDisciplineId.value = disciplines.value[0]?.id || ''
+    }
     const activityLists = await Promise.all(disciplines.value.map(discipline =>
       apiRequest(`/api/v1/dashboards/${dashboard.id}/disciplines/${discipline.id}/activities`),
     ))
@@ -137,7 +143,7 @@ const dashboardActivities = computed(() => [...activities.value]
     return first.dueDate.localeCompare(second.dueDate)
   })
   .slice(0, 3))
-const upcomingClasses = computed(() => disciplines.value
+const nextClass = computed(() => disciplines.value
   .flatMap(discipline => (discipline.schedules || []).map((schedule, scheduleIndex) => {
     const dayNumber = weekDayNumbers[schedule.dayOfWeek]
     const [hours, minutes] = String(schedule.startTime || '').split(':').map(Number)
@@ -160,7 +166,7 @@ const upcomingClasses = computed(() => disciplines.value
   }))
   .filter(Boolean)
   .sort((first, second) => first.startsAt - second.startsAt)
-  .slice(0, 3))
+  .at(0) || null)
 
 function formatAverage(value) {
   return value === null ? '—' : value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -219,6 +225,68 @@ onMounted(() => {
   clockTimer = window.setInterval(() => {
     currentDateTime.value = new Date()
   }, 60000)
+})
+const selectedFrequencyDiscipline = computed(() => disciplines.value.find(
+  discipline => discipline.id === selectedFrequencyDisciplineId.value,
+) || disciplines.value[0] || null)
+const selectedFrequencyDetails = computed(() => {
+  const discipline = selectedFrequencyDiscipline.value
+  if (!discipline) return null
+
+  const attendance = Math.max(0, Math.min(100, Number(discipline.attendancePercentage ?? 100)))
+  const absences = Math.max(0, Number(discipline.absences ?? 0))
+  const lossPerAbsence = Number(discipline.lossPerAbsence ?? 5)
+  const minimum = Number(discipline.minimumAttendancePercentage ?? 75)
+  const maximumAbsences = Math.max(0, Number(
+    discipline.maximumAbsences ?? Math.floor((100 - minimum) / lossPerAbsence),
+  ))
+  const remainingAbsences = Math.max(0, maximumAbsences - absences)
+  const situation = frequencySituation(attendance, minimum, maximumAbsences - absences)
+
+  if (situation === 'bad') {
+    return {
+      discipline,
+      attendance,
+      absences,
+      lossPerAbsence,
+      minimum,
+      maximumAbsences,
+      remainingAbsences,
+      message: 'Sua frequência está abaixo do mínimo exigido para aprovação.',
+      messageClass: 'is-danger',
+      ringColor: '#e04433',
+    }
+  }
+
+  if (situation === 'warning') {
+    return {
+      discipline,
+      attendance,
+      absences,
+      lossPerAbsence,
+      minimum,
+      maximumAbsences,
+      remainingAbsences,
+      message: remainingAbsences === 0
+        ? 'Você está no limite mínimo. Uma nova falta deixará a frequência abaixo do exigido.'
+        : 'Atenção: resta apenas uma falta antes de atingir o limite mínimo.',
+      messageClass: 'is-warning',
+      ringColor: '#f0951f',
+    }
+  }
+
+  return {
+    discipline,
+    attendance,
+    absences,
+    lossPerAbsence,
+    minimum,
+    maximumAbsences,
+    remainingAbsences,
+    message: `Você está acima do mínimo exigido e ainda pode registrar ${remainingAbsences} ${remainingAbsences === 1 ? 'falta' : 'faltas'}.`,
+    messageClass: 'is-success',
+    ringColor: '#20aa60',
+  }
 })
 watch(activeSection, section => {
   if (section === 'dashboard') loadDashboard()
@@ -309,22 +377,31 @@ onBeforeUnmount(() => {
           Simulador de Notas
         </button>
       </nav>
-      <div class="dashboard-sidebar-footer">
+      <nav class="dashboard-profile-navigation" aria-label="Conta">
         <button
-          class="dashboard-user-card"
           type="button"
-          :title="`Abrir perfil de ${user.name}`"
+          :class="{ active: activeSection === 'profile' }"
+          :aria-current="activeSection === 'profile' ? 'page' : undefined"
           @click="activeSection = 'profile'"
         >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 21a8 8 0 0 1 16 0" />
+          </svg>
+          Perfil
+        </button>
+      </nav>
+      <div class="dashboard-sidebar-footer">
+        <div class="dashboard-user-card">
           <span class="dashboard-user-avatar" aria-hidden="true">
             <img v-if="sidebarAvatarUrl" :src="sidebarAvatarUrl" alt="" />
             <template v-else>{{ userInitial }}</template>
           </span>
           <span class="dashboard-user-details">
             <strong>{{ user.name }}</strong>
-            <small>Ver perfil</small>
+            <small>{{ user.email || 'Conta do estudante' }}</small>
           </span>
-        </button>
+        </div>
         <button class="dashboard-logout" type="button" @click="emit('logout')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10" />
@@ -428,53 +505,53 @@ onBeforeUnmount(() => {
           </button>
         </article>
         <div v-else class="dashboard-content-grid">
-          <section class="dashboard-panel dashboard-classes-panel" aria-labelledby="dashboard-classes-title">
-            <header class="dashboard-panel-header">
-              <div>
-                <span class="dashboard-eyebrow">Próximas aulas</span>
-                <h2 id="dashboard-classes-title">Suas próximas aulas</h2>
-              </div>
-              <button type="button" @click="activeSection = 'disciplines'">Ver todas <span aria-hidden="true">→</span></button>
-            </header>
-
-            <div v-if="upcomingClasses.length === 0" class="dashboard-panel-empty dashboard-classes-empty">
-              <span aria-hidden="true">
-                <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18" /></svg>
-              </span>
-              <div><strong>Nenhum horário de aula cadastrado</strong><p>Adicione os dias e horários nas suas disciplinas para visualizar as próximas aulas.</p></div>
-              <button type="button" @click="activeSection = 'disciplines'">Cadastrar horários</button>
-            </div>
-
-            <ul v-else class="dashboard-class-list">
-              <li v-for="upcomingClass in upcomingClasses" :key="upcomingClass.id">
-                <span
-                  class="dashboard-class-icon"
-                  :style="{ '--discipline-color': upcomingClass.discipline.color || '#6d3ce8' }"
-                  aria-hidden="true"
-                >
-                  <svg viewBox="0 0 24 24"><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" /></svg>
-                </span>
-                <div class="dashboard-class-info">
-                  <strong>{{ upcomingClass.discipline.name }}</strong>
-                  <small>Prof: {{ upcomingClass.discipline.professorName || 'Não informado' }}</small>
+          <div class="dashboard-main-column">
+            <section class="dashboard-panel dashboard-classes-panel" aria-labelledby="dashboard-classes-title">
+              <header class="dashboard-panel-header">
+                <div>
+                  <span class="dashboard-eyebrow">Próxima aula</span>
+                  <h2 id="dashboard-classes-title">Sua próxima aula</h2>
                 </div>
-                <time class="dashboard-class-time" :datetime="classDateTime(upcomingClass)">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18" /></svg>
-                  <span>{{ formatClassSchedule(upcomingClass) }}</span>
-                </time>
-                <button
-                  class="dashboard-class-open"
-                  type="button"
-                  :aria-label="`Ver disciplina ${upcomingClass.discipline.name}`"
-                  @click="activeSection = 'disciplines'"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
-                </button>
-              </li>
-            </ul>
-          </section>
+                <button type="button" @click="activeSection = 'disciplines'">Ver disciplinas <span aria-hidden="true">→</span></button>
+              </header>
 
-          <aside class="dashboard-side-column">
+              <div v-if="!nextClass" class="dashboard-panel-empty dashboard-classes-empty">
+                <span aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18" /></svg>
+                </span>
+                <div><strong>Nenhum horário de aula cadastrado</strong><p>Adicione os dias e horários nas suas disciplinas para visualizar as próximas aulas.</p></div>
+                <button type="button" @click="activeSection = 'disciplines'">Cadastrar horários</button>
+              </div>
+
+              <ul v-else class="dashboard-class-list">
+                <li>
+                  <span
+                    class="dashboard-class-icon"
+                    :style="{ '--discipline-color': nextClass.discipline.color || '#6d3ce8' }"
+                    aria-hidden="true"
+                  >
+                    <svg viewBox="0 0 24 24"><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" /></svg>
+                  </span>
+                  <div class="dashboard-class-info">
+                    <strong>{{ nextClass.discipline.name }}</strong>
+                    <small>Prof: {{ nextClass.discipline.professorName || 'Não informado' }}</small>
+                  </div>
+                  <time class="dashboard-class-time" :datetime="classDateTime(nextClass)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18" /></svg>
+                    <span>{{ formatClassSchedule(nextClass) }}</span>
+                  </time>
+                  <button
+                    class="dashboard-class-open"
+                    type="button"
+                    :aria-label="`Ver disciplina ${nextClass.discipline.name}`"
+                    @click="activeSection = 'disciplines'"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+                  </button>
+                </li>
+              </ul>
+            </section>
+
             <section class="dashboard-panel dashboard-side-activities" aria-labelledby="dashboard-activities-title">
               <header class="dashboard-panel-header">
                 <h2 id="dashboard-activities-title">Atividades pendentes</h2>
@@ -502,6 +579,78 @@ onBeforeUnmount(() => {
                 </li>
               </ul>
             </section>
+          </div>
+
+          <aside class="dashboard-side-column">
+            <section
+              v-if="selectedFrequencyDetails"
+              class="dashboard-panel dashboard-frequency-panel"
+              aria-labelledby="dashboard-frequency-title"
+            >
+              <header class="dashboard-panel-header">
+                <div>
+                  <span class="dashboard-eyebrow">Acompanhamento</span>
+                  <h2 id="dashboard-frequency-title">Detalhes da frequência</h2>
+                </div>
+                <button type="button" @click="activeSection = 'frequency'">Ver todas <span aria-hidden="true">→</span></button>
+              </header>
+
+              <div class="dashboard-frequency-content" aria-live="polite">
+                <select
+                  class="dashboard-frequency-select"
+                  aria-label="Selecionar disciplina para consultar a frequência"
+                  :value="selectedFrequencyDisciplineId"
+                  @change="selectedFrequencyDisciplineId = $event.target.value"
+                >
+                  <option v-for="discipline in disciplines" :key="discipline.id" :value="discipline.id">
+                    {{ discipline.name }}
+                  </option>
+                </select>
+
+                <div class="dashboard-frequency-details">
+                  <div
+                    class="dashboard-frequency-ring"
+                    :style="{
+                      '--frequency-angle': `${selectedFrequencyDetails.attendance * 3.6}deg`,
+                      '--frequency-color': selectedFrequencyDetails.ringColor,
+                    }"
+                    role="img"
+                    :aria-label="`Frequência atual de ${Math.round(selectedFrequencyDetails.attendance)}%`"
+                  >
+                    <div>
+                      <strong>{{ Math.round(selectedFrequencyDetails.attendance) }}%</strong>
+                      <span>Frequência</span>
+                    </div>
+                  </div>
+
+                  <dl class="dashboard-frequency-metrics">
+                    <div>
+                      <dt><span class="is-red" aria-hidden="true"></span>Faltas registradas</dt>
+                      <dd>{{ selectedFrequencyDetails.absences }}</dd>
+                    </div>
+                    <div>
+                      <dt><span class="is-purple" aria-hidden="true"></span>Limite de faltas</dt>
+                      <dd>{{ selectedFrequencyDetails.maximumAbsences }}</dd>
+                    </div>
+                    <div>
+                      <dt><span class="is-orange" aria-hidden="true"></span>Perda por falta</dt>
+                      <dd>{{ selectedFrequencyDetails.lossPerAbsence }}%</dd>
+                    </div>
+                  </dl>
+                </div>
+
+                <div class="dashboard-frequency-minimum">
+                  <span>Limite mínimo: {{ Math.round(selectedFrequencyDetails.minimum) }}%</span>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v5m0-8v.01" /></svg>
+                </div>
+
+                <p :class="['dashboard-frequency-message', selectedFrequencyDetails.messageClass]">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 8v5m0 3v.01" /></svg>
+                  {{ selectedFrequencyDetails.message }}
+                </p>
+              </div>
+            </section>
+
 
             <section class="dashboard-panel dashboard-progress-panel" aria-labelledby="dashboard-progress-title">
               <span class="dashboard-eyebrow">Seu ritmo</span>
@@ -509,12 +658,6 @@ onBeforeUnmount(() => {
               <div class="dashboard-progress-value"><strong>{{ completionPercentage }}%</strong><span>{{ completedActivities }} de {{ activities.length }} concluídas</span></div>
               <div class="dashboard-progress-track" aria-hidden="true"><span :style="{ width: `${completionPercentage}%` }"></span></div>
               <div class="dashboard-progress-meta"><span><strong>{{ pendingActivities.length }}</strong> pendentes</span><span :class="{ 'has-overdue': overdueActivities > 0 }"><strong>{{ overdueActivities }}</strong> atrasadas</span></div>
-            </section>
-
-            <section class="dashboard-panel dashboard-actions-panel" aria-labelledby="dashboard-actions-title">
-              <h2 id="dashboard-actions-title">Acesso rápido</h2>
-              <button type="button" @click="activeSection = 'disciplines'"><span aria-hidden="true">＋</span><div><strong>Nova disciplina</strong><small>Organize uma nova matéria</small></div></button>
-              <button type="button" @click="activeSection = 'activities'"><span aria-hidden="true">✓</span><div><strong>Nova atividade</strong><small>Registre um prazo acadêmico</small></div></button>
             </section>
           </aside>
         </div>
@@ -608,6 +751,7 @@ onBeforeUnmount(() => {
 .dashboard-brand small { color: #9faac0; display: block; font-size: .64rem; margin-top: 3px; }
 .dashboard-navigation { display: grid; gap: 7px; }
 .dashboard-navigation button,
+.dashboard-profile-navigation button,
 .dashboard-logout {
   align-items: center;
   background: transparent;
@@ -623,21 +767,24 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 .dashboard-navigation button:hover,
+.dashboard-profile-navigation button:hover,
 .dashboard-logout:hover { background: rgba(255, 255, 255, .07); color: #fff; }
-.dashboard-navigation button.active { background: linear-gradient(100deg, #5431b5, #6b3ad6); box-shadow: 0 10px 24px rgba(32, 12, 88, .35); color: #fff; font-weight: 750; }
+.dashboard-navigation button.active,
+.dashboard-profile-navigation button.active { background: linear-gradient(100deg, #5431b5, #6b3ad6); box-shadow: 0 10px 24px rgba(32, 12, 88, .35); color: #fff; font-weight: 750; }
 .dashboard-navigation svg,
+.dashboard-profile-navigation svg,
 .dashboard-logout svg { display: block; fill: none; flex: 0 0 var(--navigation-icon-size); height: var(--navigation-icon-size); stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: var(--navigation-icon-size); }
 .dashboard-navigation button:focus-visible,
+.dashboard-profile-navigation button:focus-visible,
 .dashboard-logout:focus-visible { outline: 2px solid #947eff; outline-offset: 2px; }
-.dashboard-sidebar-footer { border-top: 1px solid rgba(255, 255, 255, .07); margin-top: auto; padding-top: 16px; }
-.dashboard-user-card { align-items: center; background: rgba(255, 255, 255, .045); border: 0; border-radius: 9px; color: inherit; cursor: pointer; display: flex; gap: 10px; margin-bottom: 9px; min-width: 0; padding: 10px; text-align: left; transition: background-color .18s; width: 100%; }
-.dashboard-user-card:hover { background: rgba(255, 255, 255, .09); }
-.dashboard-user-card:focus-visible { outline: 2px solid #947eff; outline-offset: 2px; }
+.dashboard-profile-navigation { margin-top: auto; padding-bottom: 12px; }
+.dashboard-sidebar-footer { border-top: 1px solid rgba(255, 255, 255, .07); padding-top: 16px; }
+.dashboard-user-card { align-items: center; background: rgba(255, 255, 255, .045); border-radius: 9px; color: inherit; display: flex; gap: 10px; margin-bottom: 9px; min-width: 0; padding: 10px; width: 100%; }
 .dashboard-user-avatar { align-items: center; background: linear-gradient(135deg, #7749f7, #5320da); border-radius: 50%; display: flex; flex: 0 0 36px; font-size: .78rem; font-weight: 800; height: 36px; justify-content: center; overflow: hidden; }
 .dashboard-user-avatar img { height: 100%; object-fit: cover; width: 100%; }
 .dashboard-user-details { min-width: 0; }
 .dashboard-user-details strong { display: block; font-size: .71rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dashboard-user-details small { color: #a9b1c1; display: block; font-size: .61rem; margin-top: 2px; }
+.dashboard-user-details small { color: #a9b1c1; display: block; font-size: .61rem; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dashboard-main { margin: 0 auto; max-width: 100%; min-width: 0; padding: 30px clamp(24px, 3vw, 48px) 48px; width: 100%; }
 .dashboard-topbar { align-items: center; background: linear-gradient(120deg, #5730b7 0%, #7043d7 52%, #875ceb 100%); border-radius: 20px; box-shadow: 0 18px 42px rgba(91, 51, 184, .2); color: #fff; display: flex; justify-content: space-between; margin-bottom: 22px; overflow: hidden; padding: 28px 30px; position: relative; }
 .dashboard-topbar::after { background: rgba(255, 255, 255, .08); border-radius: 50%; content: ''; height: 240px; position: absolute; right: -65px; top: -125px; width: 240px; }
@@ -729,7 +876,31 @@ onBeforeUnmount(() => {
 .dashboard-panel-empty strong { color: #252a3d; font-size: .75rem; }
 .dashboard-panel-empty p { color: #7b8192; font-size: .63rem; margin-top: 3px; }
 .dashboard-panel-empty button { background: #6832df; border: 0; border-radius: 8px; color: #fff; cursor: pointer; font-size: .62rem; font-weight: 750; padding: 9px 11px; }
-.dashboard-side-column { display: grid; gap: 17px; }
+.dashboard-main-column, .dashboard-side-column { display: grid; gap: 17px; min-width: 0; }
+.dashboard-frequency-panel { overflow: hidden; }
+.dashboard-frequency-content { display: grid; gap: 15px; padding: 17px 18px 18px; }
+.dashboard-frequency-select { appearance: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23575e73' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center; border: 1px solid #dfe2ea; border-radius: 8px; color: #252b40; font-size: .72rem; height: 40px; outline: none; overflow: hidden; padding: 0 38px 0 12px; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
+.dashboard-frequency-select:focus { border-color: #7544eb; box-shadow: 0 0 0 3px rgba(117, 68, 235, .11); }
+.dashboard-frequency-details { align-items: center; display: grid; gap: 15px; grid-template-columns: 108px minmax(0, 1fr); }
+.dashboard-frequency-ring { align-items: center; background: conic-gradient(from -90deg, var(--frequency-color) 0 var(--frequency-angle), #e7e9ef var(--frequency-angle) 360deg); border-radius: 50%; display: flex; height: 108px; justify-content: center; width: 108px; }
+.dashboard-frequency-ring > div { align-items: center; background: #fff; border-radius: 50%; display: flex; flex-direction: column; height: 78px; justify-content: center; width: 78px; }
+.dashboard-frequency-ring strong { color: #1d2337; font-size: 1.3rem; line-height: 1; }
+.dashboard-frequency-ring span { color: #747b8e; font-size: .58rem; margin-top: 5px; }
+.dashboard-frequency-metrics { display: grid; gap: 11px; margin: 0; min-width: 0; }
+.dashboard-frequency-metrics > div { align-items: center; display: flex; gap: 8px; justify-content: space-between; min-width: 0; }
+.dashboard-frequency-metrics dt { align-items: center; color: #5e667b; display: flex; font-size: .64rem; gap: 7px; min-width: 0; }
+.dashboard-frequency-metrics dt > span { border-radius: 50%; flex: 0 0 7px; height: 7px; width: 7px; }
+.dashboard-frequency-metrics dt > span.is-red { background: #ef4b46; }
+.dashboard-frequency-metrics dt > span.is-purple { background: #7544eb; }
+.dashboard-frequency-metrics dt > span.is-orange { background: #f2951d; }
+.dashboard-frequency-metrics dd { color: #242a3d; flex: 0 0 auto; font-size: .7rem; font-weight: 750; margin: 0; }
+.dashboard-frequency-minimum { align-items: center; background: #fff3df; border-radius: 7px; color: #a15f12; display: flex; font-size: .64rem; justify-content: space-between; padding: 9px 10px; }
+.dashboard-frequency-minimum svg { fill: none; height: 15px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 15px; }
+.dashboard-frequency-message { align-items: flex-start; border-radius: 7px; display: flex; font-size: .61rem; gap: 7px; line-height: 1.45; padding: 9px 10px; }
+.dashboard-frequency-message svg { fill: none; flex: 0 0 15px; height: 15px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 15px; }
+.dashboard-frequency-message.is-success { background: #edf8f0; color: #27824c; }
+.dashboard-frequency-message.is-warning { background: #fff5e5; color: #a76717; }
+.dashboard-frequency-message.is-danger { background: #fff0ef; color: #bd443b; }
 .dashboard-side-activities .dashboard-panel-header { padding: 16px 18px 13px; }
 .dashboard-side-activities .dashboard-panel-header h2 { color: #6933db; font-size: .66rem; letter-spacing: .07em; margin: 0; text-transform: uppercase; }
 .dashboard-compact-activity-list { list-style: none; margin: 0; padding: 0 18px; }
@@ -743,7 +914,7 @@ onBeforeUnmount(() => {
 .dashboard-compact-empty { align-items: center; color: #71798e; display: flex; font-size: .68rem; gap: 9px; min-height: 80px; padding: 17px 19px; }
 .dashboard-compact-empty > span { align-items: center; background: #e9f8ef; border-radius: 50%; color: #23894f; display: flex; flex: 0 0 28px; height: 28px; justify-content: center; }
 .dashboard-compact-empty p { margin: 0; }
-.dashboard-progress-panel, .dashboard-actions-panel { padding: 20px; }
+.dashboard-progress-panel { padding: 20px; }
 .dashboard-progress-value { align-items: flex-end; display: flex; gap: 9px; margin: 18px 0 10px; }
 .dashboard-progress-value strong { color: #5f2bd5; font-size: 1.7rem; line-height: 1; }
 .dashboard-progress-value span { color: #808698; font-size: .6rem; }
@@ -752,19 +923,11 @@ onBeforeUnmount(() => {
 .dashboard-progress-meta { color: #747b8e; display: flex; font-size: .6rem; justify-content: space-between; margin-top: 12px; }
 .dashboard-progress-meta strong { color: #30364a; }
 .dashboard-progress-meta .has-overdue, .dashboard-progress-meta .has-overdue strong { color: #c4463e; }
-.dashboard-actions-panel { display: grid; gap: 9px; }
-.dashboard-actions-panel h2 { margin-bottom: 5px; }
-.dashboard-actions-panel button { align-items: center; background: #faf9fd; border: 1px solid #eceaf3; border-radius: 10px; color: #6330d8; cursor: pointer; display: flex; gap: 11px; padding: 11px; text-align: left; transition: background .18s, border-color .18s; }
-.dashboard-actions-panel button:hover { background: #f4f0ff; border-color: #d9cff2; }
-.dashboard-actions-panel button > span { align-items: center; background: #eee9ff; border-radius: 8px; display: flex; flex: 0 0 34px; font-size: 1rem; height: 34px; justify-content: center; }
-.dashboard-actions-panel button strong { color: #30364a; display: block; font-size: .67rem; }
-.dashboard-actions-panel button small { color: #858b9d; display: block; font-size: .55rem; margin-top: 2px; }
 @media (max-width: 1180px) {
   .dashboard-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .dashboard-guide-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-content-grid { grid-template-columns: 1fr; }
   .dashboard-side-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .dashboard-actions-panel { grid-column: 1 / -1; }
 }
 @media (max-width: 1100px) {
   .dashboard-shell { grid-template-columns: 76px minmax(0, 1fr); }
@@ -774,24 +937,25 @@ onBeforeUnmount(() => {
   .dashboard-user-details { display: none; }
   .dashboard-user-card { background: transparent; justify-content: center; padding-inline: 0; }
   .dashboard-navigation button,
+  .dashboard-profile-navigation button,
   .dashboard-logout { font-size: 0; justify-content: center; padding-inline: 10px; }
   .dashboard-main { padding: 24px clamp(18px, 3vw, 32px); }
 }
 @media (max-width: 760px) {
   .dashboard-shell { display: block; }
-  .dashboard-sidebar { align-items: stretch; bottom: 0; display: grid; grid-template-columns: minmax(0, 1fr) 64px; height: auto; left: 0; padding: 7px 10px max(7px, env(safe-area-inset-bottom)); position: fixed; right: 0; top: auto; z-index: 80; }
+  .dashboard-sidebar { align-items: stretch; bottom: 0; display: grid; grid-template-columns: minmax(0, 1fr) 58px 58px; height: auto; left: 0; padding: 7px 10px max(7px, env(safe-area-inset-bottom)); position: fixed; right: 0; top: auto; z-index: 80; }
   .dashboard-brand, .dashboard-user-card { display: none; }
-  .dashboard-navigation { display: grid; gap: 3px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .dashboard-navigation button, .dashboard-logout { flex-direction: column; font-size: .52rem; gap: 3px; justify-content: center; line-height: 1.05; min-width: 0; padding: 7px 2px; text-align: center; }
+  .dashboard-navigation { display: grid; gap: 3px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .dashboard-navigation button, .dashboard-profile-navigation button, .dashboard-logout { flex-direction: column; font-size: .52rem; gap: 3px; justify-content: center; line-height: 1.05; min-width: 0; padding: 7px 2px; text-align: center; }
   .dashboard-navigation button.active { background: rgba(108, 65, 226, .42); box-shadow: none; }
   .dashboard-sidebar { --navigation-icon-size: 18px; }
   .dashboard-sidebar-footer { border: 0; margin: 0; padding: 0; }
+  .dashboard-profile-navigation { margin: 0; padding: 0; }
   .dashboard-main { padding: 22px 16px 92px; }
   .dashboard-topbar { align-items: flex-start; padding: 24px; }
   .dashboard-welcome { max-width: calc(100% - 64px); }
   .dashboard-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-side-column { grid-template-columns: 1fr; }
-  .dashboard-actions-panel { grid-column: auto; }
 }
 @media (max-width: 520px) {
   .dashboard-topbar { align-items: flex-start; gap: 15px; padding: 22px 19px; }
@@ -803,6 +967,8 @@ onBeforeUnmount(() => {
   .dashboard-summary-grid,
   .dashboard-guide-grid { grid-template-columns: 1fr; }
   .dashboard-summary-card { min-height: 100px; }
+  .dashboard-frequency-details { grid-template-columns: 1fr; justify-items: center; }
+  .dashboard-frequency-metrics { width: 100%; }
   .dashboard-empty-hero { min-height: 370px; padding-inline: 20px; }
   .dashboard-empty-illustration { height: auto; }
   .dashboard-panel-header { padding-inline: 16px; }

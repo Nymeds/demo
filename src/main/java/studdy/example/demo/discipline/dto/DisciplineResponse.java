@@ -9,6 +9,7 @@ import studdy.example.demo.discipline.AcademicPerformance;
 import studdy.example.demo.discipline.Discipline;
 import studdy.example.demo.discipline.DisciplineLifecycleStatus;
 import studdy.example.demo.discipline.DisciplineStatus;
+import studdy.example.demo.discipline.FrequencyRules;
 
 public record DisciplineResponse(
         UUID id,
@@ -21,6 +22,9 @@ public record DisciplineResponse(
         BigDecimal average,
         BigDecimal passingAverage,
         BigDecimal attendancePercentage,
+        Integer absences,
+        BigDecimal lossPerAbsence,
+        Integer maximumAbsences,
         DisciplineLifecycleStatus status,
         DisciplineStatus performanceStatus,
         Instant createdAt,
@@ -33,6 +37,7 @@ public record DisciplineResponse(
         List<ClassScheduleResponse> schedules = discipline.getSchedules().stream()
                 .map(ClassScheduleResponse::from)
                 .toList();
+        var frequency = discipline.getFrequency();
 
         return new DisciplineResponse(
                 discipline.getId(),
@@ -44,7 +49,10 @@ public record DisciplineResponse(
                 schedules,
                 performance.average(),
                 performance.passingAverage(),
-                discipline.getFrequency() == null ? new BigDecimal("100.00") : discipline.getFrequency().attendancePercentage(),
+                frequency == null ? new BigDecimal("100.00") : frequency.attendancePercentage(),
+                frequency == null ? 0 : frequency.getAbsences(),
+                FrequencyRules.LOSS_PER_ABSENCE,
+                FrequencyRules.maximumAbsences(discipline.getMinimumAttendancePercentage()),
                 discipline.getStatus(),
                 performance.status(),
                 discipline.getCreatedAt(),

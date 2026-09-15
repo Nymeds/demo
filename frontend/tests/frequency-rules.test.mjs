@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  frequencySituation,
   LOSS_PER_ABSENCE,
   attendanceAfterAbsences,
   maximumAbsencesFor,
@@ -22,4 +23,11 @@ test('a frequência nunca fica negativa', () => {
 test('o mínimo de 75% permite cinco faltas', () => {
   assert.equal(maximumAbsencesFor(75), 5)
   assert.equal(maximumAbsencesFor(76), 4)
+})
+
+test('a situação muda de verde para laranja e vermelho conforme a frequência cai', () => {
+  assert.equal(frequencySituation(100, 75, 5), 'good')
+  assert.equal(frequencySituation(80, 75, 1), 'warning')
+  assert.equal(frequencySituation(75, 75, 0), 'warning')
+  assert.equal(frequencySituation(70, 75, -1), 'bad')
 })

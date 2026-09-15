@@ -3,14 +3,12 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppToast from '../../components/ui/AppToast.vue'
 import FrequencyConfigModal from './FrequencyConfigModal.vue'
 import RegisterAbsenceModal from './RegisterAbsenceModal.vue'
-import { LOSS_PER_ABSENCE, maximumAbsencesFor } from './frequencyRules.js'
+import { frequencySituation, LOSS_PER_ABSENCE, maximumAbsencesFor } from './frequencyRules.js'
 
 const props = defineProps({
   accessToken: { type: String, required: true },
 })
 
-// Margem, em pontos percentuais acima do mínimo exigido, para sinalizar "Atenção".
-const ATTENTION_MARGIN = 10
 const HISTORY_PREVIEW_SIZE = 3
 
 const loading = ref(true)
@@ -179,12 +177,6 @@ function periodOf(discipline) {
   return `${discipline.periodo}.${discipline.semester ?? 1}`
 }
 
-function situationOf(attendance, minimum, remainingAbsences) {
-  if (attendance < minimum) return 'bad'
-  if (remainingAbsences <= 1 || attendance < minimum + ATTENTION_MARGIN) return 'warning'
-  return 'good'
-}
-
 function buildRow(discipline) {
   const frequency = discipline.frequency
   const minimumPercentage = Number(discipline.minimumAttendancePercentage ?? 0)
@@ -208,7 +200,7 @@ function buildRow(discipline) {
       attendancePercentage: 100,
       lossPerAbsence: LOSS_PER_ABSENCE,
       remainingAbsences: maximumAbsencesFor(minimumPercentage),
-      situation: situationOf(100, minimumPercentage, maximumAbsencesFor(minimumPercentage)),
+      situation: frequencySituation(100, minimumPercentage, maximumAbsencesFor(minimumPercentage)),
     }
   }
 
@@ -221,7 +213,7 @@ function buildRow(discipline) {
     attendancePercentage: frequency.attendancePercentage,
     lossPerAbsence: LOSS_PER_ABSENCE,
     remainingAbsences,
-    situation: situationOf(frequency.attendancePercentage, minimumPercentage, remainingAbsences),
+    situation: frequencySituation(frequency.attendancePercentage, minimumPercentage, remainingAbsences),
   }
 }
 
@@ -1160,7 +1152,7 @@ async function undoAbsence(entry) {
 .frequency-table-card th,
 .frequency-history-card th {
   color: #495066;
-  font-size: .66rem;
+  font-size: .72rem;
   font-weight: 750;
   white-space: nowrap;
 }
@@ -1168,7 +1160,8 @@ async function undoAbsence(entry) {
 .frequency-table-card td,
 .frequency-history-card td {
   color: #555c70;
-  font-size: .68rem;
+  font-size: .78rem;
+  line-height: 1.4;
 }
 
 .frequency-table-card tbody tr:last-child td,
@@ -1188,6 +1181,13 @@ async function undoAbsence(entry) {
   text-align: center;
 }
 
+.frequency-table-card th:not(:first-child),
+.frequency-table-card td:not(:first-child),
+.frequency-history-card th:nth-child(5),
+.frequency-history-card td:nth-child(5) {
+  text-align: center;
+}
+
 .discipline-name-cell {
   align-items: center;
   display: flex;
@@ -1198,12 +1198,12 @@ async function undoAbsence(entry) {
 .discipline-name {
   color: #24293c;
   display: block;
-  font-size: .72rem;
+  font-size: .8rem;
 }
 
 .discipline-name-cell small {
   color: #858b9e;
-  font-size: .62rem;
+  font-size: .68rem;
 }
 
 .discipline-color {
@@ -1228,17 +1228,20 @@ async function undoAbsence(entry) {
 
 .absences-cell {
   color: #303649 !important;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .attendance-cell {
   display: grid;
   gap: 7px;
-  min-width: 150px;
+  margin-inline: auto;
+  max-width: 185px;
+  min-width: 0;
+  width: 100%;
 }
 
 .attendance-value {
-  font-size: .84rem;
+  font-size: .9rem;
   font-weight: 800;
 }
 
@@ -1250,9 +1253,11 @@ async function undoAbsence(entry) {
 .attendance-track {
   background: #e8e9ee;
   border-radius: 999px;
+  display: block;
   height: 5px;
   max-width: 185px;
   overflow: hidden;
+  width: 100%;
 }
 
 .attendance-track span {
@@ -1268,7 +1273,7 @@ async function undoAbsence(entry) {
 .frequency-status {
   border-radius: 999px;
   display: inline-block;
-  font-size: .61rem;
+  font-size: .68rem;
   font-weight: 700;
   padding: 4px 11px;
   white-space: nowrap;
@@ -1299,7 +1304,7 @@ async function undoAbsence(entry) {
   border-radius: 999px;
   color: #c93a2c;
   display: inline-block;
-  font-size: .62rem;
+  font-size: .68rem;
   font-weight: 700;
   padding: 4px 10px;
 }

@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppToast from '../../components/ui/AppToast.vue'
+import { frequencySituation } from '../frequency/frequencyRules.js'
 import DisciplineModal from './DisciplineModal.vue'
 import DeleteDisciplineModal from './DeleteDisciplineModal.vue'
 
@@ -330,6 +331,8 @@ const averageAttendance = computed(() => {
     : null
 })
 
+const averageAttendanceSituation = computed(() => attendanceSituation(averageAttendance.value))
+
 const dayLabels = {
   MONDAY: 'Seg',
   TUESDAY: 'Ter',
@@ -348,6 +351,25 @@ function formatAverage(value) {
 
 function disciplineColor(discipline) {
   return discipline.color || '#6432df'
+}
+
+function attendanceSituation(attendance, minimum = 75, remainingAbsences = Number.POSITIVE_INFINITY) {
+  if (typeof attendance !== 'number') return 'neutral'
+  return frequencySituation(attendance, Number(minimum ?? 75), remainingAbsences)
+}
+
+function disciplineAttendanceSituation(discipline) {
+  const maximumAbsences = Number(discipline.maximumAbsences)
+  const absences = Number(discipline.absences ?? 0)
+  const remainingAbsences = Number.isFinite(maximumAbsences)
+    ? maximumAbsences - absences
+    : Number.POSITIVE_INFINITY
+
+  return attendanceSituation(
+    discipline.attendancePercentage,
+    discipline.minimumAttendancePercentage,
+    remainingAbsences,
+  )
 }
 
 function statusDetails(status) {
@@ -417,7 +439,7 @@ function statusDetails(status) {
         </div>
       </article>
 
-      <article class="disciplines-total-card is-orange">
+      <article :class="['disciplines-total-card', 'is-attendance-' + averageAttendanceSituation]">
         <span aria-hidden="true">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
         </span>
@@ -558,7 +580,7 @@ function statusDetails(status) {
                 {{ formatAverage(discipline.average) }}
               </td>
               <td>
-                <div class="discipline-attendance">
+                <div :class="['discipline-attendance', 'is-' + disciplineAttendanceSituation(discipline)]">
                   <span>{{ typeof discipline.attendancePercentage === 'number' ? `${Math.round(discipline.attendancePercentage)}%` : '—' }}</span>
                   <span class="attendance-track" aria-hidden="true">
                     <span v-if="typeof discipline.attendancePercentage === 'number'" :style="{ width: `${discipline.attendancePercentage}%` }"></span>
@@ -612,7 +634,7 @@ function statusDetails(status) {
         </div>
         <div class="grid-card-data">
           <span><small>Média</small><strong>{{ formatAverage(discipline.average) }}</strong></span>
-          <span><small>Frequência</small><strong>{{ typeof discipline.attendancePercentage === 'number' ? `${Math.round(discipline.attendancePercentage)}%` : '—' }}</strong></span>
+          <span :class="['grid-attendance', 'is-' + disciplineAttendanceSituation(discipline)]"><small>Frequência</small><strong>{{ typeof discipline.attendancePercentage === 'number' ? `${Math.round(discipline.attendancePercentage)}%` : '—' }}</strong></span>
         </div>
         <footer>
           <span :class="['discipline-status', statusDetails(discipline.status).className]">{{ statusDetails(discipline.status).label }}</span>
@@ -929,6 +951,41 @@ function statusDetails(status) {
 
 .disciplines-total-card.is-orange small {
   color: #d98117;
+}
+
+.disciplines-total-card.is-attendance-good > span {
+  background: #e9f8ef;
+  color: #20aa60;
+}
+
+.disciplines-total-card.is-attendance-good strong,
+.disciplines-total-card.is-attendance-good small {
+  color: #168749;
+}
+
+.disciplines-total-card.is-attendance-warning > span {
+  background: #fff1df;
+  color: #f0951f;
+}
+
+.disciplines-total-card.is-attendance-warning strong,
+.disciplines-total-card.is-attendance-warning small {
+  color: #c86e12;
+}
+
+.disciplines-total-card.is-attendance-bad > span {
+  background: #feeeeb;
+  color: #e04433;
+}
+
+.disciplines-total-card.is-attendance-bad strong,
+.disciplines-total-card.is-attendance-bad small {
+  color: #c73729;
+}
+
+.disciplines-total-card.is-attendance-neutral > span {
+  background: #eff0f4;
+  color: #747b8e;
 }
 
 .disciplines-toolbar {
@@ -1289,6 +1346,21 @@ function statusDetails(status) {
   font-weight: 700;
 }
 
+.discipline-attendance.is-good > span:first-child,
+.grid-attendance.is-good strong {
+  color: #168749;
+}
+
+.discipline-attendance.is-warning > span:first-child,
+.grid-attendance.is-warning strong {
+  color: #c86e12;
+}
+
+.discipline-attendance.is-bad > span:first-child,
+.grid-attendance.is-bad strong {
+  color: #c73729;
+}
+
 .attendance-track {
   background: #e8e9ee;
   border-radius: 999px;
@@ -1298,10 +1370,22 @@ function statusDetails(status) {
 }
 
 .attendance-track span {
-  background: #20aa60;
+  background: #8b91a1;
   border-radius: inherit;
   display: block;
   height: 100%;
+}
+
+.discipline-attendance.is-good .attendance-track span {
+  background: #20aa60;
+}
+
+.discipline-attendance.is-warning .attendance-track span {
+  background: #f0951f;
+}
+
+.discipline-attendance.is-bad .attendance-track span {
+  background: #e04433;
 }
 
 .discipline-status {
