@@ -20,8 +20,6 @@ export const SORT_OPTIONS = Object.freeze([
 
 const FALLBACK_COLOR = '#6832df'
 const HEX_COLOR = /^#[0-9a-f]{6}$/i
-// Um texto começando com estes caracteres vira fórmula ao abrir o CSV no Excel.
-const CSV_FORMULA_PREFIX = /^[=+\-@\t\r]/
 const EXCELLENT_FROM = 9
 const GOOD_FROM = 7
 const REGULAR_FROM = 5
@@ -144,25 +142,4 @@ const SORTERS = Object.freeze({
 export function sortEntries(entries, order) {
   const sorter = SORTERS[order] ?? SORTERS.name
   return [...entries].sort((first, second) => sorter(first, second) || first.name.localeCompare(second.name, 'pt-BR'))
-}
-
-function csvCell(value) {
-  const text = String(value ?? '')
-  const safeText = CSV_FORMULA_PREFIX.test(text) ? `'${text}` : text
-  return `"${safeText.replace(/"/g, '""')}"`
-}
-
-export function toCsv(entries) {
-  const header = ['Disciplina', 'Professor', 'Período', 'Avaliações', 'Média parcial', 'Média de aprovação', 'Situação']
-  const rows = entries.map(entry => [
-    entry.name,
-    entry.professorName,
-    periodKeyOf(entry) ?? '',
-    entry.gradeCount,
-    formatGrade(entry.average),
-    formatGrade(entry.passingAverage),
-    bandInfo(entry.band).label,
-  ])
-
-  return [header, ...rows].map(row => row.map(csvCell).join(';')).join('\r\n')
 }

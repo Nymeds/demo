@@ -1,7 +1,9 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AppToast from '../../components/ui/AppToast.vue'
 import { createApiClient, SessionExpiredError } from '../../api/apiClient'
+import AppSelect from '../../components/ui/AppSelect.vue'
+import GradeModal from '../simulator/GradeModal.vue'
 import AverageEvolutionChart from './AverageEvolutionChart.vue'
 import GradesSummaryCards from './GradesSummaryCards.vue'
 import GradesTable from './GradesTable.vue'
@@ -16,14 +18,11 @@ import {
   periodKeysOf,
   sortEntries,
   summarize,
-  toCsv,
 } from './gradesPresentation'
 import './grades.css'
 
 const ALL = 'all'
 const TOAST_DURATION_MS = 4500
-// Tempo para o navegador iniciar o download antes de liberar o arquivo da memória.
-const DOWNLOAD_RELEASE_DELAY_MS = 1000
 
 const { accessToken } = defineProps({
   accessToken: { type: String, required: true },
@@ -45,6 +44,18 @@ const sortOrder = ref(SORT_OPTIONS[0].value)
 const toast = ref({ message: '', type: 'success' })
 let toastTimer = null
 
+// Lançamento de nota pela tela Notas: mesmo modal do simulador, com a nota ligada à prova (RF06).
+const addGradeButton = ref(null)
+const showAddGrade = ref(false)
+const addDisciplineId = ref('')
+const addActivities = ref([])
+const addActivitiesStatus = ref('idle')
+const addGradedActivityIds = ref([])
+const savingGrade = ref(false)
+const addGradeError = ref('')
+// A tabela guarda as notas já abertas; mudar a chave recria a tabela para buscá-las de novo.
+const tableVersion = ref(0)
+
 const periodOptions = computed(() => periodKeysOf(entries.value))
 const periodEntries = computed(() => (
   selectedPeriod.value === ALL
@@ -63,6 +74,26 @@ const summary = computed(() => summarize(periodEntries.value))
 const distribution = computed(() => distributionOf(periodEntries.value))
 const evolution = computed(() => evolutionOf(entries.value))
 const periodLabel = computed(() => (selectedPeriod.value === ALL ? 'Em todos os períodos' : `No período ${selectedPeriod.value}`))
+
+// Opções das listas de filtro no formato do AppSelect (lista no visual do site).
+const periodSelectOptions = computed(() => [
+  { value: ALL, label: 'Todos' },
+  ...periodOptions.value.map(period => ({ value: period, label: period })),
+])
+const disciplineSelectOptions = computed(() => [
+  { value: ALL, label: 'Todas' },
+  ...disciplineOptions.value.map(entry => ({ value: entry.disciplineId, label: entry.name })),
+])
+
+const addDisciplineOptions = computed(() => [...entries.value]
+  .sort((first, second) => first.name.localeCompare(second.name, 'pt-BR'))
+  .map(entry => ({
+    id: entry.disciplineId,
+    name: periodKeyOf(entry) ? `${entry.name} (${periodKeyOf(entry)})` : entry.name,
+  })))
+const addDisciplineName = computed(() => (
+  entries.value.find(entry => entry.disciplineId === addDisciplineId.value)?.name ?? ''
+))
 
 // A disciplina escolhida pode não existir no novo período.
 watch(selectedPeriod, () => {
@@ -137,23 +168,100 @@ function loadGrades(disciplineId) {
   return request(`/api/v1/dashboards/${dashboardId.value}/disciplines/${disciplineId}/grades`)
 }
 
-function exportReport() {
-  if (visibleEntries.value.length === 0) {
-    showToast('Não há disciplinas para exportar com os filtros atuais.', 'error')
+// Atualiza as médias sem mexer nos filtros que a pessoa escolheu.
+async function refreshGradebook() {
+  try {
+    entries.value = await request(`/api/v1/dashboards/${dashboardId.value}/gradebook`)
+    tableVersion.value += 1
+  } catch (error) {
+    handleFailure(error)
+  }
+}
+
+async function selectAddDiscipline(disciplineId) {
+  addDisciplineId.value = disciplineId
+  addActivities.value = []
+  addGradedActivityIds.value = []
+  addGradeError.value = ''
+
+  if (!disciplineId) {
+    addActivitiesStatus.value = 'idle'
     return
   }
 
-  // O BOM no início faz o Excel abrir os acentos corretamente.
-  const file = new Blob(['﻿', toCsv(visibleEntries.value)], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(file)
-  const link = document.createElement('a')
+  addActivitiesStatus.value = 'loading'
 
-  link.href = url
-  link.download = `notas-${selectedPeriod.value === ALL ? 'todos-os-periodos' : selectedPeriod.value}.csv`
-  link.click()
-  setTimeout(() => URL.revokeObjectURL(url), DOWNLOAD_RELEASE_DELAY_MS)
+  try {
+    // As notas já lançadas dizem quais avaliações ficam bloqueadas no modal.
+    const [activities, grades] = await Promise.all([
+      request(`/api/v1/dashboards/${dashboardId.value}/disciplines/${disciplineId}/activities`),
+      loadGrades(disciplineId),
+    ])
 
-  showToast('Relatório exportado.')
+    if (disciplineId !== addDisciplineId.value) return
+
+    addActivities.value = activities
+    addGradedActivityIds.value = grades.map(grade => grade.activityId).filter(Boolean)
+    addActivitiesStatus.value = 'ready'
+  } catch (error) {
+    if (error instanceof SessionExpiredError) {
+      emit('session-expired')
+      return
+    }
+
+    if (disciplineId !== addDisciplineId.value) return
+
+    addActivitiesStatus.value = 'error'
+  }
+}
+
+// Já abre na disciplina filtrada, ou na única do período, para poupar um clique.
+function openAddGrade() {
+  const preselected = selectedDiscipline.value !== ALL
+    ? selectedDiscipline.value
+    : (periodEntries.value.length === 1 ? periodEntries.value[0].disciplineId : '')
+
+  showAddGrade.value = true
+  selectAddDiscipline(preselected)
+}
+
+async function closeAddGrade() {
+  showAddGrade.value = false
+  await nextTick()
+  addGradeButton.value?.focus()
+}
+
+function goToActivities() {
+  showAddGrade.value = false
+  emit('navigate', 'activities')
+}
+
+async function saveGrade(formData) {
+  if (savingGrade.value || !addDisciplineId.value) return
+
+  savingGrade.value = true
+  addGradeError.value = ''
+
+  try {
+    await request(
+      `/api/v1/dashboards/${dashboardId.value}/disciplines/${addDisciplineId.value}/grades`,
+      { method: 'POST', body: formData },
+    )
+
+    await closeAddGrade()
+    showToast('Nota lançada.')
+    await refreshGradebook()
+  } catch (error) {
+    if (error instanceof SessionExpiredError) {
+      emit('session-expired')
+      return
+    }
+
+    // A mensagem do backend (por exemplo, avaliação já com nota) aparece dentro do modal.
+    addGradeError.value = error.message || 'Não foi possível lançar a nota.'
+  } finally {
+    savingGrade.value = false
+  }
 }
 
 onMounted(load)
@@ -174,13 +282,14 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
       </div>
 
       <button
+        ref="addGradeButton"
         class="grades-button is-primary"
         type="button"
         :disabled="loading || Boolean(loadError) || entries.length === 0"
-        @click="exportReport"
+        @click="openAddGrade"
       >
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 20h14" /></svg>
-        Exportar relatório
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+        Adicionar notas
       </button>
     </header>
 
@@ -222,29 +331,22 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
 
             <label class="grades-field">
               <span>Período</span>
-              <select v-model="selectedPeriod">
-                <option :value="ALL">Todos</option>
-                <option v-for="period in periodOptions" :key="period" :value="period">{{ period }}</option>
-              </select>
+              <AppSelect v-model="selectedPeriod" :options="periodSelectOptions" />
             </label>
 
             <label class="grades-field">
               <span>Disciplinas</span>
-              <select v-model="selectedDiscipline">
-                <option :value="ALL">Todas</option>
-                <option v-for="entry in disciplineOptions" :key="entry.disciplineId" :value="entry.disciplineId">{{ entry.name }}</option>
-              </select>
+              <AppSelect v-model="selectedDiscipline" :options="disciplineSelectOptions" />
             </label>
 
             <label class="grades-field">
               <span>Ordenar por</span>
-              <select v-model="sortOrder">
-                <option v-for="option in SORT_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
-              </select>
+              <AppSelect v-model="sortOrder" :options="SORT_OPTIONS" />
             </label>
           </div>
 
           <GradesTable
+            :key="tableVersion"
             :entries="visibleEntries"
             :load-grades="loadGrades"
             @open-simulator="emit('navigate', 'simulator')"
@@ -291,6 +393,23 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
         </button>
       </aside>
     </template>
+
+    <GradeModal
+      v-if="showAddGrade"
+      :disciplines="addDisciplineOptions"
+      :discipline-id="addDisciplineId"
+      :discipline-name="addDisciplineName"
+      :activities="addActivities"
+      :activities-status="addActivitiesStatus"
+      :graded-activity-ids="addGradedActivityIds"
+      :saving="savingGrade"
+      :error-message="addGradeError"
+      @select-discipline="selectAddDiscipline"
+      @retry="selectAddDiscipline(addDisciplineId)"
+      @go-to-activities="goToActivities"
+      @close="closeAddGrade"
+      @save="saveGrade"
+    />
 
     <AppToast :message="toast.message" :type="toast.type" @close="closeToast" />
   </section>

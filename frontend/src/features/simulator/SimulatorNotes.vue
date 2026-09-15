@@ -65,41 +65,22 @@
       <!-- DISCIPLINA -->
       <div class="filter">
 
-        <label>Disciplina</label>
+        <label for="simulator-discipline">Disciplina</label>
 
-        <div class="select-wrapper">
-
-          <span class="field-icon">
-
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
+        <AppSelect
+          id="simulator-discipline"
+          ref="disciplineSelect"
+          v-model="selectedDiscipline"
+          :options="disciplineFilterOptions"
+          placeholder="Selecione uma disciplina"
+        >
+          <template #leading>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/>
               <path d="M4 5.5v16"/>
             </svg>
-
-          </span>
-
-          <select ref="disciplineSelect" v-model="selectedDiscipline" aria-label="Disciplina">
-
-            <option value="">
-              Selecione uma disciplina
-            </option>
-
-            <option
-              v-for="discipline in filteredDisciplines"
-              :key="discipline.id"
-              :value="discipline.id"
-            >
-              {{ discipline.name }}
-            </option>
-
-          </select>
-
-        </div>
+          </template>
+        </AppSelect>
 
       </div>
 
@@ -107,43 +88,22 @@
       <!-- PERÍODO -->
       <div class="filter">
 
-        <label>Período/Ano</label>
+        <label for="simulator-period">Período/Ano</label>
 
-        <div class="select-wrapper">
-
-          <span class="field-icon">
-
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
+        <AppSelect
+          id="simulator-period"
+          v-model="selectedPeriod"
+          :options="periodFilterOptions"
+        >
+          <template #leading>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="5" width="18" height="16" rx="2"/>
               <line x1="16" y1="3" x2="16" y2="7"/>
               <line x1="8" y1="3" x2="8" y2="7"/>
               <line x1="3" y1="10" x2="21" y2="10"/>
             </svg>
-
-          </span>
-
-          <select v-model="selectedPeriod">
-
-          <option value="">
-            Todos os períodos
-          </option>
-
-          <option
-            v-for="item in availablePeriods"
-            :key="item.value"
-            :value="item.value"
-          >
-            {{ item.value }}
-          </option>
-
-        </select>
-
-        </div>
+          </template>
+        </AppSelect>
 
       </div>
 
@@ -151,18 +111,15 @@
       <!-- TIPO DE CÁLCULO -->
       <div class="filter">
 
-        <label>Tipo de cálculo</label>
+        <label for="simulator-calculation">Tipo de cálculo</label>
 
-        <div class="select-wrapper">
-
-          <span class="field-icon">
-
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
+        <AppSelect
+          id="simulator-calculation"
+          v-model="calculationType"
+          :options="calculationFilterOptions"
+        >
+          <template #leading>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="5" y="3" width="14" height="18" rx="2"/>
               <rect x="8" y="6" width="8" height="3"/>
               <circle cx="9" cy="13" r="0.7"/>
@@ -172,16 +129,8 @@
               <circle cx="12" cy="16.5" r="0.7"/>
               <circle cx="15" cy="16.5" r="0.7"/>
             </svg>
-
-          </span>
-
-          <select v-model="calculationType">
-
-            <option>Média Normal</option>
-
-          </select>
-
-        </div>
+          </template>
+        </AppSelect>
 
       </div>
 
@@ -726,6 +675,7 @@
 
 
 <script setup>
+import AppSelect from '../../components/ui/AppSelect.vue'
 import GradeModal from './GradeModal.vue'
 import SimulatorHelpModal from './SimulatorHelpModal.vue'
 import { periodKeyOf } from '../grades/gradesPresentation'
@@ -800,6 +750,21 @@ const availablePeriods = computed(() => {
   })
 })
 const calculationType = ref('Média Normal')
+
+// Opções das listas de filtro no formato do AppSelect (lista no visual do site).
+const calculationFilterOptions = [{ value: 'Média Normal', label: 'Média Normal' }]
+
+const disciplineFilterOptions = computed(() =>
+  filteredDisciplines.value.map(discipline => ({
+    value: discipline.id,
+    label: discipline.name
+  }))
+)
+
+const periodFilterOptions = computed(() => [
+  { value: '', label: 'Todos os períodos' },
+  ...availablePeriods.value.map(item => ({ value: item.value, label: item.value }))
+])
 
 
 
@@ -1575,70 +1540,16 @@ watch(selectedDiscipline, async () => {
 }
 
 
-.select-wrapper {
+/* Listas de filtro no mesmo padrão dos outros campos do site (AppSelect). */
+.filter {
 
-  position: relative;
+  --app-select-height: 42px;
 
-}
+  --app-select-font-size: 14px;
 
+  --app-select-radius: 8px;
 
-.field-icon {
-
-  position: absolute;
-
-  left: 14px;
-
-  top: 50%;
-
-  transform: translateY(-50%);
-
-  color: #6330e0;
-
-  pointer-events: none;
-
-}
-
-
-.field-icon svg {
-
-  width: 18px;
-  height: 18px;
-
-  display: block;
-
-}
-
-
-.filter select {
-
-  width: 100%;
-
-  height: 42px;
-
-  box-sizing: border-box;
-
-  padding: 0 38px 0 43px;
-
-  border: 1px solid #dddbe6;
-
-  border-radius: 8px;
-
-  background: #ffffff !important;
-
-  color: #292638 !important;
-
-  font-size: 14px;
-
-  outline: none;
-
-}
-
-
-.filter select:focus {
-
-  border-color: #6330e0;
-
-  box-shadow: 0 0 0 2px rgba(99, 48, 224, .08);
+  --app-select-padding: 0 12px 0 14px;
 
 }
 

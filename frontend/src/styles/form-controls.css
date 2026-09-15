@@ -1,0 +1,28 @@
+/* Campos numéricos sem as setinhas nativas: o navegador desenha esse controle com cores próprias,
+   que não acompanham o visual do site (principalmente no modo noite). O valor continua podendo
+   ser digitado, e as setas do teclado ainda aumentam e diminuem o número. */
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* As listas e calendários nativos que ainda existem em outras telas seguem o tema do site:
+   claros no modo dia e escuros no modo noite. */
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme="night"] {
+  color-scheme: dark;
+}
+
+:root[data-theme="night"] select option {
+  background-color: #111a2f;
+  color: #e7ebf5;
+}

@@ -30,10 +30,9 @@
 
 .grades-filters { align-items: end; border-bottom: 1px solid #eff0f5; display: grid; gap: 12px; grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(120px, 1fr)); padding: 18px 20px; }
 .grades-field { color: #30364a; display: grid; font-size: .68rem; font-weight: 700; gap: 6px; min-width: 0; position: relative; }
-.grades-field input,
-.grades-field select { background: #fff; border: 1px solid #dfe1e8; border-radius: 9px; color: #171c30; font-size: .76rem; font-weight: 500; min-height: 40px; padding: 8px 11px; width: 100%; }
-.grades-field input:focus,
-.grades-field select:focus { border-color: #7a4de6; box-shadow: 0 0 0 3px rgba(105, 54, 224, .16); outline: none; }
+.grades-field { --app-select-height: 40px; --app-select-font-size: .76rem; --app-select-radius: 9px; --app-select-padding: 8px 11px; }
+.grades-field input { background: #fff; border: 1px solid #dfe1e8; border-radius: 9px; color: #171c30; font-size: .76rem; font-weight: 500; min-height: 40px; padding: 8px 11px; width: 100%; }
+.grades-field input:focus { border-color: #7a4de6; box-shadow: 0 0 0 3px rgba(105, 54, 224, .16); outline: none; }
 .grades-field.is-search input { padding-left: 34px; }
 .grades-field.is-search svg { color: #8a90a2; height: 16px; left: 11px; pointer-events: none; position: absolute; top: 12px; width: 16px; }
 

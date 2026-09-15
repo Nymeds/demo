@@ -21,7 +21,29 @@
         comprovando de qual avaliação ela veio.
       </p>
 
-      <p v-if="activitiesStatus === 'loading' || activitiesStatus === 'idle'" class="modal-status" role="status">
+      <!-- Na tela Notas a disciplina é escolhida aqui; no simulador ela já vem selecionada. -->
+      <div v-if="choosesDiscipline" class="field">
+        <label for="grade-modal-discipline">Disciplina</label>
+
+        <AppSelect
+          id="grade-modal-discipline"
+          :model-value="disciplineId"
+          :options="disciplineOptions"
+          :disabled="saving"
+          placeholder="Selecione a disciplina"
+          @update:model-value="value => emit('select-discipline', value)"
+        />
+      </div>
+
+      <div v-if="choosesDiscipline && !disciplineId" class="modal-empty">
+        <p>Escolha a disciplina para ver as provas e trabalhos cadastrados nela.</p>
+
+        <div class="actions">
+          <button type="button" class="cancel-button" @click="emit('close')">Cancelar</button>
+        </div>
+      </div>
+
+      <p v-else-if="activitiesStatus === 'loading' || activitiesStatus === 'idle'" class="modal-status" role="status">
         Carregando as avaliações de {{ disciplineName }}…
       </p>
 
@@ -49,23 +71,14 @@
         <div class="field">
           <label for="grade-modal-activity">Avaliação cadastrada</label>
 
-          <select
+          <AppSelect
             id="grade-modal-activity"
             v-model="activityId"
-            required
-            :aria-invalid="submitted && Boolean(activityError)"
-            aria-describedby="grade-modal-activity-help"
-          >
-            <option value="" disabled>Selecione a prova ou trabalho</option>
-            <option
-              v-for="activity in activities"
-              :key="activity.id"
-              :value="activity.id"
-              :disabled="!isSelectable(activity)"
-            >
-              {{ optionLabel(activity) }}
-            </option>
-          </select>
+            :options="activityOptions"
+            :invalid="submitted && Boolean(activityError)"
+            describedby="grade-modal-activity-help"
+            placeholder="Selecione a prova ou trabalho"
+          />
 
           <p v-if="submitted && activityError" id="grade-modal-activity-help" class="field-error" role="alert">
             {{ activityError }}
@@ -95,7 +108,7 @@
             min="0"
             :max="MAX_SCORE"
             step="0.01"
-            placeholder="Ex: 8.5"
+            placeholder="Ex: 8,5"
             required
             :aria-invalid="showScoreError"
             aria-describedby="grade-modal-score-error"
@@ -109,17 +122,16 @@
         <div class="field">
           <label for="grade-modal-date">Data em que a nota saiu</label>
 
-          <input
+          <AppDatePicker
             id="grade-modal-date"
             v-model="recordedAt"
-            type="date"
-            :min="selectedActivity?.dueDate"
+            :min="selectedActivity ? selectedActivity.dueDate : ''"
             :max="today"
-            required
-            :aria-invalid="submitted && Boolean(dateError)"
-          >
+            :invalid="submitted && Boolean(dateError)"
+            describedby="grade-modal-date-error"
+          />
 
-          <p v-if="submitted && dateError" class="field-error">{{ dateError }}</p>
+          <p v-if="submitted && dateError" id="grade-modal-date-error" class="field-error">{{ dateError }}</p>
         </div>
 
         <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
@@ -154,6 +166,8 @@
 
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import AppDatePicker from '../../components/ui/AppDatePicker.vue'
+import AppSelect from '../../components/ui/AppSelect.vue'
 
 const MAX_SCORE = 10
 const ASSESSMENT_NAME_LIMIT = 120
@@ -181,6 +195,15 @@ const props = defineProps({
     type: String,
     default: ''
   },
+  // Opcional: com a lista de disciplinas, o modal mostra a escolha da disciplina (tela Notas).
+  disciplines: {
+    type: Array,
+    default: () => []
+  },
+  disciplineId: {
+    type: String,
+    default: ''
+  },
   saving: {
     type: Boolean,
     default: false
@@ -196,7 +219,8 @@ const emit = defineEmits([
   'close',
   'save',
   'retry',
-  'go-to-activities'
+  'go-to-activities',
+  'select-discipline'
 ])
 
 // Data de hoje no fuso do navegador. Com toISOString (UTC), à noite no Brasil a data já seria a
@@ -214,6 +238,13 @@ const recordedAt = ref(today)
 const submitted = ref(false)
 const card = ref(null)
 
+const choosesDiscipline = computed(() => props.disciplines.length > 0)
+
+const disciplineOptions = computed(() => props.disciplines.map(discipline => ({
+  value: discipline.id,
+  label: discipline.name
+})))
+
 const selectedActivity = computed(() => (
   props.activities.find(activity => activity.id === activityId.value) ?? null
 ))
@@ -222,9 +253,13 @@ function isGraded(activity) {
   return props.gradedActivityIds.includes(activity.id)
 }
 
+function isFuture(activity) {
+  return activity.dueDate > today
+}
+
 // Só dá para lançar nota de avaliação que já aconteceu e que ainda não tem nota.
 function isSelectable(activity) {
-  return !isGraded(activity) && activity.dueDate <= today
+  return !isGraded(activity) && !isFuture(activity)
 }
 
 const hasSelectableActivity = computed(() => props.activities.some(isSelectable))
@@ -238,11 +273,20 @@ function statusLabel(status) {
   return STATUS_LABELS[status] ?? status
 }
 
-function optionLabel(activity) {
-  if (isGraded(activity)) return `${activity.title} — nota já lançada`
-  if (activity.dueDate > today) return `${activity.title} — em ${formatDate(activity.dueDate)}, ainda não aconteceu`
-  return `${activity.title} — ${formatDate(activity.dueDate)}`
-}
+// As bloqueadas continuam na lista, com o motivo, para a pessoa entender por que não pode escolher.
+const activityOptions = computed(() => props.activities.map(activity => {
+  const graded = isGraded(activity)
+  const future = isFuture(activity)
+
+  return {
+    value: activity.id,
+    label: activity.title,
+    meta: `${future ? 'Acontece em' : 'Realizada em'} ${formatDate(activity.dueDate)}`,
+    disabled: graded || future,
+    badge: graded ? 'Nota já lançada' : (future ? 'Ainda não aconteceu' : undefined),
+    badgeTone: graded ? 'neutral' : 'warning'
+  }
+}))
 
 const activityError = computed(() => (
   selectedActivity.value ? '' : 'Selecione a prova ou trabalho desta nota.'
@@ -287,7 +331,7 @@ function closeIfIdle() {
 }
 
 function focusableElements() {
-  return [...(card.value?.querySelectorAll('select:not([disabled]), input:not([disabled]), button:not([disabled])') ?? [])]
+  return [...(card.value?.querySelectorAll('input:not([disabled]), button:not([disabled]):not([tabindex="-1"])') ?? [])]
 }
 
 // Mantém o Tab dentro do diálogo enquanto ele estiver aberto.
@@ -307,9 +351,12 @@ function trapFocus(event) {
   }
 }
 
+// Quando as avaliações aparecem, o foco vai direto para a escolha da prova.
 async function focusFirstField() {
   await nextTick()
-  focusableElements()[0]?.focus()
+  const activityPicker = card.value?.querySelector('#grade-modal-activity')
+  const target = activityPicker ?? focusableElements()[0]
+  target?.focus()
 }
 
 function submit() {
@@ -327,7 +374,17 @@ function submit() {
   })
 }
 
-watch(() => props.activitiesStatus, focusFirstField)
+// Trocar de disciplina invalida a avaliação escolhida antes.
+watch(() => props.disciplineId, () => {
+  activityId.value = ''
+  submitted.value = false
+})
+
+// Só leva o foco para a escolha da prova quando ele ficou sem lugar (o "Carregando…" sumiu da tela).
+// Se a pessoa está em outro campo do modal, como a escolha da disciplina, o foco fica onde está.
+watch(() => props.activitiesStatus, () => {
+  if (!card.value?.contains(document.activeElement)) focusFirstField()
+})
 
 onMounted(focusFirstField)
 </script>
@@ -414,8 +471,7 @@ onMounted(focusFirstField)
 }
 
 
-.field input,
-.field select {
+.field input {
   width: 100%;
   height: 42px;
 
@@ -430,23 +486,32 @@ onMounted(focusFirstField)
 
   color: #252338;
 
+  font: inherit;
   font-size: 14px;
 
   outline: none;
 }
 
 
-.field input:focus,
-.field select:focus {
-  border-color: #6330e0;
-
-  box-shadow:
-    0 0 0 2px rgba(99, 48, 224, 0.08);
+.field input::placeholder {
+  color: #8a879b;
 }
 
 
-.field input[aria-invalid="true"],
-.field select[aria-invalid="true"] {
+.field input:hover {
+  border-color: #c9c1ea;
+}
+
+
+.field input:focus {
+  border-color: #6330e0;
+
+  box-shadow:
+    0 0 0 3px rgba(99, 48, 224, 0.14);
+}
+
+
+.field input[aria-invalid="true"] {
   border-color: #c4463e;
 }
 

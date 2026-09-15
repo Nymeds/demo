@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import ActivityModal from './ActivityModal.vue'
+import AppSelect from '../../components/ui/AppSelect.vue'
 import AppToast from '../../components/ui/AppToast.vue'
 import DeleteActivityModal from './DeleteActivityModal.vue'
 
@@ -19,6 +20,12 @@ const saveFeedback = ref('')
 const searchTerm = ref('')
 const activeFilter = ref('all')
 const sortOrder = ref('dueAsc')
+const sortOptions = [
+  { value: 'dueAsc', label: 'Prazo mais próximo' },
+  { value: 'dueDesc', label: 'Prazo mais distante' },
+  { value: 'titleAsc', label: 'Título A–Z' },
+  { value: 'titleDesc', label: 'Título Z–A' },
+]
 
 const showActivityModal = ref(false)
 const editingActivity = ref(null)
@@ -479,12 +486,7 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
 
         <label class="activities-sort">
           <span>Ordenar por</span>
-          <select v-model="sortOrder">
-            <option value="dueAsc">Prazo mais próximo</option>
-            <option value="dueDesc">Prazo mais distante</option>
-            <option value="titleAsc">Título A–Z</option>
-            <option value="titleDesc">Título Z–A</option>
-          </select>
+          <AppSelect v-model="sortOrder" :options="sortOptions" aria-label="Ordenar atividades" />
         </label>
       </div>
 
@@ -898,14 +900,15 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
   gap: 8px;
 }
 
-.activities-sort select {
-  background: #fff;
-  border: 1px solid #dfe1e8;
-  border-radius: 7px;
-  color: #353b50;
-  font-size: .67rem;
-  outline: 0;
-  padding: 8px 30px 8px 10px;
+.activities-sort {
+  --app-select-height: 34px;
+  --app-select-font-size: .67rem;
+  --app-select-radius: 7px;
+  --app-select-padding: 6px 10px;
+}
+
+.activities-sort .app-select {
+  width: 180px;
 }
 
 .activities-list {
