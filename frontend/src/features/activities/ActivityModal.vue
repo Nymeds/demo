@@ -1,5 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
+import AppDatePicker from '../../components/ui/AppDatePicker.vue'
+import AppSelect from '../../components/ui/AppSelect.vue'
 
 const props = defineProps({
   activity: { type: Object, default: null },
@@ -28,7 +30,26 @@ const statuses = [
   { value: 'COMPLETED', label: 'Concluída' },
 ]
 
+const disciplineOptions = computed(() => props.disciplines.map(discipline => ({
+  value: discipline.id,
+  label: discipline.name,
+})))
+
+// A lista e a data são componentes próprios, sem o "required" nativo do navegador:
+// a conferência dos campos obrigatórios fica aqui.
+const submitted = ref(false)
+const formError = ref('')
+
 function submitForm() {
+  submitted.value = true
+
+  if (!disciplineId.value || !dueDate.value) {
+    formError.value = 'Preencha a disciplina e a data de entrega.'
+    return
+  }
+
+  formError.value = ''
+
   emit('save', {
     disciplineId: disciplineId.value,
     title: title.value.trim(),
@@ -83,16 +104,13 @@ function submitForm() {
       <form @submit.prevent="submitForm">
         <label class="activity-form-field">
           <span>Disciplina <strong>*</strong></span>
-          <select v-model="disciplineId" required :disabled="isEditing">
-            <option disabled value="">Selecione uma disciplina</option>
-            <option
-              v-for="discipline in disciplines"
-              :key="discipline.id"
-              :value="discipline.id"
-            >
-              {{ discipline.name }}
-            </option>
-          </select>
+          <AppSelect
+            v-model="disciplineId"
+            :options="disciplineOptions"
+            :disabled="isEditing"
+            :invalid="submitted && !disciplineId"
+            placeholder="Selecione uma disciplina"
+          />
           <small v-if="isEditing">
             Para mover a atividade para outra disciplina, crie uma nova atividade.
           </small>
@@ -124,22 +142,16 @@ function submitForm() {
         <div class="activity-form-grid">
           <label class="activity-form-field">
             <span>Data de entrega <strong>*</strong></span>
-            <input v-model="dueDate" type="date" required>
+            <AppDatePicker v-model="dueDate" :invalid="submitted && !dueDate" />
           </label>
 
           <label class="activity-form-field">
             <span>Status <strong>*</strong></span>
-            <select v-model="status" required>
-              <option
-                v-for="option in statuses"
-                :key="option.value"
-                :value="option.value"
-              >
-                {{ option.label }}
-              </option>
-            </select>
+            <AppSelect v-model="status" :options="statuses" />
           </label>
         </div>
+
+        <p v-if="formError" class="activity-form-error" role="alert">{{ formError }}</p>
 
         <footer class="activity-modal-footer">
           <button
@@ -293,17 +305,22 @@ function submitForm() {
   resize: vertical;
 }
 
-.activity-form-field select {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23575e73' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-position: right 15px center;
-  background-repeat: no-repeat;
-  padding-right: 40px;
+.activity-form-field {
+  --app-select-height: 44px;
+  --app-select-font-size: .74rem;
+  --app-select-radius: 7px;
+  --app-select-padding: 0 14px;
+  --app-date-height: 44px;
+  --app-date-font-size: .74rem;
+  --app-date-radius: 7px;
+  --app-date-padding: 0 14px;
 }
 
-.activity-form-field select:disabled {
-  background-color: #f4f4f8;
-  color: #747a8d;
+.activity-form-error {
+  color: #b63b4f;
+  font-size: .68rem;
+  font-weight: 600;
+  margin-top: -8px;
 }
 
 .activity-form-field input:focus,

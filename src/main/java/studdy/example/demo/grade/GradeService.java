@@ -179,6 +179,8 @@ public class GradeService {
     }
 
     // A checagem acima cobre o uso normal; a restrição única do banco cobre dois envios simultâneos.
+    // Depois de uma falha no flush a sessão do Hibernate fica inutilizável: quem captura a exceção
+    // só pode lançar este 409, sem nenhuma outra operação no banco no mesmo método.
     private ResponseStatusException activityAlreadyGraded() {
         return new ResponseStatusException(
                 HttpStatus.CONFLICT,

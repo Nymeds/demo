@@ -158,7 +158,12 @@ onMounted(() => dialog.value?.focus())
             <div class="mock-field help-rise"><small>Média desejada</small><strong>{{ EXAMPLE_GOAL }}</strong></div>
             <span class="mock-button help-press" style="--delay: 1.1s">Simular</span>
             <p class="mock-formula help-rise" style="--delay: 2s">
-              {{ EXAMPLE_GOAL }} × ({{ exampleCount }} notas + 1) − {{ EXAMPLE_SUM }} = <b>{{ EXAMPLE_REQUIRED }}</b>
+              Para ter média <b>{{ EXAMPLE_GOAL }}</b> em <b>{{ exampleCount + 1 }} provas</b>, a soma precisa dar
+              <b>{{ formatGrade(EXAMPLE.goal * (exampleCount + 1)) }}</b>. Você já tem <b>{{ EXAMPLE_SUM }}</b>,
+              então precisa tirar <b>{{ EXAMPLE_REQUIRED }}</b>.
+            </p>
+            <p class="mock-caption help-rise" style="--delay: 3.4s">
+              Conferindo: ({{ EXAMPLE.grades.map(grade => formatGrade(grade)).join(' + ') }} + {{ EXAMPLE_REQUIRED }}) ÷ {{ exampleCount + 1 }} = {{ EXAMPLE_GOAL }}
             </p>
           </template>
 

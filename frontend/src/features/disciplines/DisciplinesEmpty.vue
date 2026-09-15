@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppToast from '../../components/ui/AppToast.vue'
 import { frequencySituation } from '../frequency/frequencyRules.js'
+import AppSelect from '../../components/ui/AppSelect.vue'
 import DisciplineModal from './DisciplineModal.vue'
 import DeleteDisciplineModal from './DeleteDisciplineModal.vue'
 
@@ -13,6 +14,11 @@ const activeFilter = ref('all')
 const viewMode = ref('list')
 const searchTerm = ref('')
 const sortOrder = ref('nameAsc')
+const sortOptions = [
+  { value: 'nameAsc', label: 'Nome (A-Z)' },
+  { value: 'nameDesc', label: 'Nome (Z-A)' },
+  { value: 'newest', label: 'Mais recentes' },
+]
 const showAddModal = ref(false)
 const editingDiscipline = ref(null)
 const disciplineToDelete = ref(null)
@@ -467,11 +473,7 @@ function statusDetails(status) {
       <div class="disciplines-view-options">
         <label class="disciplines-sort">
           <span>Ordenar por:</span>
-          <select v-model="sortOrder" aria-label="Ordenar disciplinas">
-            <option value="nameAsc">Nome (A-Z)</option>
-            <option value="nameDesc">Nome (Z-A)</option>
-            <option value="newest">Mais recentes</option>
-          </select>
+          <AppSelect v-model="sortOrder" :options="sortOptions" variant="ghost" aria-label="Ordenar disciplinas" />
         </label>
 
         <button class="clear-filters" type="button" @click="clearFilters">Limpar filtros</button>
@@ -1057,13 +1059,15 @@ function statusDetails(status) {
   font-weight: 700;
 }
 
-.disciplines-sort select {
-  background: transparent;
-  border: 0;
-  color: #43495e;
-  outline: none;
-  padding: 10px 4px;
-  text-overflow: ellipsis;
+.disciplines-sort {
+  --app-select-height: 36px;
+  --app-select-font-size: .68rem;
+  --app-select-radius: 7px;
+  --app-select-padding: 0 8px;
+}
+
+.disciplines-sort .app-select {
+  width: 150px;
 }
 
 .disciplines-view-buttons {

@@ -1,5 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
+import AppSelect from '../../components/ui/AppSelect.vue'
+import AppTimePicker from '../../components/ui/AppTimePicker.vue'
 
 const props = defineProps({
   discipline: { type: Object, default: null },
@@ -43,6 +45,15 @@ const weekDays = [
   { value: 'SATURDAY', label: 'Sábado' },
 ]
 
+const semesterOptions = [
+  { value: '1', label: '1º semestre' },
+  { value: '2', label: '2º semestre' },
+]
+
+// Listas e horários são componentes próprios, sem o "required" nativo do navegador:
+// a conferência dos campos obrigatórios fica no envio.
+const submitted = ref(false)
+
 const colors = [
   '#6432df',
   '#3182f6',
@@ -68,8 +79,15 @@ function removeSchedule(index) {
 }
 
 function submitForm() {
+  submitted.value = true
+
   if (schedules.value.length === 0) {
     timeError.value = 'Adicione pelo menos um horário para a disciplina.'
+    return
+  }
+
+  if (schedules.value.some(schedule => !schedule.startTime || !schedule.endTime)) {
+    timeError.value = 'Preencha o horário inicial e o final de todas as aulas.'
     return
   }
 
@@ -148,18 +166,7 @@ function submitForm() {
         <label class="form-field">
           <span>Semestre <strong>*</strong></span>
 
-          <select
-            v-model="semester"
-            required
-          >
-            <option value="1">
-              1º semestre
-            </option>
-
-            <option value="2">
-              2º semestre
-            </option>
-          </select>
+          <AppSelect v-model="semester" :options="semesterOptions" placeholder="Selecione o semestre" />
 
         </label>
 
@@ -170,13 +177,19 @@ function submitForm() {
           <p>Adicione os dias da semana e os respectivos horários.</p>
 
           <div v-for="(schedule, index) in schedules" :key="schedule.id" class="schedule-row">
-            <select v-model="schedule.dayOfWeek" aria-label="Dia da semana" required>
-              <option v-for="day in weekDays" :key="day.value" :value="day.value">{{ day.label }}</option>
-            </select>
+            <AppSelect v-model="schedule.dayOfWeek" :options="weekDays" aria-label="Dia da semana" />
 
-            <input v-model="schedule.startTime" type="time" :aria-label="`Horário inicial ${index + 1}`" required>
+            <AppTimePicker
+              v-model="schedule.startTime"
+              :aria-label="`Horário inicial ${index + 1}`"
+              :invalid="submitted && !schedule.startTime"
+            />
             <span class="schedule-separator">até</span>
-            <input v-model="schedule.endTime" type="time" :aria-label="`Horário final ${index + 1}`" required>
+            <AppTimePicker
+              v-model="schedule.endTime"
+              :aria-label="`Horário final ${index + 1}`"
+              :invalid="submitted && !schedule.endTime"
+            />
 
             <button
               class="remove-schedule"
@@ -330,9 +343,7 @@ function submitForm() {
   font-weight: 450;
 }
 
-.form-field > input,
-.schedule-row select,
-.schedule-row input {
+.form-field > input {
   background: #fff;
   border: 1px solid #dfe1e8;
   border-radius: 7px;
@@ -351,9 +362,7 @@ function submitForm() {
   opacity: 1;
 }
 
-.form-field input:focus,
-.schedule-row select:focus,
-.schedule-row input:focus {
+.form-field input:focus {
   border-color: #7544eb;
   box-shadow: 0 0 0 3px rgba(117, 68, 235, .11);
 }
@@ -388,28 +397,15 @@ function submitForm() {
   margin-top: 10px;
 }
 
-.schedule-row select,
-.schedule-row input {
-  background-color: #fff;
-  color-scheme: light;
-  height: 42px;
-  min-width: 0;
-  padding: 0 12px;
-  width: 100%;
-}
-
-.schedule-row input[type="time"] {
-  font-size: .68rem;
-  font-weight: 400;
-}
-
-.schedule-row select {
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23575e73' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-position: right 17px center;
-  background-repeat: no-repeat;
-  font-size: .72rem;
-  padding-right: 42px;
+.schedule-row {
+  --app-select-height: 42px;
+  --app-select-font-size: .72rem;
+  --app-select-radius: 7px;
+  --app-select-padding: 0 14px;
+  --app-time-height: 42px;
+  --app-time-font-size: .7rem;
+  --app-time-radius: 7px;
+  --app-time-padding: 0 10px;
 }
 
 .schedule-separator {
@@ -560,19 +556,11 @@ button:focus-visible {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.period-fields select {
-  background: #fff;
-  border: 1px solid #dfe1e8;
-  border-radius: 7px;
-  color: #242a3d;
-  font-weight: 400;
-  outline: none;
-  padding: 12px 14px;
-}
-
-.period-fields select:focus {
-  border-color: #7544eb;
-  box-shadow: 0 0 0 3px rgba(117, 68, 235, .11);
+.period-fields {
+  --app-select-height: 44px;
+  --app-select-font-size: .74rem;
+  --app-select-radius: 7px;
+  --app-select-padding: 0 14px;
 }
 @media (max-width: 680px) {
   .modal-backdrop {
@@ -597,7 +585,11 @@ button:focus-visible {
     grid-template-columns: 1fr 1fr 43px;
   }
 
-  .schedule-row select {
+  .performance-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-row .app-select {
     grid-column: 1 / -1;
   }
 
