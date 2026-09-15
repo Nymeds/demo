@@ -27,24 +27,38 @@ public class JwtService {
     }
 
     public String generateToken(UUID userId) {
-        Instant now = Instant.now();
+        return generateToken(userId, Instant.now());
+    }
 
+    public String generateToken(UUID userId, Instant issuedAt) {
         return Jwts.builder()
                 .subject(userId.toString())
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusMillis(expirationInMs)))
+                .issuedAt(Date.from(issuedAt))
+                .expiration(Date.from(issuedAt.plusMillis(expirationInMs)))
                 .signWith(signingKey)
                 .compact();
     }
 
     public UUID getUserId(String token) {
+        return parse(token).userId();
+    }
+
+    public TokenClaims parse(String token) {
         Claims claims = Jwts.parser()
                 .verifyWith(signingKey)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
 
-        return UUID.fromString(claims.getSubject());
+        Date issuedAt = claims.getIssuedAt();
+
+        return new TokenClaims(
+                UUID.fromString(claims.getSubject()),
+                issuedAt == null ? null : issuedAt.toInstant()
+        );
+    }
+
+    public record TokenClaims(UUID userId, Instant issuedAt) {
     }
 
     public long getExpirationInSeconds() {

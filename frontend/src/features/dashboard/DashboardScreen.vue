@@ -6,13 +6,18 @@ import FrequencyPage from '../frequency/FrequencyPage.vue'
 import ProfileScreen from '../profile/ProfileScreen.vue'
 import SimulatorNotes from '../simulator/SimulatorNotes.vue'
 import { frequencySituation } from '../frequency/frequencyRules.js'
+import GradesScreen from '../grades/GradesScreen.vue'
+import SettingsScreen from '../settings/SettingsScreen.vue'
+import { createSettingsApi, sectionFromPreference } from '../settings/settingsApi'
+import { useAvatar } from '../../composables/useAvatar'
+import SidebarUserMenu from './SidebarUserMenu.vue'
 
 const { user, accessToken } = defineProps({
   user: { type: Object, required: true },
   accessToken: { type: String, required: true },
 })
 
-const emit = defineEmits(['logout', 'user-updated'])
+const emit = defineEmits(['logout', 'user-updated', 'token-refreshed'])
 const activeSection = ref('dashboard')
 const sidebarAvatarUrl = ref('')
 const dashboardLoading = ref(true)
@@ -219,8 +224,35 @@ function classDateTime(upcomingClass) {
   return `${year}-${month}-${day}T${String(upcomingClass.schedule.startTime).slice(0, 5)}`
 }
 
+// Abre a tela inicial escolhida em Configurações, a menos que o estudante já tenha navegado.
+async function applyStartSection() {
+  try {
+    const preferences = await apiRequest('/api/v1/settings/preferences')
+
+    if (activeSection.value === 'dashboard') {
+      activeSection.value = sectionFromPreference(preferences.startSection)
+    }
+  } catch (error) {
+    // A preferência é só conveniência: sem ela o dashboard continua sendo a tela inicial.
+    console.warn('Não foi possível aplicar a tela inicial preferida.', error.message)
+  }
+}
+
+const { loadAvatar } = useAvatar()
+
+async function loadSettingsAvatar() {
+  try {
+    await loadAvatar(createSettingsApi(() => accessToken))
+  } catch (error) {
+    // Sem a foto, a caixa do usuário continua mostrando a inicial do nome.
+    console.warn('Não foi possível carregar a foto de perfil.', error.message)
+  }
+}
+
 onMounted(() => {
   loadDashboard()
+  applyStartSection()
+  loadSettingsAvatar()
   loadSidebarAvatar()
   clockTimer = window.setInterval(() => {
     currentDateTime.value = new Date()
@@ -366,6 +398,18 @@ onBeforeUnmount(() => {
         </button>
         <button
           type="button"
+          :class="{ active: activeSection === 'grades' }"
+          :aria-current="activeSection === 'grades' ? 'page' : undefined"
+          @click="activeSection = 'grades'"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 17l6-6 4 4 8-8" />
+            <path d="M14 7h7v7" />
+          </svg>
+          Notas
+        </button>
+        <button
+          type="button"
           :class="{ active: activeSection === 'simulator' }"
           :aria-current="activeSection === 'simulator' ? 'page' : undefined"
           @click="activeSection = 'simulator'"
@@ -392,16 +436,13 @@ onBeforeUnmount(() => {
         </button>
       </nav>
       <div class="dashboard-sidebar-footer">
-        <div class="dashboard-user-card">
-          <span class="dashboard-user-avatar" aria-hidden="true">
-            <img v-if="sidebarAvatarUrl" :src="sidebarAvatarUrl" alt="" />
-            <template v-else>{{ userInitial }}</template>
-          </span>
-          <span class="dashboard-user-details">
-            <strong>{{ user.name }}</strong>
-            <small>{{ user.email || 'Conta do estudante' }}</small>
-          </span>
-        </div>
+        <SidebarUserMenu
+          :name="user.name"
+          :initial="userInitial"
+          :fallback-avatar-url="sidebarAvatarUrl"
+          :settings-active="activeSection === 'settings'"
+          @open-settings="activeSection = 'settings'"
+        />
         <button class="dashboard-logout" type="button" @click="emit('logout')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10" />
@@ -707,6 +748,12 @@ onBeforeUnmount(() => {
         v-if="activeSection === 'frequency'"
         :access-token="accessToken"
       />
+      <GradesScreen
+        v-if="activeSection === 'grades'"
+        :access-token="accessToken"
+        @navigate="activeSection = $event"
+        @session-expired="emit('logout', 'session-expired')"
+      />
       <SimulatorNotes
         v-if="activeSection === 'simulator'"
         :access-token="accessToken"
@@ -717,6 +764,14 @@ onBeforeUnmount(() => {
         :access-token="accessToken"
         :user="user"
         @updated="emit('user-updated', $event)"
+      />
+      <SettingsScreen
+        v-if="activeSection === 'settings'"
+        :access-token="accessToken"
+        @profile-updated="emit('user-updated', $event)"
+        @token-refreshed="emit('token-refreshed', $event)"
+        @account-deleted="emit('logout', 'account-deleted')"
+        @session-expired="emit('logout', 'session-expired')"
       />
     </main>
   </div>
@@ -943,13 +998,13 @@ onBeforeUnmount(() => {
 }
 @media (max-width: 760px) {
   .dashboard-shell { display: block; }
-  .dashboard-sidebar { align-items: stretch; bottom: 0; display: grid; grid-template-columns: minmax(0, 1fr) 58px 58px; height: auto; left: 0; padding: 7px 10px max(7px, env(safe-area-inset-bottom)); position: fixed; right: 0; top: auto; z-index: 80; }
+  .dashboard-sidebar { align-items: stretch; bottom: 0; display: grid; grid-template-columns: minmax(0, 1fr) 48px auto; height: auto; left: 0; padding: 7px 10px max(7px, env(safe-area-inset-bottom)); position: fixed; right: 0; top: auto; z-index: 80; }
   .dashboard-brand, .dashboard-user-card { display: none; }
-  .dashboard-navigation { display: grid; gap: 3px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .dashboard-navigation { display: grid; gap: 3px; grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .dashboard-navigation button, .dashboard-profile-navigation button, .dashboard-logout { flex-direction: column; font-size: .52rem; gap: 3px; justify-content: center; line-height: 1.05; min-width: 0; padding: 7px 2px; text-align: center; }
   .dashboard-navigation button.active { background: rgba(108, 65, 226, .42); box-shadow: none; }
   .dashboard-sidebar { --navigation-icon-size: 18px; }
-  .dashboard-sidebar-footer { border: 0; margin: 0; padding: 0; }
+  .dashboard-sidebar-footer { align-items: stretch; border: 0; display: flex; gap: 4px; margin: 0; padding: 0; }
   .dashboard-profile-navigation { margin: 0; padding: 0; }
   .dashboard-main { padding: 22px 16px 92px; }
   .dashboard-topbar { align-items: flex-start; padding: 24px; }

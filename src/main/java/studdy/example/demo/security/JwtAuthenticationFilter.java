@@ -39,26 +39,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (authorization != null && authorization.startsWith("Bearer ")) {
             try {
                 String token = authorization.substring(7);
-                UUID userId = jwtService.getUserId(token);
+                JwtService.TokenClaims claims = jwtService.parse(token);
 
-                if (userRepository.existsById(userId)) {
-                    var authentication = new UsernamePasswordAuthenticationToken(
-                            userId,
-                            null,
-                            List.of()
-                    );
-
-                    authentication.setDetails(
-                            new WebAuthenticationDetailsSource().buildDetails(request)
-                    );
-
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                }
+                // Conta excluída ou senha trocada depois da emissão: o token não autentica mais.
+                userRepository.findById(claims.userId())
+                        .filter(user -> user.acceptsTokenIssuedAt(claims.issuedAt()))
+                        .ifPresent(user -> authenticate(claims.userId(), request));
             } catch (JwtException | IllegalArgumentException ignored) {
                 // Token inválido: a rota protegida retornará 401.
             }
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private void authenticate(UUID userId, HttpServletRequest request) {
+        var authentication = new UsernamePasswordAuthenticationToken(userId, null, List.of());
+
+        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 }

@@ -1,50 +1,128 @@
-```vue
 <template>
-  <div class="modal-overlay">
-    <div class="modal-card">
+  <div
+    class="modal-overlay"
+    @keydown.esc="closeIfIdle"
+    @keydown.tab="trapFocus"
+    @click.self="closeIfIdle"
+  >
+    <div
+      ref="card"
+      class="modal-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="grade-modal-title"
+      aria-describedby="grade-modal-description"
+    >
 
-      <h2>Adicionar avaliação</h2>
+      <h2 id="grade-modal-title">Lançar nota de avaliação</h2>
 
-      <form @submit.prevent="submit">
+      <p id="grade-modal-description" class="modal-description">
+        A nota fica vinculada a uma prova ou trabalho cadastrado em Atividades,
+        comprovando de qual avaliação ela veio.
+      </p>
+
+      <p v-if="activitiesStatus === 'loading' || activitiesStatus === 'idle'" class="modal-status" role="status">
+        Carregando as avaliações de {{ disciplineName }}…
+      </p>
+
+      <div v-else-if="activitiesStatus === 'error'" class="modal-empty" role="alert">
+        <p>Não foi possível carregar as avaliações desta disciplina.</p>
+
+        <div class="actions">
+          <button type="button" class="cancel-button" @click="emit('close')">Fechar</button>
+          <button type="button" class="save-button" @click="emit('retry')">Tentar de novo</button>
+        </div>
+      </div>
+
+      <div v-else-if="activities.length === 0" class="modal-empty">
+        <p><strong>{{ disciplineName }}</strong> ainda não tem provas ou trabalhos cadastrados.</p>
+        <p>Cadastre a avaliação em Atividades e volte aqui para lançar a nota dela.</p>
+
+        <div class="actions">
+          <button type="button" class="cancel-button" @click="emit('close')">Cancelar</button>
+          <button type="button" class="save-button" @click="emit('go-to-activities')">Ir para Atividades</button>
+        </div>
+      </div>
+
+      <form v-else novalidate @submit.prevent="submit">
 
         <div class="field">
-          <label>Nome da avaliação</label>
+          <label for="grade-modal-activity">Avaliação cadastrada</label>
 
-          <input
-            v-model="assessmentName"
-            type="text"
-            maxlength="120"
-            placeholder="Ex: Prova 1"
+          <select
+            id="grade-modal-activity"
+            v-model="activityId"
             required
+            :aria-invalid="submitted && Boolean(activityError)"
+            aria-describedby="grade-modal-activity-help"
           >
+            <option value="" disabled>Selecione a prova ou trabalho</option>
+            <option
+              v-for="activity in activities"
+              :key="activity.id"
+              :value="activity.id"
+              :disabled="!isSelectable(activity)"
+            >
+              {{ optionLabel(activity) }}
+            </option>
+          </select>
+
+          <p v-if="submitted && activityError" id="grade-modal-activity-help" class="field-error" role="alert">
+            {{ activityError }}
+          </p>
+          <p v-else-if="!hasSelectableActivity" id="grade-modal-activity-help" class="field-hint">
+            Todas as avaliações desta disciplina já têm nota ou ainda não aconteceram.
+          </p>
+        </div>
+
+
+        <div v-if="selectedActivity" class="proof-card" aria-live="polite">
+          <span class="proof-label">Comprovação</span>
+          <strong>{{ selectedActivity.title }}</strong>
+          <span>Realizada em {{ formatDate(selectedActivity.dueDate) }} · {{ statusLabel(selectedActivity.status) }}</span>
+          <span v-if="selectedActivity.description" class="proof-description">{{ selectedActivity.description }}</span>
         </div>
 
 
         <div class="field">
-          <label>Nota obtida</label>
+          <label for="grade-modal-score">Nota obtida</label>
 
           <input
+            id="grade-modal-score"
             v-model="score"
             type="number"
+            inputmode="decimal"
             min="0"
-            max="10"
+            :max="MAX_SCORE"
             step="0.01"
             placeholder="Ex: 8.5"
             required
+            :aria-invalid="showScoreError"
+            aria-describedby="grade-modal-score-error"
+            @keydown="blockInvalidNumberKeys"
           >
+
+          <p v-if="showScoreError" id="grade-modal-score-error" class="field-error" role="alert">{{ scoreError }}</p>
         </div>
 
 
         <div class="field">
-          <label>Data</label>
+          <label for="grade-modal-date">Data em que a nota saiu</label>
 
           <input
+            id="grade-modal-date"
             v-model="recordedAt"
             type="date"
+            :min="selectedActivity?.dueDate"
+            :max="today"
             required
+            :aria-invalid="submitted && Boolean(dateError)"
           >
+
+          <p v-if="submitted && dateError" class="field-error">{{ dateError }}</p>
         </div>
 
+        <p v-if="errorMessage" class="form-error" role="alert">{{ errorMessage }}</p>
 
         <div class="actions">
 
@@ -60,9 +138,9 @@
           <button
             type="submit"
             class="save-button"
-            :disabled="saving"
+            :disabled="saving || !hasSelectableActivity"
           >
-            {{ saving ? 'Salvando...' : 'Adicionar avaliação' }}
+            {{ saving ? 'Salvando...' : 'Lançar nota' }}
           </button>
 
         </div>
@@ -75,59 +153,183 @@
 
 
 <script setup>
-import { ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
+const MAX_SCORE = 10
+const ASSESSMENT_NAME_LIMIT = 120
+
+const STATUS_LABELS = {
+  PENDING: 'Pendente',
+  IN_PROGRESS: 'Em andamento',
+  COMPLETED: 'Concluída'
+}
 
 const props = defineProps({
+  activities: {
+    type: Array,
+    default: () => []
+  },
+  activitiesStatus: {
+    type: String,
+    default: 'idle'
+  },
+  gradedActivityIds: {
+    type: Array,
+    default: () => []
+  },
+  disciplineName: {
+    type: String,
+    default: ''
+  },
   saving: {
     type: Boolean,
     default: false
+  },
+  errorMessage: {
+    type: String,
+    default: ''
   }
 })
 
 
 const emit = defineEmits([
   'close',
-  'save'
+  'save',
+  'retry',
+  'go-to-activities'
 ])
 
+// Data de hoje no fuso do navegador. Com toISOString (UTC), à noite no Brasil a data já seria a
+// de amanhã, e o backend recusaria a nota por estar "no futuro".
+function localIsoDate() {
+  const now = new Date()
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset())
+  return now.toISOString().slice(0, 10)
+}
 
-const assessmentName = ref('')
-
+const today = localIsoDate()
+const activityId = ref('')
 const score = ref('')
+const recordedAt = ref(today)
+const submitted = ref(false)
+const card = ref(null)
 
-const recordedAt = ref(
-  new Date()
-    .toISOString()
-    .slice(0, 10)
-)
+const selectedActivity = computed(() => (
+  props.activities.find(activity => activity.id === activityId.value) ?? null
+))
 
+function isGraded(activity) {
+  return props.gradedActivityIds.includes(activity.id)
+}
+
+// Só dá para lançar nota de avaliação que já aconteceu e que ainda não tem nota.
+function isSelectable(activity) {
+  return !isGraded(activity) && activity.dueDate <= today
+}
+
+const hasSelectableActivity = computed(() => props.activities.some(isSelectable))
+
+function formatDate(isoDate) {
+  const [year, month, day] = String(isoDate).split('-')
+  return `${day}/${month}/${year}`
+}
+
+function statusLabel(status) {
+  return STATUS_LABELS[status] ?? status
+}
+
+function optionLabel(activity) {
+  if (isGraded(activity)) return `${activity.title} — nota já lançada`
+  if (activity.dueDate > today) return `${activity.title} — em ${formatDate(activity.dueDate)}, ainda não aconteceu`
+  return `${activity.title} — ${formatDate(activity.dueDate)}`
+}
+
+const activityError = computed(() => (
+  selectedActivity.value ? '' : 'Selecione a prova ou trabalho desta nota.'
+))
+
+const scoreError = computed(() => {
+  if (score.value === '' || score.value === null) return 'Informe a nota obtida.'
+
+  const value = Number(score.value)
+
+  if (Number.isNaN(value)) return 'Informe um número válido.'
+  if (value < 0) return 'A nota não pode ser negativa.'
+  if (value > MAX_SCORE) return 'A nota não pode ser maior que 10.'
+  if (Math.abs(value * 100 - Math.round(value * 100)) > 1e-9) return 'Use no máximo duas casas decimais.'
+
+  return ''
+})
+
+// Mostra o erro da nota assim que algo é digitado, sem esperar o envio.
+const showScoreError = computed(() => (
+  Boolean(scoreError.value) && (submitted.value || score.value !== '')
+))
+
+const dateError = computed(() => {
+  if (!recordedAt.value) return 'Informe a data.'
+  if (recordedAt.value > today) return 'A data não pode estar no futuro.'
+  if (selectedActivity.value && recordedAt.value < selectedActivity.value.dueDate) {
+    return `A nota não pode ter data anterior à avaliação (${formatDate(selectedActivity.value.dueDate)}).`
+  }
+  return ''
+})
+
+// Notas são positivas: "-", "+" e "e" (notação científica) não são digitáveis.
+function blockInvalidNumberKeys(event) {
+  if (['-', '+', 'e', 'E'].includes(event.key)) {
+    event.preventDefault()
+  }
+}
+
+function closeIfIdle() {
+  if (!props.saving) emit('close')
+}
+
+function focusableElements() {
+  return [...(card.value?.querySelectorAll('select:not([disabled]), input:not([disabled]), button:not([disabled])') ?? [])]
+}
+
+// Mantém o Tab dentro do diálogo enquanto ele estiver aberto.
+function trapFocus(event) {
+  const elements = focusableElements()
+  if (elements.length === 0) return
+
+  const first = elements[0]
+  const last = elements[elements.length - 1]
+
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
+async function focusFirstField() {
+  await nextTick()
+  focusableElements()[0]?.focus()
+}
 
 function submit() {
+  submitted.value = true
 
-  if (
-    !assessmentName.value.trim() ||
-    score.value === '' ||
-    !recordedAt.value
-  ) {
+  if (activityError.value || scoreError.value || dateError.value || props.saving) {
     return
   }
 
-
   emit('save', {
-
-    assessmentName:
-      assessmentName.value.trim(),
-
-    score:
-      Number(score.value),
-
-    recordedAt:
-      recordedAt.value
-
+    activityId: selectedActivity.value.id,
+    assessmentName: selectedActivity.value.title.trim().slice(0, ASSESSMENT_NAME_LIMIT),
+    score: Number(score.value),
+    recordedAt: recordedAt.value
   })
-
 }
+
+watch(() => props.activitiesStatus, focusFirstField)
+
+onMounted(focusFirstField)
 </script>
 
 
@@ -151,7 +353,10 @@ function submit() {
 
 .modal-card {
   width: 100%;
-  max-width: 430px;
+  max-width: 460px;
+  max-height: calc(100vh - 40px);
+
+  overflow-y: auto;
 
   box-sizing: border-box;
 
@@ -167,11 +372,28 @@ function submit() {
 
 
 .modal-card h2 {
-  margin: 0 0 22px;
+  margin: 0 0 8px;
 
   color: #202033;
 
   font-size: 21px;
+}
+
+
+.modal-description,
+.modal-status,
+.modal-empty p {
+  margin: 0 0 18px;
+
+  color: #6b6880;
+
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+
+.modal-empty p + p {
+  margin-top: -10px;
 }
 
 
@@ -192,7 +414,8 @@ function submit() {
 }
 
 
-.field input {
+.field input,
+.field select {
   width: 100%;
   height: 42px;
 
@@ -213,7 +436,8 @@ function submit() {
 }
 
 
-.field input:focus {
+.field input:focus,
+.field select:focus {
   border-color: #6330e0;
 
   box-shadow:
@@ -221,9 +445,82 @@ function submit() {
 }
 
 
+.field input[aria-invalid="true"],
+.field select[aria-invalid="true"] {
+  border-color: #c4463e;
+}
+
+
+.proof-card {
+  display: grid;
+  gap: 3px;
+
+  margin: -4px 0 17px;
+  padding: 12px 14px;
+
+  border: 1px solid #e3dafc;
+  border-left: 3px solid #6330e0;
+  border-radius: 8px;
+
+  background: #f7f3ff;
+
+  color: #555267;
+
+  font-size: 12px;
+}
+
+
+.proof-card strong {
+  color: #252338;
+
+  font-size: 14px;
+}
+
+
+.proof-label {
+  color: #6330e0;
+
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+
+.proof-description {
+  color: #7a7790;
+}
+
+
+.field-hint {
+  margin: 6px 0 0;
+
+  color: #7a7790;
+
+  font-size: 12px;
+}
+
+
+.field-error,
+.form-error {
+  margin: 6px 0 0;
+
+  color: #c4463e;
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+
+.form-error {
+  margin-top: 4px;
+}
+
+
 .actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
 
   gap: 10px;
 
@@ -242,6 +539,12 @@ function submit() {
   font-weight: 600;
 
   cursor: pointer;
+}
+
+
+.actions button:focus-visible {
+  outline: 2px solid rgba(99, 48, 224, 0.45);
+  outline-offset: 2px;
 }
 
 
@@ -275,4 +578,3 @@ function submit() {
 }
 
 </style>
-```

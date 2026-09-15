@@ -21,12 +21,17 @@ test('as abas Frequência e Perfil abrem páginas separadas com autenticação',
       `from ${JSON.stringify(new URL('../src/features/frequency/frequencyRules.js', import.meta.url).href)}`,
     )
     .replace(/from ['"]vue['"]/g, `from ${JSON.stringify(import.meta.resolve('vue'))}`)
+    .replace(/from ['"]\.\.\/settings\/settingsApi['"]/g,
+      `from ${JSON.stringify(new URL('../src/features/settings/settingsApi.js', import.meta.url).href)}`)
+    .replace(/from ['"]\.\.\/\.\.\/composables\/useAvatar['"]/g,
+      `from ${JSON.stringify(new URL('../src/composables/useAvatar.js', import.meta.url).href)}`)
   const { default: DashboardScreen } = await import(`data:text/javascript;base64,${Buffer.from(
     `import { h as testH } from ${JSON.stringify(import.meta.resolve('vue'))};\n${code}`,
   ).toString('base64')}`)
 
   t.mock.method(globalThis, 'fetch', async input => {
     const path = String(input)
+    if (path === '/api/v1/settings/avatar') return { ok: true, status: 204 }
     let data = []
 
     if (path === '/api/v1/dashboards') {
@@ -115,6 +120,15 @@ test('as abas Frequência e Perfil abrem páginas separadas com autenticação',
   await nextTick()
   assert.equal(all(root).some(item => item.type === 'FrequencyPage'), false)
   assert.equal(button('Dashboard').props['aria-current'], 'page')
+
+  button('Notas').props.onClick()
+  await nextTick()
+  assert.equal(all(root).find(item => item.type === 'GradesScreen')?.props.token, 'test-token')
+
+  const userMenu = all(root).find(item => item.type === 'SidebarUserMenu')
+  userMenu.props.onOpenSettings()
+  await nextTick()
+  assert.equal(all(root).find(item => item.type === 'SettingsScreen')?.props.token, 'test-token')
 
   const profileButton = button('Perfil')
   assert.ok(profileButton, 'Perfil deve estar disponível como uma aba do menu')

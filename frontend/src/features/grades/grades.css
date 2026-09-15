@@ -1,0 +1,71 @@
+/* Estilos compartilhados da tela Notas. Todas as classes usam o prefixo grades- para não
+   vazar para as outras telas; as cores seguem as mesmas do restante do AcadOrganize. */
+
+.grades-page { display: grid; gap: 20px; margin: 0 auto; max-width: 1240px; width: 100%; }
+
+.grades-header { align-items: center; display: flex; flex-wrap: wrap; gap: 14px; justify-content: space-between; }
+.grades-title { align-items: center; display: flex; gap: 14px; }
+.grades-title-icon { align-items: center; background: #f1edff; border-radius: 12px; color: #6330e0; display: flex; flex: 0 0 46px; height: 46px; justify-content: center; }
+.grades-title-icon svg,
+.grades-button svg,
+.grades-field svg,
+.grades-tip-icon svg { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.9; }
+.grades-title-icon svg { height: 24px; width: 24px; }
+.grades-title h1 { color: #171c30; font-size: clamp(1.45rem, 2.2vw, 1.85rem); font-weight: 820; letter-spacing: -.035em; line-height: 1.15; margin: 0 0 3px; }
+.grades-title p { color: #73798e; font-size: .78rem; margin: 0; }
+
+.grades-button { align-items: center; border-radius: 9px; cursor: pointer; display: inline-flex; font-size: .74rem; font-weight: 750; gap: 8px; justify-content: center; min-height: 40px; padding: 9px 16px; transition: background .18s, box-shadow .18s, opacity .18s; }
+.grades-button svg { height: 17px; width: 17px; }
+.grades-button:disabled { cursor: not-allowed; opacity: .55; }
+.grades-button:focus-visible { outline: 3px solid rgba(105, 54, 224, .28); outline-offset: 2px; }
+.grades-button.is-primary { background: linear-gradient(100deg, #5c20de, #741dff); border: 0; box-shadow: 0 8px 19px rgba(102, 36, 225, .2); color: #fff; }
+.grades-button.is-secondary { background: #fff; border: 1px solid #dcd3f7; color: #5f2bd5; }
+
+.grades-layout { align-items: start; display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr) 330px; }
+.grades-panel { background: #fff; border: 1px solid #e7e8f0; border-radius: 14px; box-shadow: 0 8px 24px rgba(30, 36, 65, .04); min-width: 0; padding: 20px; }
+.grades-panel h2 { color: #171c30; font-size: .95rem; font-weight: 800; letter-spacing: -.02em; margin: 0 0 14px; }
+.grades-list { padding: 0; }
+.grades-side { display: grid; gap: 16px; }
+.grades-info p { color: #6c7287; font-size: .72rem; line-height: 1.6; margin: 0; }
+
+.grades-filters { align-items: end; border-bottom: 1px solid #eff0f5; display: grid; gap: 12px; grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(120px, 1fr)); padding: 18px 20px; }
+.grades-field { color: #30364a; display: grid; font-size: .68rem; font-weight: 700; gap: 6px; min-width: 0; position: relative; }
+.grades-field input,
+.grades-field select { background: #fff; border: 1px solid #dfe1e8; border-radius: 9px; color: #171c30; font-size: .76rem; font-weight: 500; min-height: 40px; padding: 8px 11px; width: 100%; }
+.grades-field input:focus,
+.grades-field select:focus { border-color: #7a4de6; box-shadow: 0 0 0 3px rgba(105, 54, 224, .16); outline: none; }
+.grades-field.is-search input { padding-left: 34px; }
+.grades-field.is-search svg { color: #8a90a2; height: 16px; left: 11px; pointer-events: none; position: absolute; top: 12px; width: 16px; }
+
+.grades-count { border-top: 1px solid #eff0f5; color: #7b8192; font-size: .7rem; margin: 0; padding: 14px 20px; }
+
+.grades-tip { align-items: center; background: #f2efff; border: 1px solid #e3dbff; border-radius: 14px; display: flex; gap: 14px; padding: 16px 20px; }
+.grades-tip-icon { align-items: center; background: #e3dbff; border-radius: 50%; color: #6330e0; display: flex; flex: 0 0 42px; height: 42px; justify-content: center; }
+.grades-tip-icon svg { height: 21px; width: 21px; }
+.grades-tip > div { flex: 1; min-width: 0; }
+.grades-tip strong { color: #171c30; display: block; font-size: .8rem; margin-bottom: 2px; }
+.grades-tip p { color: #596078; font-size: .72rem; margin: 0; }
+
+.grades-status { background: #fff; border: 1px solid #e7e8f0; border-radius: 14px; color: #73798e; font-size: .78rem; padding: 36px 24px; text-align: center; }
+.grades-status h2 { color: #171c30; font-size: 1.05rem; margin: 0 0 6px; }
+.grades-status p { margin: 0; }
+.grades-status .grades-button { margin-top: 16px; }
+
+.grades-visually-hidden { border: 0; clip: rect(0 0 0 0); height: 1px; margin: -1px; overflow: hidden; padding: 0; position: absolute; white-space: nowrap; width: 1px; }
+
+@media (max-width: 1180px) {
+  .grades-layout { grid-template-columns: 1fr; }
+  .grades-side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grades-info { grid-column: 1 / -1; }
+}
+
+@media (max-width: 900px) {
+  .grades-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .grades-side,
+  .grades-filters { grid-template-columns: 1fr; }
+  .grades-header .grades-button { width: 100%; }
+  .grades-tip { align-items: stretch; flex-direction: column; }
+}
