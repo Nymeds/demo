@@ -6,6 +6,7 @@ import FrequencyPage from '../frequency/FrequencyPage.vue'
 import ProfileScreen from '../profile/ProfileScreen.vue'
 import SimulatorNotes from '../simulator/SimulatorNotes.vue'
 import { frequencySituation } from '../frequency/frequencyRules.js'
+import CalendarScreen from '../calendar/CalendarScreen.vue'
 
 const { user, accessToken } = defineProps({
   user: { type: Object, required: true },
@@ -376,6 +377,18 @@ onBeforeUnmount(() => {
           </svg>
           Simulador de Notas
         </button>
+          <button
+          type="button"
+          :class="{ active: activeSection === 'calendar' }"
+          :aria-current="activeSection === 'calendar' ? 'page' : undefined"
+          @click="activeSection = 'calendar'"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="16" rx="2" />
+            <path d="M7 3v4m10-4v4M3 10h18" />
+          </svg>
+          Calendário
+        </button>
       </nav>
       <nav class="dashboard-profile-navigation" aria-label="Conta">
         <button
@@ -717,6 +730,11 @@ onBeforeUnmount(() => {
         :access-token="accessToken"
         :user="user"
         @updated="emit('user-updated', $event)"
+      />
+
+      <CalendarScreen
+        v-if="activeSection === 'calendar'"
+        :access-token="accessToken"
       />
     </main>
   </div>

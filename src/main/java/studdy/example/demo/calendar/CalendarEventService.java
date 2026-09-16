@@ -9,9 +9,8 @@ import studdy.example.demo.calendar.dto.CalendarEventResponse;
 import studdy.example.demo.calendar.dto.CreateCalendarEventRequest;
 import studdy.example.demo.calendar.dto.UpdateCalendarEventRequest;
 import studdy.example.demo.dashboard.Dashboard;
-import studdy.example.demo.dashboard.DashboardRepository;
 import studdy.example.demo.discipline.Discipline;
-import studdy.example.demo.discipline.DisciplineRepository;
+import studdy.example.demo.discipline.DisciplineAccessService;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,17 +22,14 @@ public class CalendarEventService {
     private static final int MAX_UPCOMING_LIMIT = 50;
 
     private final CalendarEventRepository calendarEventRepository;
-    private final DashboardRepository dashboardRepository;
-    private final DisciplineRepository disciplineRepository;
+    private final DisciplineAccessService disciplineAccessService;
 
     public CalendarEventService(
             CalendarEventRepository calendarEventRepository,
-            DashboardRepository dashboardRepository,
-            DisciplineRepository disciplineRepository
+            DisciplineAccessService disciplineAccessService
     ) {
         this.calendarEventRepository = calendarEventRepository;
-        this.dashboardRepository = dashboardRepository;
-        this.disciplineRepository = disciplineRepository;
+        this.disciplineAccessService = disciplineAccessService;
     }
 
     @Transactional
@@ -42,11 +38,11 @@ public class CalendarEventService {
             UUID dashboardId,
             CreateCalendarEventRequest request
     ) {
-        Dashboard dashboard = findOwnedDashboard(userId, dashboardId);
+        Dashboard dashboard = disciplineAccessService.findOwnedDashboard(userId, dashboardId);
 
         CalendarEvent event = new CalendarEvent(
                 dashboard,
-                findLinkedDiscipline(dashboardId, request.disciplineId()),
+                findLinkedDiscipline(userId, dashboardId, request.disciplineId()),
                 request.title().trim(),
                 trimDescription(request.description()),
                 request.category(),
@@ -65,7 +61,7 @@ public class CalendarEventService {
             LocalDateTime end,
             List<CalendarEventCategory> categories
     ) {
-        findOwnedDashboard(userId, dashboardId);
+        disciplineAccessService.findOwnedDashboard(userId, dashboardId);
 
         if (!end.isAfter(start)) {
             throw new ResponseStatusException(
@@ -85,7 +81,7 @@ public class CalendarEventService {
 
     @Transactional(readOnly = true)
     public List<CalendarEventResponse> findUpcoming(UUID userId, UUID dashboardId, int limit) {
-        findOwnedDashboard(userId, dashboardId);
+        disciplineAccessService.findOwnedDashboard(userId, dashboardId);
 
         if (limit < 1 || limit > MAX_UPCOMING_LIMIT) {
             throw new ResponseStatusException(
@@ -120,7 +116,7 @@ public class CalendarEventService {
         CalendarEvent event = findOwnedEvent(userId, dashboardId, eventId);
 
         event.update(
-                findLinkedDiscipline(dashboardId, request.disciplineId()),
+                findLinkedDiscipline(userId, dashboardId, request.disciplineId()),
                 request.title().trim(),
                 trimDescription(request.description()),
                 request.category(),
@@ -136,16 +132,8 @@ public class CalendarEventService {
         calendarEventRepository.delete(findOwnedEvent(userId, dashboardId, eventId));
     }
 
-    private Dashboard findOwnedDashboard(UUID userId, UUID dashboardId) {
-        return dashboardRepository.findByIdAndOwner_Id(dashboardId, userId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Dashboard não encontrado."
-                ));
-    }
-
     private CalendarEvent findOwnedEvent(UUID userId, UUID dashboardId, UUID eventId) {
-        findOwnedDashboard(userId, dashboardId);
+        disciplineAccessService.findOwnedDashboard(userId, dashboardId);
 
         return calendarEventRepository.findByIdAndDashboard_Id(eventId, dashboardId)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -154,16 +142,14 @@ public class CalendarEventService {
                 ));
     }
 
-    private Discipline findLinkedDiscipline(UUID dashboardId, UUID disciplineId) {
+    // O vínculo com disciplina é opcional (evento avulso, da categoria "Outros"),
+    // então o null é tratado aqui antes de delegar a validação de posse.
+    private Discipline findLinkedDiscipline(UUID userId, UUID dashboardId, UUID disciplineId) {
         if (disciplineId == null) {
             return null;
         }
 
-        return disciplineRepository.findByIdAndDashboard_Id(disciplineId, dashboardId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Disciplina não encontrada."
-                ));
+        return disciplineAccessService.findOwnedDiscipline(userId, dashboardId, disciplineId);
     }
 
     private String trimDescription(String description) {
