@@ -9,5 +9,7 @@ public interface UserAvatarRepository extends JpaRepository<UserAvatar, UUID> {
 
     Optional<UserAvatar> findByUser_Id(UUID userId);
 
+    boolean existsByUser_Id(UUID userId);
+
     void deleteByUser_Id(UUID userId);
 }

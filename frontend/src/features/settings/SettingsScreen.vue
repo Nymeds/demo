@@ -4,7 +4,6 @@ import AppToast from '../../components/ui/AppToast.vue'
 import DeleteAccountCard from './DeleteAccountCard.vue'
 import PasswordSettingsCard from './PasswordSettingsCard.vue'
 import PreferencesSettingsCard from './PreferencesSettingsCard.vue'
-import ProfileSettingsCard from './ProfileSettingsCard.vue'
 import { createSettingsApi, SessionExpiredError } from './settingsApi'
 import './settings.css'
 
@@ -15,7 +14,6 @@ const { accessToken } = defineProps({
 })
 
 const emit = defineEmits([
-  'profile-updated',
   'token-refreshed',
   'preferences-updated',
   'account-deleted',
@@ -69,12 +67,6 @@ async function load() {
   }
 }
 
-function onProfileSaved(updatedProfile) {
-  profile.value = updatedProfile
-  emit('profile-updated', { id: updatedProfile.id, name: updatedProfile.name, email: updatedProfile.email })
-  showToast('Perfil atualizado com sucesso.')
-}
-
 function onPasswordChanged(authResponse) {
   emit('token-refreshed', authResponse.accessToken)
   profile.value = { ...profile.value, passwordChangedAt: new Date().toISOString() }
@@ -96,7 +88,7 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
     <header class="settings-header">
       <span class="settings-eyebrow">Sua conta</span>
       <h1 id="settings-title">Configurações</h1>
-      <p>Atualize seu perfil, sua senha e a forma como o AcadOrganize avisa você.</p>
+      <p>Gerencie sua segurança, suas preferências e sua conta.</p>
     </header>
 
     <div v-if="loading" class="settings-status" role="status">
@@ -111,14 +103,8 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
     </div>
 
     <div v-else-if="profile && preferences" class="settings-grid">
-      <ProfileSettingsCard
-        :api="api"
-        :profile="profile"
-        @saved="onProfileSaved"
-        @avatar-saved="showToast"
-        @failed="handleFailure"
-      />
       <PasswordSettingsCard
+        class="is-wide"
         :api="api"
         :password-changed-at="profile.passwordChangedAt"
         @saved="onPasswordChanged"

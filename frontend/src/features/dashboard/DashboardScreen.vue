@@ -9,7 +9,6 @@ import { frequencySituation } from '../frequency/frequencyRules.js'
 import GradesScreen from '../grades/GradesScreen.vue'
 import SettingsScreen from '../settings/SettingsScreen.vue'
 import { createSettingsApi, sectionFromPreference } from '../settings/settingsApi'
-import { useAvatar } from '../../composables/useAvatar'
 import SidebarUserMenu from './SidebarUserMenu.vue'
 
 const { user, accessToken } = defineProps({
@@ -191,6 +190,10 @@ function disciplineName(disciplineId) {
   return disciplines.value.find(discipline => discipline.id === disciplineId)?.name || 'Disciplina'
 }
 
+function disciplineColor(disciplineId) {
+  return disciplines.value.find(discipline => discipline.id === disciplineId)?.color || '#6631db'
+}
+
 function activityStatus(activity) {
   if (activity.status === 'COMPLETED') return { label: 'Concluída', className: 'is-completed' }
   if (activity.dueDate < todayIso) return { label: 'Atrasada', className: 'is-overdue' }
@@ -238,21 +241,9 @@ async function applyStartSection() {
   }
 }
 
-const { loadAvatar } = useAvatar()
-
-async function loadSettingsAvatar() {
-  try {
-    await loadAvatar(createSettingsApi(() => accessToken))
-  } catch (error) {
-    // Sem a foto, a caixa do usuário continua mostrando a inicial do nome.
-    console.warn('Não foi possível carregar a foto de perfil.', error.message)
-  }
-}
-
 onMounted(() => {
   loadDashboard()
   applyStartSection()
-  loadSettingsAvatar()
   loadSidebarAvatar()
   clockTimer = window.setInterval(() => {
     currentDateTime.value = new Date()
@@ -606,7 +597,11 @@ onBeforeUnmount(() => {
 
               <ul v-else class="dashboard-compact-activity-list">
                 <li v-for="activity in dashboardActivities" :key="activity.id">
-                  <span class="dashboard-compact-activity-icon" aria-hidden="true">
+                  <span
+                    class="dashboard-compact-activity-icon"
+                    :style="{ '--discipline-color': disciplineColor(activity.disciplineId) }"
+                    aria-hidden="true"
+                  >
                     <svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4V2m6 2V2M8 9h8m-8 4h6" /></svg>
                   </span>
                   <div class="dashboard-activity-info">
@@ -768,7 +763,6 @@ onBeforeUnmount(() => {
       <SettingsScreen
         v-if="activeSection === 'settings'"
         :access-token="accessToken"
-        @profile-updated="emit('user-updated', $event)"
         @token-refreshed="emit('token-refreshed', $event)"
         @account-deleted="emit('logout', 'account-deleted')"
         @session-expired="emit('logout', 'session-expired')"
@@ -961,11 +955,12 @@ onBeforeUnmount(() => {
 .dashboard-compact-activity-list { list-style: none; margin: 0; padding: 0 18px; }
 .dashboard-compact-activity-list li { align-items: center; border-bottom: 1px solid #eff0f5; display: grid; gap: 10px; grid-template-columns: 36px minmax(0, 1fr) auto; min-height: 62px; padding: 9px 0; }
 .dashboard-compact-activity-list li:last-child { border-bottom: 0; }
-.dashboard-compact-activity-icon { align-items: center; background: #f0ebff; border-radius: 9px; color: #6631db; display: flex; height: 36px; justify-content: center; width: 36px; }
+.dashboard-compact-activity-icon { align-items: center; background: color-mix(in srgb, var(--discipline-color) 12%, white); border-radius: 9px; color: var(--discipline-color); display: flex; height: 36px; justify-content: center; width: 36px; }
 .dashboard-compact-activity-icon svg { fill: none; height: 18px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 18px; }
 .dashboard-side-activities .dashboard-activity-info { padding-right: 45px; }
-.dashboard-compact-activity-meta { align-items: center; display: flex; gap: 22px; justify-content: space-between; white-space: nowrap; width: min(230px, 100%); }
-.dashboard-compact-activity-list time { color: #252b40; font-size: .67rem; font-weight: 750; transform: translateX(-45px); white-space: nowrap; }
+.dashboard-compact-activity-meta { align-items: center; display: grid; gap: 40px; grid-template-columns: 40px 100px; white-space: nowrap; }
+.dashboard-compact-activity-meta .dashboard-activity-status { box-sizing: border-box; justify-self: stretch; text-align: center; width: 100%; }
+.dashboard-compact-activity-list time { color: #252b40; font-size: .67rem; font-variant-numeric: tabular-nums; font-weight: 750; text-align: center; white-space: nowrap; }
 .dashboard-compact-empty { align-items: center; color: #71798e; display: flex; font-size: .68rem; gap: 9px; min-height: 80px; padding: 17px 19px; }
 .dashboard-compact-empty > span { align-items: center; background: #e9f8ef; border-radius: 50%; color: #23894f; display: flex; flex: 0 0 28px; height: 28px; justify-content: center; }
 .dashboard-compact-empty p { margin: 0; }

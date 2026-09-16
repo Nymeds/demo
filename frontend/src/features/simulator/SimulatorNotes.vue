@@ -30,22 +30,6 @@
       <!-- AÇÕES DO CABEÇALHO -->
       <div class="header-actions">
 
-        <button class="notification-button">
-
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-          >
-            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/>
-            <path d="M10 21h4"/>
-          </svg>
-
-          <span>3</span>
-
-        </button>
-
         <button ref="helpButton" class="help-button" type="button" @click="showHelp = true">
 
           <span class="help-icon">?</span>
@@ -1384,63 +1368,6 @@ watch(selectedDiscipline, async () => {
   align-items: center;
 
   gap: 14px;
-
-}
-
-
-.notification-button {
-
-  position: relative;
-
-  width: 42px;
-  height: 42px;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  border: none;
-
-  background: transparent;
-
-  color: #555267;
-
-}
-
-
-.notification-button svg {
-
-  width: 21px;
-  height: 21px;
-
-}
-
-
-.notification-button span {
-
-  position: absolute;
-
-  top: -2px;
-  right: -2px;
-
-  width: 18px;
-  height: 18px;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  border-radius: 50%;
-
-  background: #6330e0;
-
-  color: white;
-
-  font-size: 10px;
 
 }
 

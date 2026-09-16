@@ -2,18 +2,19 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 const VIEWPORT = 240 // lado da área de recorte, em pixels de tela (cabe numa tela de 320 px)
-const OUTPUT_SIZE = 512 // o backend reduz para 256; enviar o dobro mantém a foto nítida
+const OUTPUT_SIZE = 256 // foto compacta e padronizada para o perfil e a barra lateral
 const JPEG_QUALITY = 0.9
 const MAX_ZOOM = 4
 const ZOOM_STEP = 0.1
 const KEYBOARD_NUDGE = 10
 const SIDEBAR_AVATAR = 36 // mesmo tamanho da caixa do usuário na barra lateral
-const PROFILE_AVATAR = 72 // mesmo tamanho do cartão Perfil em Configurações
+const PROFILE_AVATAR = 72 // prévia compacta da foto no perfil
 
 const props = defineProps({
   file: { type: File, required: true },
   name: { type: String, required: true },
   saving: { type: Boolean, default: false },
+  confirmLabel: { type: String, default: 'Salvar foto' },
 })
 
 const emit = defineEmits(['close', 'confirm', 'failed'])
@@ -281,7 +282,7 @@ onBeforeUnmount(() => URL.revokeObjectURL(sourceUrl))
       <footer class="crop-actions">
         <button class="settings-button is-secondary" type="button" :disabled="saving" @click="emit('close')">Cancelar</button>
         <button class="settings-button is-primary" type="button" :disabled="!natural || saving" @click="confirmCrop">
-          {{ saving ? 'Salvando…' : 'Salvar foto' }}
+          {{ saving ? 'Salvando…' : confirmLabel }}
         </button>
       </footer>
     </section>

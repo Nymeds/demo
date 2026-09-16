@@ -556,12 +556,6 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
                   <h2>{{ activity.title }}</h2>
                 </div>
 
-                <span
-                  class="activity-status"
-                  :class="statusDetails(activity.status).className"
-                >
-                  {{ statusDetails(activity.status).label }}
-                </span>
               </div>
 
               <p v-if="activity.description" class="activity-description">
@@ -581,6 +575,12 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
             </div>
 
             <div class="activity-card-actions">
+              <span
+                class="activity-status"
+                :class="statusDetails(activity.status).className"
+              >
+                {{ statusDetails(activity.status).label }}
+              </span>
               <button
                 v-if="activity.status !== 'COMPLETED'"
                 class="activity-complete"
@@ -919,7 +919,7 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
   align-items: stretch;
   border-bottom: 1px solid #efeff4;
   display: grid;
-  grid-template-columns: 4px minmax(0, 1fr) auto;
+  grid-template-columns: 4px minmax(0, 1fr) 328px;
   min-height: 112px;
   position: relative;
 }
@@ -947,12 +947,15 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
 
 .activity-title-row {
   align-items: flex-start;
+  flex-wrap: wrap;
   gap: 15px;
   justify-content: space-between;
 }
 
 .activity-title-row > div {
+  flex: 1 1 180px;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .activity-discipline {
@@ -978,11 +981,19 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
 }
 
 .activity-status {
+  align-items: center;
   border-radius: 999px;
+  box-sizing: border-box;
+  display: inline-flex;
   flex: 0 0 auto;
   font-size: .59rem;
   font-weight: 750;
+  justify-content: center;
+  line-height: 1.4;
+  margin-right: auto;
+  min-width: 108px;
   padding: 6px 9px;
+  white-space: nowrap;
 }
 
 .activity-status.is-pending {
@@ -1033,6 +1044,7 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
 }
 
 .activity-card-actions {
+  align-items: center;
   gap: 7px;
   justify-content: flex-end;
   padding: 15px 18px;
@@ -1270,6 +1282,10 @@ input:focus-visible {
   .activity-title-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .activity-title-row > div {
+    flex-basis: auto;
   }
 
   .activity-card-actions {

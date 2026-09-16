@@ -1,6 +1,5 @@
 <script setup>
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { useAvatar } from '../../composables/useAvatar'
 import { useTheme } from '../../composables/useTheme'
 
 defineProps({
@@ -13,7 +12,6 @@ defineProps({
 const emit = defineEmits(['open-settings'])
 
 const { isNight, toggleTheme } = useTheme()
-const { avatarUrl } = useAvatar()
 const open = ref(false)
 const root = ref(null)
 const trigger = ref(null)
@@ -118,7 +116,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOnOutside
       @click="toggleMenu"
     >
       <span class="user-menu-avatar" aria-hidden="true">
-        <img v-if="avatarUrl || fallbackAvatarUrl" :src="avatarUrl || fallbackAvatarUrl" alt="">
+        <img v-if="fallbackAvatarUrl" :src="fallbackAvatarUrl" alt="">
         <template v-else>{{ initial }}</template>
       </span>
       <span class="user-menu-details">

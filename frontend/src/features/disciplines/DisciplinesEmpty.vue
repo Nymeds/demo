@@ -571,10 +571,10 @@ function statusDetails(status) {
                   <span
                     v-for="(schedule, index) in discipline.schedules"
                     :key="index"
-                    :title="`${dayLabels[schedule.dayOfWeek]} ${schedule.startTime}–${schedule.endTime}`"
+                    :title="`${dayLabels[schedule.dayOfWeek]} ${schedule.startTime} – ${schedule.endTime}`"
                   >
                     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18" /></svg>
-                    <span>{{ dayLabels[schedule.dayOfWeek] }} {{ schedule.startTime }}–{{ schedule.endTime }}</span>
+                    <span>{{ dayLabels[schedule.dayOfWeek] }} {{ schedule.startTime }} – {{ schedule.endTime }}</span>
                   </span>
                 </div>
               </td>
@@ -632,7 +632,7 @@ function statusDetails(status) {
           <div><h2>{{ discipline.name }}</h2><p>{{ discipline.professorName || 'Professor não informado' }}</p></div>
         </header>
         <div class="grid-card-schedules">
-          <span v-for="(schedule, index) in discipline.schedules" :key="index">{{ dayLabels[schedule.dayOfWeek] }} {{ schedule.startTime }}–{{ schedule.endTime }}</span>
+          <span v-for="(schedule, index) in discipline.schedules" :key="index">{{ dayLabels[schedule.dayOfWeek] }} {{ schedule.startTime }} – {{ schedule.endTime }}</span>
         </div>
         <div class="grid-card-data">
           <span><small>Média</small><strong>{{ formatAverage(discipline.average) }}</strong></span>

@@ -8,6 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import studdy.example.demo.user.dto.UpdateProfileRequest;
 import studdy.example.demo.user.dto.UserResponse;
+import studdy.example.demo.avatar.UserAvatarRepository;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -22,13 +23,16 @@ public class UserProfileService {
 
     private final UserRepository userRepository;
     private final UserProfilePhotoRepository photoRepository;
+    private final UserAvatarRepository legacyAvatarRepository;
 
     public UserProfileService(
             UserRepository userRepository,
-            UserProfilePhotoRepository photoRepository
+            UserProfilePhotoRepository photoRepository,
+            UserAvatarRepository legacyAvatarRepository
     ) {
         this.userRepository = userRepository;
         this.photoRepository = photoRepository;
+        this.legacyAvatarRepository = legacyAvatarRepository;
     }
 
     @Transactional(readOnly = true)
@@ -78,6 +82,7 @@ public class UserProfileService {
                 .orElseGet(() -> new UserProfilePhoto(user, content, contentType));
         photo.update(content, contentType);
         photoRepository.save(photo);
+        legacyAvatarRepository.deleteByUser_Id(userId);
         user.markProfileUpdated();
 
         return UserResponse.from(user, true);
@@ -86,24 +91,26 @@ public class UserProfileService {
     @Transactional(readOnly = true)
     public ProfilePhotoContent findPhoto(UUID userId) {
         findUser(userId);
-        UserProfilePhoto photo = photoRepository.findByUser_Id(userId)
+        return photoRepository.findByUser_Id(userId)
+                .map(photo -> new ProfilePhotoContent(photo.getContent(), photo.getContentType()))
+                .or(() -> legacyAvatarRepository.findByUser_Id(userId)
+                        .map(photo -> new ProfilePhotoContent(photo.getContent(), photo.getContentType())))
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Foto de perfil não cadastrada."
                 ));
-
-        return new ProfilePhotoContent(photo.getContent(), photo.getContentType());
     }
 
     @Transactional
     public void deletePhoto(UUID userId) {
         AppUser user = findUser(userId);
 
-        if (!photoRepository.existsByUser_Id(userId)) {
+        if (!photoRepository.existsByUser_Id(userId) && !legacyAvatarRepository.existsByUser_Id(userId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Foto de perfil não cadastrada.");
         }
 
         photoRepository.deleteByUser_Id(userId);
+        legacyAvatarRepository.deleteByUser_Id(userId);
         user.markProfileUpdated();
     }
 
@@ -116,7 +123,8 @@ public class UserProfileService {
     }
 
     private UserResponse toResponse(AppUser user) {
-        return UserResponse.from(user, photoRepository.existsByUser_Id(user.getId()));
+        return UserResponse.from(user, photoRepository.existsByUser_Id(user.getId())
+                || legacyAvatarRepository.existsByUser_Id(user.getId()));
     }
 
     private byte[] readAndValidate(MultipartFile file) {
