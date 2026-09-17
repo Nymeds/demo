@@ -20,6 +20,7 @@ const saveFeedback = ref('')
 const searchTerm = ref('')
 const activeFilter = ref('all')
 const sortOrder = ref('dueAsc')
+const viewMode = ref('list')
 const sortOptions = [
   { value: 'dueAsc', label: 'Prazo mais próximo' },
   { value: 'dueDesc', label: 'Prazo mais distante' },
@@ -470,26 +471,38 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
       </article>
     </div>
 
-    <section class="activities-content">
-      <div class="activities-toolbar">
-        <div class="activities-filters" aria-label="Filtrar atividades">
-          <button
-            v-for="filter in filters"
-            :key="filter.value"
-            type="button"
-            :class="{ active: activeFilter === filter.value }"
-            @click="activeFilter = filter.value"
-          >
-            {{ filter.label }}
-          </button>
-        </div>
-
-        <label class="activities-sort">
-          <span>Ordenar por</span>
-          <AppSelect v-model="sortOrder" :options="sortOptions" aria-label="Ordenar atividades" />
-        </label>
+    <div class="activities-toolbar">
+      <div class="activities-filters" aria-label="Filtrar atividades">
+        <button
+          v-for="filter in filters"
+          :key="filter.value"
+          type="button"
+          :class="{ active: activeFilter === filter.value }"
+          :aria-pressed="activeFilter === filter.value"
+          @click="activeFilter = filter.value"
+        >
+          {{ filter.label }}
+        </button>
       </div>
 
+      <div class="activities-view-options">
+        <label class="activities-sort">
+          <span>Ordenar por:</span>
+          <AppSelect v-model="sortOrder" :options="sortOptions" variant="ghost" aria-label="Ordenar atividades" />
+        </label>
+        <button class="activities-clear-filters" type="button" @click="clearFilters">Limpar filtros</button>
+        <div class="activities-view-buttons" role="group" aria-label="Modo de visualização">
+          <button type="button" :class="{ active: viewMode === 'list' }" :aria-pressed="viewMode === 'list'" aria-label="Visualizar em lista" @click="viewMode = 'list'">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11" /><circle cx="4" cy="6" r="1" /><circle cx="4" cy="12" r="1" /><circle cx="4" cy="18" r="1" /></svg>
+          </button>
+          <button type="button" :class="{ active: viewMode === 'grid' }" :aria-pressed="viewMode === 'grid'" aria-label="Visualizar em cards" @click="viewMode = 'grid'">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" /><rect x="14" y="4" width="6" height="6" /><rect x="4" y="14" width="6" height="6" /><rect x="14" y="14" width="6" height="6" /></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <section class="activities-content" :class="{ 'is-grid': viewMode === 'grid' && !loading && filteredActivities.length > 0 }">
       <div v-if="loading" class="activities-state-card">
         <span class="activities-loader" aria-hidden="true"></span>
         <h2>Carregando atividades...</h2>
@@ -527,7 +540,7 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
       </div>
 
       <template v-else>
-        <div v-if="filteredActivities.length > 0" class="activities-list">
+        <div v-if="filteredActivities.length > 0" class="activities-list" :class="{ 'is-grid': viewMode === 'grid' }">
           <article
             v-for="activity in filteredActivities"
             :key="activity.id"
@@ -792,51 +805,58 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
 
 .activities-summary-grid {
   display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
 }
 
 .activities-summary-card {
   background: #fff;
   border: 1px solid #ebeaf1;
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow: 0 5px 16px rgba(30, 36, 65, .035);
-  gap: 13px;
-  min-height: 105px;
-  padding: 17px;
+  gap: 16px;
+  min-width: 0;
+  padding: 18px;
+  width: 100%;
+}
+
+.activities-summary-card > div {
+  min-width: 0;
 }
 
 .activities-summary-icon {
   background: #f1edff;
   border-radius: 50%;
   color: #6739e7;
-  flex: 0 0 46px;
-  height: 46px;
+  flex: 0 0 52px;
+  height: 52px;
   justify-content: center;
 }
 
 .activities-summary-icon svg {
-  height: 23px;
-  width: 23px;
+  height: 26px;
+  width: 26px;
 }
 
 .activities-summary-card p {
-  color: #596078;
-  font-size: .67rem;
+  color: #51586c;
+  font-size: .7rem;
+  font-weight: 650;
 }
 
 .activities-summary-card strong {
-  color: #171c30;
+  color: #151a2d;
   display: block;
-  font-size: 1.3rem;
+  font-size: 1.35rem;
   line-height: 1;
-  margin: 7px 0 5px;
+  margin-top: 7px;
 }
 
 .activities-summary-card small {
   color: #858b9e;
   display: block;
-  font-size: .61rem;
+  font-size: .62rem;
+  margin-top: 6px;
 }
 
 .activities-summary-card.is-orange .activities-summary-icon {
@@ -855,6 +875,7 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
 }
 
 .activities-content {
+  min-width: 0;
   background: #fff;
   border: 1px solid #ebeaf1;
   border-radius: 12px;
@@ -863,53 +884,62 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
 }
 
 .activities-toolbar {
-  border-bottom: 1px solid #ececf2;
-  gap: 18px;
+  flex-wrap: wrap;
+  gap: 20px;
   justify-content: space-between;
-  padding: 16px 18px;
+  min-width: 0;
 }
 
 .activities-filters {
-  background: #f6f5fa;
-  border-radius: 8px;
-  gap: 4px;
-  padding: 4px;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
 }
 
 .activities-filters button {
-  background: transparent;
-  border: 0;
-  border-radius: 6px;
-  color: #6e7488;
-  font-size: .67rem;
-  font-weight: 700;
-  padding: 8px 11px;
+  background: #fff;
+  border: 1px solid #e1e2e9;
+  border-radius: 7px;
+  color: #34394c;
+  font-size: .7rem;
+  padding: 10px 17px;
 }
 
 .activities-filters button.active {
-  background: #fff;
-  box-shadow: 0 2px 7px rgba(28, 32, 57, .08);
-  color: #602bd4;
+  border-color: #6f36e7;
+  color: #6126d8;
+  font-weight: 700;
 }
 
 .activities-sort {
   align-items: center;
-  color: #767c90;
+  background: #fff;
+  border: 1px solid #e1e2e9;
+  border-radius: 7px;
+  color: #34394c;
   display: flex;
-  font-size: .65rem;
+  font-size: .68rem;
   gap: 8px;
+  min-width: 0;
+  padding: 0 9px 0 14px;
 }
 
 .activities-sort {
-  --app-select-height: 34px;
-  --app-select-font-size: .67rem;
+  --app-select-height: 36px;
+  --app-select-font-size: .68rem;
   --app-select-radius: 7px;
-  --app-select-padding: 6px 10px;
+  --app-select-padding: 0 8px;
 }
 
 .activities-sort .app-select {
-  width: 180px;
+  width: 150px;
 }
+
+.activities-sort > span {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 
 .activities-list {
   display: grid;
@@ -1220,10 +1250,6 @@ input:focus-visible {
 }
 
 @media (max-width: 1100px) {
-  .activities-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .activities-header {
     align-items: flex-start;
     flex-direction: column;
@@ -1275,10 +1301,6 @@ input:focus-visible {
 }
 
 @media (max-width: 520px) {
-  .activities-summary-grid {
-    grid-template-columns: 1fr;
-  }
-
   .activity-title-row {
     align-items: flex-start;
     flex-direction: column;
@@ -1291,5 +1313,25 @@ input:focus-visible {
   .activity-card-actions {
     flex-wrap: wrap;
   }
+}
+
+.activities-view-options { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-end; min-width: 0; }
+.activities-clear-filters { background: #fff; border: 1px solid #e1e2e9; border-radius: 7px; color: #535a70; font-size: .68rem; padding: 11px 13px; cursor: pointer; }
+.activities-clear-filters:hover { border-color: #7650df; color: #6030cb; }
+.activities-view-buttons { display: flex; }
+.activities-view-buttons button { align-items: center; background: #fff; border: 1px solid #e1e2e9; color: #34394c; cursor: pointer; display: flex; height: 40px; justify-content: center; width: 44px; }
+.activities-view-buttons button:first-child { border-radius: 7px 0 0 7px; }
+.activities-view-buttons button:last-child { border-left: 0; border-radius: 0 7px 7px 0; }
+.activities-view-buttons button.active { background: #eee7ff; color: #6f36e7; }
+.activities-view-buttons svg { fill: none; height: 18px; width: 18px; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.activities-content.is-grid { background: transparent; border: 0; box-shadow: none; overflow: visible; }
+.activities-list.is-grid { gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); }
+.activities-list.is-grid .activity-card { background: #fff; border: 1px solid #ebeaf1; border-radius: 10px; box-shadow: 0 5px 16px rgba(30, 36, 65, .035); grid-template-columns: 4px minmax(0, 1fr); overflow: hidden; min-width: 0; }
+.activities-list.is-grid .activity-card.is-overdue { background: #fffafa; }
+.activities-list.is-grid .activity-discipline-bar { grid-row: 1 / 3; }
+.activities-list.is-grid .activity-card-actions { align-self: end; flex-wrap: wrap; grid-column: 2; justify-content: flex-start; padding: 0 20px 17px; }
+@media (max-width: 760px) {
+  .activities-view-options { justify-content: flex-start; }
+  .activities-view-options .activities-sort { flex: 1 1 245px; }
 }
 </style>

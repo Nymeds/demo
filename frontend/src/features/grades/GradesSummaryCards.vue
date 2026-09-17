@@ -51,14 +51,14 @@ const generalBand = computed(() => bandInfo(bandOf(props.summary.generalAverage)
 </template>
 
 <style scoped>
-.grades-summary { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.grades-summary-card { align-items: center; background: #fff; border: 1px solid #e7e8f0; border-radius: 14px; box-shadow: 0 8px 24px rgba(30, 36, 65, .04); display: flex; gap: 24px; min-width: 0; padding: 22px; min-height: 124px; }
+.grades-summary { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr)); }
+.grades-summary-card { align-items: center; background: #fff; border: 1px solid #e7e8f0; border-radius: 10px; box-shadow: 0 5px 16px rgba(30, 36, 65, .035); display: flex; gap: 16px; min-width: 0; padding: 18px; }
 .grades-summary-card > div { min-width: 0; }
-.grades-summary-icon { align-items: center; background: #f1edff; border-radius: 50%; color: #6739e7; display: flex; flex: 0 0 64px; height: 64px; justify-content: center; }
-.grades-summary-icon svg { fill: none; height: 23px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 23px; }
-.grades-summary-card p { color: #596078; font-size: .82rem; margin: 0; }
-.grades-summary-card strong { color: #171c30; display: block; font-size: 1.8rem; font-variant-numeric: tabular-nums; line-height: 1; margin: 7px 0 6px; }
-.grades-summary-card small { color: #6330e0; display: block; font-size: .78rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grades-summary-icon { align-items: center; background: #f1edff; border-radius: 50%; color: #6739e7; display: flex; flex: 0 0 52px; height: 52px; justify-content: center; }
+.grades-summary-icon svg { fill: none; height: 26px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 26px; }
+.grades-summary-card p { color: #596078; font-size: .7rem; font-weight: 650; margin: 0; }
+.grades-summary-card strong { color: #171c30; display: block; font-size: 1.35rem; font-variant-numeric: tabular-nums; line-height: 1; margin: 7px 0 6px; }
+.grades-summary-card small { color: #6330e0; display: block; font-size: .62rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grades-summary-card.is-green .grades-summary-icon { background: #e8f8ef; color: #2daf68; }
 .grades-summary-card.is-green small { color: #23894f; }
 .grades-summary-card.is-orange .grades-summary-icon { background: #fff0e2; color: #ee831e; }
@@ -68,11 +68,4 @@ const generalBand = computed(() => bandInfo(bandOf(props.summary.generalAverage)
 .grades-summary-link { background: none; border: 0; color: #2f65b8; cursor: pointer; font-size: .64rem; font-weight: 700; padding: 0; text-align: left; text-decoration: underline; }
 .grades-summary-link:focus-visible { outline: 2px solid rgba(105, 54, 224, .4); outline-offset: 2px; }
 
-@media (max-width: 1180px) {
-  .grades-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width: 520px) {
-  .grades-summary { grid-template-columns: 1fr; }
-}
 </style>
