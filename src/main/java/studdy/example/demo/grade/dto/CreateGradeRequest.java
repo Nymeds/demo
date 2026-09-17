@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 public record CreateGradeRequest(
         @NotBlank(message = "O nome da avaliação é obrigatório.")
@@ -24,6 +25,20 @@ public record CreateGradeRequest(
 
         @NotNull(message = "A data do registro é obrigatória.")
         @PastOrPresent(message = "A data do registro não pode estar no futuro.")
-        LocalDate recordedAt
+        LocalDate recordedAt,
+
+        // Prova ou trabalho da mesma disciplina que comprova a nota; opcional para notas avulsas.
+        UUID activityId,
+
+        @Size(max = 200, message = "A observação deve ter no máximo 200 caracteres.")
+        String observation
 ) {
+
+    public CreateGradeRequest(String assessmentName, BigDecimal score, LocalDate recordedAt) {
+        this(assessmentName, score, recordedAt, null);
+    }
+
+    public CreateGradeRequest(String assessmentName, BigDecimal score, LocalDate recordedAt, UUID activityId) {
+        this(assessmentName, score, recordedAt, activityId, null);
+    }
 }

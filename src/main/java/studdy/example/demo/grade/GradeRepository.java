@@ -11,4 +11,8 @@ public interface GradeRepository extends JpaRepository<Grade, UUID> {
     List<Grade> findAllByDiscipline_IdOrderByRecordedAtDescCreatedAtDesc(UUID disciplineId);
 
     Optional<Grade> findByIdAndDiscipline_Id(UUID id, UUID disciplineId);
+
+    boolean existsByActivity_Id(UUID activityId);
+
+    boolean existsByActivity_IdAndIdNot(UUID activityId, UUID id);
 }

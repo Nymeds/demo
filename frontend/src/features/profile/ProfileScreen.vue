@@ -1,6 +1,7 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import AppToast from '../../components/ui/AppToast.vue'
+import AvatarCropModal from '../settings/AvatarCropModal.vue'
 
 const props = defineProps({
   accessToken: { type: String, required: true },
@@ -9,13 +10,17 @@ const props = defineProps({
 
 const emit = defineEmits(['updated'])
 
-const maximumPhotoSize = 2 * 1024 * 1024
+const maximumPhotoSize = 15 * 1024 * 1024
+const cropFile = ref(null)
+const choosePhotoButton = ref(null)
 const photoInput = ref(null)
 const profile = ref({ ...props.user })
 const avatarUrl = ref('')
 const loading = ref(true)
 const saving = ref(false)
-const photoBusy = ref(false)
+const pendingPhoto = ref(null)
+const photoRemoved = ref(false)
+const photoPreviewUrl = ref('')
 const pageError = ref('')
 const fieldErrors = ref({})
 const toast = ref({ message: '', type: 'success' })
@@ -29,7 +34,7 @@ const form = reactive({
   location: '',
 })
 
-let savedForm = ''
+const savedForm = ref('')
 let toastTimer
 
 const genderOptions = [
@@ -63,8 +68,9 @@ const userInitials = computed(() => {
     .join('') || 'U'
 })
 
-const isDirty = computed(() => formSnapshot() !== savedForm)
-const hasProfilePhoto = computed(() => Boolean(profile.value.hasProfilePhoto))
+const isDirty = computed(() => formSnapshot() !== savedForm.value || Boolean(pendingPhoto.value) || photoRemoved.value)
+const hasProfilePhoto = computed(() => Boolean(pendingPhoto.value) || (!photoRemoved.value && Boolean(profile.value.hasProfilePhoto)))
+const displayedAvatarUrl = computed(() => photoRemoved.value ? '' : photoPreviewUrl.value || avatarUrl.value)
 const updatedAtLabel = computed(() => {
   if (!profile.value.updatedAt) return 'Ainda não atualizado'
 
@@ -97,7 +103,7 @@ function fillForm(userProfile) {
   form.birthDate = userProfile.birthDate ?? ''
   form.gender = userProfile.gender ?? ''
   form.location = userProfile.location ?? ''
-  savedForm = formSnapshot()
+  savedForm.value = formSnapshot()
   fieldErrors.value = {}
 }
 
@@ -178,26 +184,46 @@ async function loadProfile() {
 }
 
 async function saveProfile() {
+  if (saving.value || !isDirty.value) return
   saving.value = true
   fieldErrors.value = {}
 
   try {
-    const updatedProfile = await apiRequest('/api/v1/users/me', {
-      method: 'PUT',
-      body: JSON.stringify({
-        name: form.name,
-        username: form.username || null,
-        email: form.email,
-        phone: form.phone || null,
-        birthDate: form.birthDate || null,
-        gender: form.gender || null,
-        location: form.location || null,
-      }),
-    })
+    if (formSnapshot() !== savedForm.value) {
+      const updatedProfile = await apiRequest('/api/v1/users/me', {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: form.name,
+          username: form.username || null,
+          email: form.email,
+          phone: form.phone || null,
+          birthDate: form.birthDate || null,
+          gender: form.gender || null,
+          location: form.location || null,
+        }),
+      })
 
-    profile.value = updatedProfile
-    fillForm(updatedProfile)
-    emit('updated', updatedProfile)
+      profile.value = updatedProfile
+      fillForm(updatedProfile)
+      emit('updated', updatedProfile)
+    }
+
+    if (pendingPhoto.value) {
+      const body = new FormData()
+      body.append('file', pendingPhoto.value)
+      profile.value = await apiRequest('/api/v1/users/me/profile-photo', { method: 'PUT', body })
+      clearAvatarUrl()
+      avatarUrl.value = photoPreviewUrl.value
+      photoPreviewUrl.value = ''
+      clearPhotoChanges()
+      emit('updated', profile.value)
+    } else if (photoRemoved.value) {
+      await apiRequest('/api/v1/users/me/profile-photo', { method: 'DELETE' })
+      profile.value = { ...profile.value, hasProfilePhoto: false, profilePhotoUrl: null }
+      clearAvatarUrl()
+      clearPhotoChanges()
+      emit('updated', profile.value)
+    }
     showToast('Perfil atualizado com sucesso.')
   } catch (error) {
     fieldErrors.value = error.fieldErrors || {}
@@ -208,81 +234,84 @@ async function saveProfile() {
 }
 
 function cancelChanges() {
+  if (saving.value) return
   fillForm(profile.value)
+  clearPhotoChanges()
   showToast('Alterações descartadas.')
 }
 
 function choosePhoto() {
-  if (!photoBusy.value) photoInput.value?.click()
+  if (!saving.value) photoInput.value?.click()
 }
 
-async function uploadPhoto(event) {
+function uploadPhoto(event) {
   const file = event.target.files?.[0]
   event.target.value = ''
-  if (!file) return
+  if (!file || saving.value) return
 
   if (file.size > maximumPhotoSize) {
-    showToast('A foto deve ter no máximo 2 MB.', 'error')
+    showToast('A foto deve ter no máximo 15 MB.', 'error')
     return
   }
 
-  if (file.type && !['image/png', 'image/jpeg'].includes(file.type)) {
-    showToast('Escolha uma imagem PNG ou JPG.', 'error')
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+    showToast('Escolha uma imagem PNG, JPG ou WebP.', 'error')
     return
   }
 
-  photoBusy.value = true
-  try {
-    const body = new FormData()
-    body.append('file', file)
-    const updatedProfile = await apiRequest('/api/v1/users/me/profile-photo', {
-      method: 'PUT',
-      body,
-    })
-
-    profile.value = updatedProfile
-    await loadAvatar(updatedProfile)
-    emit('updated', updatedProfile)
-    showToast('Foto de perfil atualizada.')
-  } catch (error) {
-    showToast(error.message || 'Não foi possível atualizar a foto.', 'error')
-  } finally {
-    photoBusy.value = false
-  }
+  cropFile.value = file
 }
 
-async function removePhoto() {
-  if (!hasProfilePhoto.value || photoBusy.value) return
+async function closeCrop() {
+  cropFile.value = null
+  await nextTick()
+  choosePhotoButton.value?.focus()
+}
 
-  photoBusy.value = true
-  try {
-    await apiRequest('/api/v1/users/me/profile-photo', { method: 'DELETE' })
-    const updatedProfile = {
-      ...profile.value,
-      hasProfilePhoto: false,
-      profilePhotoUrl: null,
-      updatedAt: new Date().toISOString(),
-    }
-    profile.value = updatedProfile
-    clearAvatarUrl()
-    emit('updated', updatedProfile)
-    showToast('Foto de perfil removida.')
-  } catch (error) {
-    showToast(error.message || 'Não foi possível remover a foto.', 'error')
-  } finally {
-    photoBusy.value = false
-  }
+function confirmPhotoCrop(image) {
+  clearPhotoChanges()
+  pendingPhoto.value = new File([image], 'perfil.jpg', { type: 'image/jpeg' })
+  photoPreviewUrl.value = URL.createObjectURL(image)
+  closeCrop()
+}
+
+function cropFailed(error) {
+  closeCrop()
+  showToast(error.message, 'error')
+}
+
+function clearPhotoChanges() {
+  if (photoPreviewUrl.value) URL.revokeObjectURL(photoPreviewUrl.value)
+  photoPreviewUrl.value = ''
+  pendingPhoto.value = null
+  photoRemoved.value = false
+}
+
+function removePhoto() {
+  if (!hasProfilePhoto.value || saving.value) return
+  clearPhotoChanges()
+  photoRemoved.value = Boolean(profile.value.hasProfilePhoto)
 }
 
 onMounted(loadProfile)
 onBeforeUnmount(() => {
   clearTimeout(toastTimer)
   clearAvatarUrl()
+  clearPhotoChanges()
 })
 </script>
 
 <template>
   <section class="profile-page" aria-labelledby="profile-title">
+    <AvatarCropModal
+      v-if="cropFile"
+      :file="cropFile"
+      :name="form.name"
+      confirm-label="Usar esta foto"
+      @close="closeCrop"
+      @confirm="confirmPhotoCrop"
+      @failed="cropFailed"
+    />
     <AppToast :message="toast.message" :type="toast.type" @close="closeToast" />
 
     <header class="profile-header">
@@ -324,38 +353,36 @@ onBeforeUnmount(() => {
 
         <section class="profile-photo-section" aria-labelledby="profile-photo-title">
           <span class="profile-avatar">
-            <img v-if="avatarUrl" :src="avatarUrl" :alt="`Foto de perfil de ${profile.name}`">
+            <img v-if="displayedAvatarUrl" :src="displayedAvatarUrl" :alt="`Foto de perfil de ${profile.name}`">
             <strong v-else aria-hidden="true">{{ userInitials }}</strong>
-            <span class="profile-camera" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M4 7h4l2-3h4l2 3h4v12H4V7Z" /><circle cx="12" cy="13" r="4" /></svg>
-            </span>
           </span>
 
           <div class="profile-photo-copy">
             <h3 id="profile-photo-title">Foto de perfil</h3>
-            <p>Use uma imagem PNG ou JPG de até 2 MB.</p>
+            <p>PNG, JPG ou WebP de até 15 MB. Ajuste o recorte e depois clique em Salvar alterações.</p>
             <div class="profile-photo-actions">
               <input
                 ref="photoInput"
                 class="sr-only"
                 type="file"
-                accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                accept="image/png,image/jpeg,image/webp"
                 @change="uploadPhoto"
               >
-              <button class="profile-outline-button" type="button" :disabled="photoBusy" @click="choosePhoto">
+              <button ref="choosePhotoButton" class="profile-outline-button" type="button" :disabled="saving" @click="choosePhoto">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5" /><path d="M5 14v5h14v-5" /></svg>
-                {{ photoBusy ? 'Processando...' : hasProfilePhoto ? 'Alterar foto' : 'Adicionar foto' }}
+                {{ hasProfilePhoto ? 'Alterar foto' : 'Adicionar foto' }}
               </button>
               <button
                 v-if="hasProfilePhoto"
                 class="profile-remove-photo"
                 type="button"
-                :disabled="photoBusy"
+                :disabled="saving"
                 @click="removePhoto"
               >
                 Remover
               </button>
             </div>
+            <p v-if="pendingPhoto || photoRemoved" role="status">Clique em Salvar alterações para confirmar a mudança da foto.</p>
           </div>
         </section>
 
@@ -500,8 +527,6 @@ onBeforeUnmount(() => {
 .profile-avatar { align-items: center; background: linear-gradient(145deg, #6b35ec, #4c16d7); border-radius: 50%; color: #fff; display: flex; flex: 0 0 112px; height: 112px; justify-content: center; position: relative; }
 .profile-avatar > strong { font-size: 2.35rem; font-weight: 650; letter-spacing: -.05em; }
 .profile-avatar > img { border-radius: inherit; height: 100%; object-fit: cover; width: 100%; }
-.profile-camera { align-items: center; background: #fff; border: 1px solid #e3e5ec; border-radius: 50%; bottom: -1px; box-shadow: 0 4px 12px rgba(24, 29, 49, .12); color: #46506a; display: flex; height: 35px; justify-content: center; position: absolute; right: -1px; width: 35px; }
-.profile-camera svg { fill: none; height: 17px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 17px; }
 .profile-photo-copy h3 { color: #1b2033; font-size: .86rem; margin: 0 0 5px; }
 .profile-photo-copy p { color: #7b8193; font-size: .7rem; margin: 0 0 13px; }
 .profile-photo-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; }
