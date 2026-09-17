@@ -15,6 +15,9 @@ const categories = [
   { value: 'OTHER', label: 'Outros' },
 ]
 
+// Quantos eventos cabem na célula da visão Mês antes de virar "mais N".
+const MONTH_EVENTS_PER_DAY = 3
+
 const weekDayLabels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const miniWeekDayLabels = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 
@@ -175,6 +178,13 @@ function eventsOfDay(day) {
 }
 
 function buildDay(day) {
+  const dayEvents = eventsOfDay(day)
+
+  // A célula da visão Mês é baixa: mostrar tudo faria a semana que tem um dia cheio ficar
+  // muito mais alta que as outras. O que passa do limite vira o "mais N", que abre a visão
+  // Dia daquele dia. A visão Semana tem célula alta, então lá cabem todos.
+  const limit = viewMode.value === 'month' ? MONTH_EVENTS_PER_DAY : dayEvents.length
+
   return {
     date: day,
     key: toLocalIso(day),
@@ -182,7 +192,8 @@ function buildDay(day) {
     isToday: isSameDay(day, today),
     isCurrentMonth: day.getMonth() === referenceDate.value.getMonth(),
     isSelected: isSameDay(day, referenceDate.value),
-    events: eventsOfDay(day),
+    events: dayEvents.slice(0, limit),
+    hiddenCount: Math.max(dayEvents.length - limit, 0),
   }
 }
 
@@ -234,7 +245,13 @@ async function apiRequest(path, options = {}) {
     : await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error(data.detail || data.message || 'Não foi possível concluir a solicitação.')
+    // O ValidationExceptionHandler manda a mensagem de cada campo dentro de `errors` e deixa em
+    // `detail` só o texto genérico; sem ler `errors` a tela esconderia o motivo real da recusa.
+    const fieldErrors = data.errors && typeof data.errors === 'object'
+      ? Object.values(data.errors).filter(Boolean).join(' ')
+      : ''
+
+    throw new Error(fieldErrors || data.detail || data.message || 'Não foi possível concluir a solicitação.')
   }
 
   return data
@@ -335,6 +352,12 @@ function moveMiniMonth(direction) {
 
 function selectDay(date) {
   referenceDate.value = startOfDay(date)
+}
+
+// O "mais N" da célula cheia: abre aquele dia na visão Dia, onde a lista não tem limite.
+function openDayView(date) {
+  referenceDate.value = startOfDay(date)
+  viewMode.value = 'day'
 }
 
 function toggleCategory(value) {
@@ -505,6 +528,16 @@ async function confirmDeleteEvent() {
                   </button>
                 </li>
               </ul>
+
+              <button
+                v-if="day.hiddenCount"
+                type="button"
+                class="calendar-day-more"
+                :aria-label="`Ver os ${day.hiddenCount + day.events.length} eventos do dia ${day.number}`"
+                @click="openDayView(day.date)"
+              >
+                mais {{ day.hiddenCount }}
+              </button>
             </div>
           </div>
         </template>
@@ -660,16 +693,24 @@ async function confirmDeleteEvent() {
 .calendar-weekdays span { color: #666d84; font-size: .72rem; font-weight: 700; padding: 12px 0; text-align: center; }
 
 .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
-.calendar-day { border-bottom: 1px solid #f0eff6; border-right: 1px solid #f0eff6; cursor: pointer; display: flex; flex-direction: column; gap: 5px; min-height: 118px; padding: 8px; }
+/* min-width/overflow: sem eles, um título comprido estica a célula e as caixas invadem os dias
+   vizinhos, porque o texto do evento não quebra linha (fica com "…" no fim). */
+.calendar-day { border-bottom: 1px solid #f0eff6; border-right: 1px solid #f0eff6; cursor: pointer; display: flex; flex-direction: column; gap: 5px; min-height: 118px; min-width: 0; overflow: hidden; padding: 8px; }
 .calendar-grid.is-week .calendar-day { min-height: 330px; }
 .calendar-day:nth-child(7n) { border-right: 0; }
 .calendar-day.is-outside { background: #fbfbfd; }
 .calendar-day.is-outside .calendar-day-number { color: #b6bac9; }
 .calendar-day-number { color: #2b3149; font-size: .76rem; font-weight: 700; padding: 2px; pointer-events: none; }
 .calendar-day.is-today .calendar-day-number { align-items: center; background: linear-gradient(135deg, #7749f7, #5320da); border-radius: 50%; color: #fff; display: flex; height: 26px; justify-content: center; width: 26px; }
-.calendar-day-events { display: grid; gap: 4px; }
+/* Uma coluna só, presa à largura da célula (minmax(0, 1fr)): sem isso a coluna da grade cresce
+   até caber o maior título inteiro. */
+.calendar-day-events { display: grid; gap: 4px; grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.calendar-day-events li { min-width: 0; }
 
-.calendar-event { border: 0; border-left: 3px solid; border-radius: 5px; display: block; padding: 5px 7px; text-align: left; width: 100%; }
+.calendar-day-more { background: none; border: 0; border-radius: 5px; color: #6429db; font-size: .63rem; font-weight: 700; padding: 3px 7px; text-align: left; width: 100%; }
+.calendar-day-more:hover { background: #f2effc; }
+
+.calendar-event { border: 0; border-left: 3px solid; border-radius: 5px; box-sizing: border-box; display: block; max-width: 100%; padding: 5px 7px; text-align: left; width: 100%; }
 .calendar-event strong { display: block; font-size: .66rem; font-weight: 700; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .calendar-event small { color: #5f6579; display: block; font-size: .6rem; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .calendar-event .calendar-event-time { color: #737a8e; font-weight: 650; }
@@ -696,9 +737,10 @@ async function confirmDeleteEvent() {
 
 .day-view { padding: 4px 18px 8px; }
 .day-view h2 { color: #1b2036; font-size: .88rem; font-weight: 750; margin-bottom: 14px; }
-.day-view-list { display: grid; gap: 9px; }
-.day-view-event { align-items: flex-start; border: 0; border-left: 3px solid; border-radius: 8px; display: flex; gap: 14px; padding: 13px 15px; text-align: left; width: 100%; }
-.day-view-time { font-size: .72rem; font-weight: 750; min-width: 92px; }
+.day-view-list { display: grid; gap: 9px; grid-template-columns: minmax(0, 1fr); }
+.day-view-event { align-items: flex-start; border: 0; border-left: 3px solid; border-radius: 8px; box-sizing: border-box; display: flex; gap: 14px; padding: 13px 15px; text-align: left; width: 100%; }
+.day-view-time { flex: 0 0 92px; font-size: .72rem; font-weight: 750; }
+.day-view-body { min-width: 0; overflow-wrap: anywhere; }
 .day-view-body strong { display: block; font-size: .8rem; font-weight: 700; }
 .day-view-body small { color: #5f6579; display: block; font-size: .68rem; margin-top: 3px; }
 .day-view-body small.is-deleted { color: #c2415f; font-style: italic; }
@@ -709,15 +751,17 @@ async function confirmDeleteEvent() {
 .day-view-event.is-assignment { background: #fff4e6; border-left-color: #ef8b1f; color: #a85f10; }
 .day-view-event.is-other { background: #ffeef3; border-left-color: #e2537c; color: #ac3357; }
 
-.calendar-side { display: grid; gap: 15px; }
-.side-card { background: #fff; border: 1px solid #ebeaf1; border-radius: 12px; box-shadow: 0 5px 16px rgba(30, 36, 65, .035); padding: 17px; }
+/* Mesmo motivo das células do mês: sem minmax(0, 1fr) a coluna cresce até caber o conteúdo mais
+   largo dos cartões, e o painel vaza para fora dos 306px (era o que cortava o filtro "Trabalhos"). */
+.calendar-side { display: grid; gap: 15px; grid-template-columns: minmax(0, 1fr); }
+.side-card { background: #fff; border: 1px solid #ebeaf1; border-radius: 12px; box-shadow: 0 5px 16px rgba(30, 36, 65, .035); min-width: 0; padding: 17px; }
 .side-card-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: 13px; }
 .side-card-header h2 { color: #1b2036; font-size: .84rem; font-weight: 750; letter-spacing: -.02em; }
 .side-card-action { background: none; border: 0; color: #6429db; font-size: .69rem; font-weight: 700; padding: 3px 0; }
 .side-card-action:hover { text-decoration: underline; }
 
-.upcoming-list { display: grid; gap: 3px; }
-.upcoming-item { align-items: flex-start; background: none; border: 0; border-radius: 8px; display: flex; gap: 10px; padding: 9px 7px; text-align: left; width: 100%; }
+.upcoming-list { display: grid; gap: 3px; grid-template-columns: minmax(0, 1fr); }
+.upcoming-item { align-items: flex-start; background: none; border: 0; border-radius: 8px; box-sizing: border-box; display: flex; gap: 10px; padding: 9px 7px; text-align: left; width: 100%; }
 .upcoming-item:hover { background: #f7f6fc; }
 .upcoming-dot { flex: 0 0 8px; height: 8px; margin-top: 5px; width: 8px; }
 .upcoming-dot.is-class { background: #2daf68; }
@@ -729,7 +773,7 @@ async function confirmDeleteEvent() {
 .upcoming-body strong { color: #23283d; display: block; font-size: .73rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .upcoming-body small { color: #767d92; display: block; font-size: .65rem; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .upcoming-body small.is-deleted { color: #c2415f; font-style: italic; }
-.upcoming-when { text-align: right; }
+.upcoming-when { flex: 0 0 auto; text-align: right; }
 .upcoming-when strong { color: #3a4058; display: block; font-size: .68rem; font-weight: 700; }
 .upcoming-when small { color: #868da1; display: block; font-size: .63rem; margin-top: 2px; }
 
