@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import studdy.example.demo.user.dto.UpdateProfileRequest;
 import studdy.example.demo.user.dto.UserResponse;
+import studdy.example.demo.avatar.UserAvatar;
+import studdy.example.demo.avatar.UserAvatarRepository;
 
 import java.time.LocalDate;
 
@@ -36,6 +38,46 @@ class UserProfileServiceTest {
 
     @Autowired
     private UserProfileService profileService;
+
+    @Autowired
+    private UserAvatarRepository legacyAvatarRepository;
+
+    @Test
+    void readsPhotoPreviouslySavedInSettings() {
+        legacyAvatarRepository.saveAndFlush(new UserAvatar(user, PNG, "image/png"));
+
+        assertTrue(profileService.findCurrentUser(user.getId()).hasProfilePhoto());
+        assertArrayEquals(PNG, profileService.findPhoto(user.getId()).content());
+    }
+
+    @Test
+    void replacingLegacyPhotoKeepsOnlyTheNewProfilePhoto() {
+        legacyAvatarRepository.saveAndFlush(new UserAvatar(user, PNG, "image/png"));
+        profileService.updatePhoto(user.getId(), new MockMultipartFile("file", "photo.png", "image/png", PNG));
+
+        assertFalse(legacyAvatarRepository.existsByUser_Id(user.getId()));
+        assertTrue(photoRepository.existsByUser_Id(user.getId()));
+        assertTrue(profileService.findCurrentUser(user.getId()).hasProfilePhoto());
+    }
+
+    @Test
+    void deletingProfilePhotoAlsoRemovesLegacyPhoto() {
+        profileService.updatePhoto(user.getId(), new MockMultipartFile("file", "photo.png", "image/png", PNG));
+        legacyAvatarRepository.saveAndFlush(new UserAvatar(user, PNG, "image/png"));
+
+        profileService.deletePhoto(user.getId());
+
+        assertFalse(legacyAvatarRepository.existsByUser_Id(user.getId()));
+        assertFalse(photoRepository.existsByUser_Id(user.getId()));
+        assertFalse(profileService.findCurrentUser(user.getId()).hasProfilePhoto());
+    }
+
+    @Test
+    void deletingPhotoThatExistsOnlyInSettingsDoesNotRequireNewUpload() {
+        legacyAvatarRepository.saveAndFlush(new UserAvatar(user, PNG, "image/png"));
+        profileService.deletePhoto(user.getId());
+        assertFalse(profileService.findCurrentUser(user.getId()).hasProfilePhoto());
+    }
 
     private AppUser user;
 

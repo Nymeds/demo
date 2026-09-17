@@ -30,23 +30,7 @@
       <!-- AÇÕES DO CABEÇALHO -->
       <div class="header-actions">
 
-        <button class="notification-button">
-
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-          >
-            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/>
-            <path d="M10 21h4"/>
-          </svg>
-
-          <span>3</span>
-
-        </button>
-
-        <button class="help-button">
+        <button ref="helpButton" class="help-button" type="button" @click="showHelp = true">
 
           <span class="help-icon">?</span>
 
@@ -65,41 +49,22 @@
       <!-- DISCIPLINA -->
       <div class="filter">
 
-        <label>Disciplina</label>
+        <label for="simulator-discipline">Disciplina</label>
 
-        <div class="select-wrapper">
-
-          <span class="field-icon">
-
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" />
+        <AppSelect
+          id="simulator-discipline"
+          ref="disciplineSelect"
+          v-model="selectedDiscipline"
+          :options="disciplineFilterOptions"
+          placeholder="Selecione uma disciplina"
+        >
+          <template #leading>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/>
+              <path d="M4 5.5v16"/>
             </svg>
-
-          </span>
-
-          <select v-model="selectedDiscipline">
-
-            <option value="">
-              Selecione uma disciplina
-            </option>
-
-            <option
-              v-for="discipline in filteredDisciplines"
-              :key="discipline.id"
-              :value="discipline.id"
-            >
-              {{ discipline.name }}
-            </option>
-
-          </select>
-
-        </div>
+          </template>
+        </AppSelect>
 
       </div>
 
@@ -107,43 +72,22 @@
       <!-- PERÍODO -->
       <div class="filter">
 
-        <label>Período/Ano</label>
+        <label for="simulator-period">Período/Ano</label>
 
-        <div class="select-wrapper">
-
-          <span class="field-icon">
-
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
+        <AppSelect
+          id="simulator-period"
+          v-model="selectedPeriod"
+          :options="periodFilterOptions"
+        >
+          <template #leading>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="5" width="18" height="16" rx="2"/>
               <line x1="16" y1="3" x2="16" y2="7"/>
               <line x1="8" y1="3" x2="8" y2="7"/>
               <line x1="3" y1="10" x2="21" y2="10"/>
             </svg>
-
-          </span>
-
-          <select v-model="selectedPeriod">
-
-          <option value="">
-            Todos os períodos
-          </option>
-
-          <option
-            v-for="item in availablePeriods"
-            :key="item.value"
-            :value="item.value"
-          >
-            {{ item.value }}
-          </option>
-
-        </select>
-
-        </div>
+          </template>
+        </AppSelect>
 
       </div>
 
@@ -151,18 +95,15 @@
       <!-- TIPO DE CÁLCULO -->
       <div class="filter">
 
-        <label>Tipo de cálculo</label>
+        <label for="simulator-calculation">Tipo de cálculo</label>
 
-        <div class="select-wrapper">
-
-          <span class="field-icon">
-
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
+        <AppSelect
+          id="simulator-calculation"
+          v-model="calculationType"
+          :options="calculationFilterOptions"
+        >
+          <template #leading>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="5" y="3" width="14" height="18" rx="2"/>
               <rect x="8" y="6" width="8" height="3"/>
               <circle cx="9" cy="13" r="0.7"/>
@@ -172,16 +113,8 @@
               <circle cx="12" cy="16.5" r="0.7"/>
               <circle cx="15" cy="16.5" r="0.7"/>
             </svg>
-
-          </span>
-
-          <select v-model="calculationType">
-
-            <option>Média Normal</option>
-
-          </select>
-
-        </div>
+          </template>
+        </AppSelect>
 
       </div>
 
@@ -392,8 +325,20 @@
               max="10"
               step="0.1"
               @change="simulate"
+              @keydown="blockInvalidNumberKeys"
+              :aria-invalid="Boolean(desiredAverageError)"
+              aria-describedby="desired-average-error"
               placeholder="8,5"
             />
+
+            <p
+              v-if="desiredAverageError"
+              id="desired-average-error"
+              class="field-error"
+              role="alert"
+            >
+              {{ desiredAverageError }}
+            </p>
 
           </div>
 
@@ -439,7 +384,7 @@
             </span>
 
             <strong>
-              {{ formatNumber(requiredGrade) }}
+              {{ formatNumber(displayedRequiredGrade) }}
             </strong>
 
           </div>
@@ -559,9 +504,10 @@
 
               </div>
 
-              <span>
-                {{ note.name }}
-              </span>
+              <div class="evaluation-text">
+                <span>{{ note.name }}</span>
+                <small>{{ linkedActivityLabel(note) }}</small>
+              </div>
 
             </div>
 
@@ -614,12 +560,23 @@
 
 
         <button
+          ref="addGradeButton"
           class="add-grade-button"
-          :disabled="!selectedDiscipline"
+          type="button"
+          :aria-describedby="addGradeHint ? 'add-grade-hint' : undefined"
           @click="openGradeModal"
         >
           ＋ Adicionar avaliação lançada
         </button>
+
+        <p
+          v-if="addGradeHint"
+          id="add-grade-hint"
+          class="add-grade-hint"
+          role="alert"
+        >
+          {{ addGradeHint }}
+        </p>
 
       </section>
 
@@ -682,22 +639,48 @@
 
   </div>
   <GradeModal
-  v-if="showGradeModal"
-  :saving="savingGrade"
-  @close="closeGradeModal"
-  @save="saveGrade"
-/>
+    v-if="showGradeModal"
+    :activities="activities"
+    :activities-status="activitiesStatus"
+    :graded-activity-ids="gradedActivityIds"
+    :discipline-name="selectedDisciplineName"
+    :saving="savingGrade"
+    :error-message="gradeError"
+    @close="closeGradeModal"
+    @save="saveGrade"
+    @retry="loadActivities"
+    @go-to-activities="goToActivities"
+  />
+  <SimulatorHelpModal
+    v-if="showHelp"
+    @close="closeHelp"
+  />
 </template>
 
 
 <script setup>
+import AppSelect from '../../components/ui/AppSelect.vue'
 import GradeModal from './GradeModal.vue'
+import SimulatorHelpModal from './SimulatorHelpModal.vue'
+import { periodKeyOf } from '../grades/gradesPresentation'
 import {
   computed,
+  nextTick,
   onMounted,
   ref,
   watch
 } from 'vue'
+
+// Explicação passo a passo aberta pelo botão "Como funciona?"
+const showHelp = ref(false)
+const helpButton = ref(null)
+
+async function closeHelp() {
+  showHelp.value = false
+  await nextTick()
+  helpButton.value?.focus()
+}
+
 const selectedDiscipline = ref('')
 const dashboardId = ref('')
 const disciplines = ref([])
@@ -711,37 +694,24 @@ const props = defineProps({
     required: true
   }
 })
+
+const emit = defineEmits(['navigate'])
 // periodos
+// Mesma regra de período da tela Notas: o ano pode estar em "periodo" ou em "semester"
+// (disciplinas antigas gravam "2026.2" em semester e "2" em periodo).
 function getDisciplinePeriod(discipline) {
-  const rawPeriod = String(discipline.periodo ?? '')
-  const rawSemester = String(discipline.semester ?? '')
+  const key = periodKeyOf(discipline)
 
-  // Procura um ano de 4 dígitos, mesmo em valores antigos como "2.2026"
-  const yearMatch = rawPeriod.match(/\d{4}/)
-
-  if (!yearMatch) {
+  if (!key) {
     return null
   }
 
-  const year = Number(yearMatch[0])
-
-  let semester = Number(rawSemester)
-
-  // Caso semester não esteja válido, tenta descobrir pelo período antigo
-  if (semester !== 1 && semester !== 2) {
-    const parts = rawPeriod.split('.')
-
-    const possibleSemester = parts
-      .map(Number)
-      .find(value => value === 1 || value === 2)
-
-    semester = possibleSemester ?? 1
-  }
+  const [year, semester] = key.split('.').map(Number)
 
   return {
     year,
     semester,
-    value: `${year}.${semester}`
+    value: key
   }
 }
 const availablePeriods = computed(() => {
@@ -764,6 +734,21 @@ const availablePeriods = computed(() => {
   })
 })
 const calculationType = ref('Média Normal')
+
+// Opções das listas de filtro no formato do AppSelect (lista no visual do site).
+const calculationFilterOptions = [{ value: 'Média Normal', label: 'Média Normal' }]
+
+const disciplineFilterOptions = computed(() =>
+  filteredDisciplines.value.map(discipline => ({
+    value: discipline.id,
+    label: discipline.name
+  }))
+)
+
+const periodFilterOptions = computed(() => [
+  { value: '', label: 'Todos os períodos' },
+  ...availablePeriods.value.map(item => ({ value: item.value, label: item.value }))
+])
 
 
 
@@ -824,18 +809,94 @@ async function apiRequest(path, options = {}) {
 ========================= */
 
 const showGradeModal = ref(false)
+const addGradeHint = ref('')
+const addGradeButton = ref(null)
+const disciplineSelect = ref(null)
 
-function openGradeModal() {
+// Provas e trabalhos da disciplina: a nota lançada fica vinculada a um deles (relatório, RF06).
+const activities = ref([])
+const activitiesStatus = ref('idle')
 
-  if (!selectedDiscipline.value) {
+const gradedActivityIds = computed(() =>
+  notes.value
+    .map(note => note.activityId)
+    .filter(Boolean)
+)
+
+const selectedDisciplineName = computed(() =>
+  disciplines.value.find(item => item.id === selectedDiscipline.value)?.name ?? ''
+)
+
+function linkedActivityLabel(note) {
+  if (!note.activityId) {
+    return 'Sem avaliação vinculada'
+  }
+
+  const activity = activities.value.find(item => item.id === note.activityId)
+
+  return activity ? `Vinculada a ${activity.title}` : 'Avaliação vinculada'
+}
+
+async function loadActivities() {
+  const disciplineId = selectedDiscipline.value
+
+  if (!dashboardId.value || !disciplineId) {
+    activities.value = []
+    activitiesStatus.value = 'idle'
     return
+  }
+
+  activitiesStatus.value = 'loading'
+
+  try {
+    const result = await apiRequest(
+      `/api/v1/dashboards/${dashboardId.value}/disciplines/${disciplineId}/activities`
+    )
+
+    // Ignora a resposta se a disciplina mudou enquanto a requisição estava em andamento.
+    if (disciplineId !== selectedDiscipline.value) {
+      return
+    }
+
+    activities.value = result
+    activitiesStatus.value = 'ready'
+  } catch {
+    if (disciplineId !== selectedDiscipline.value) {
+      return
+    }
+
+    activities.value = []
+    activitiesStatus.value = 'error'
+  }
+}
+
+// Sem disciplina escolhida o botão explica o que falta, em vez de ficar sem resposta.
+function openGradeModal() {
+  if (!selectedDiscipline.value) {
+    addGradeHint.value = 'Selecione uma disciplina acima para lançar a nota.'
+    disciplineSelect.value?.focus()
+    return
+  }
+
+  addGradeHint.value = ''
+  gradeError.value = ''
+
+  if (activitiesStatus.value === 'idle' || activitiesStatus.value === 'error') {
+    loadActivities()
   }
 
   showGradeModal.value = true
 }
 
-function closeGradeModal() {
+async function closeGradeModal() {
   showGradeModal.value = false
+  await nextTick()
+  addGradeButton.value?.focus()
+}
+
+function goToActivities() {
+  showGradeModal.value = false
+  emit('navigate', 'activities')
 }
 
 // salvar a grade
@@ -869,7 +930,10 @@ async function saveGrade(formData) {
             Number(formData.score),
 
           recordedAt:
-            formData.recordedAt
+            formData.recordedAt,
+
+          activityId:
+            formData.activityId
         })
       }
     )
@@ -881,15 +945,16 @@ async function saveGrade(formData) {
     closeGradeModal()
 
   } catch (error) {
-    console.error(
-      'Erro ao adicionar avaliação:',
-      error
-    )
+    // A mensagem aparece dentro do modal, em vez de a falha passar despercebida.
+    gradeError.value =
+      error.message || 'Não foi possível adicionar a avaliação.'
 
   } finally {
     savingGrade.value = false
   }
 }
+
+const gradeError = ref('')
 //dados mockados
 const passingAverage = ref(6)
 const desiredAverage = ref(6)
@@ -987,7 +1052,8 @@ async function loadGrades() {
         id: grade.id,
         name: grade.assessmentName,
         value: Number(grade.score),
-        recordedAt: grade.recordedAt
+        recordedAt: grade.recordedAt,
+        activityId: grade.activityId ?? null
       }))
       .sort((a, b) => {
         return (
@@ -1050,20 +1116,49 @@ function formatNumber(value) {
    SIMULAR
 ========================= */
 
+const desiredAverageError = ref('')
+
+// Com a meta já alcançada a conta dá negativo; na tela isso aparece como 0,0.
+const displayedRequiredGrade = computed(() =>
+  Math.max(0, requiredGrade.value)
+)
+
+// Notas e médias são positivas: "-", "+" e "e" (notação científica) não são digitáveis.
+function blockInvalidNumberKeys(event) {
+  if (['-', '+', 'e', 'E'].includes(event.key)) {
+    event.preventDefault()
+  }
+}
+
+function validateDesiredAverage(value) {
+  if (value === '' || value === null || Number.isNaN(Number(value))) {
+    return 'Informe a média desejada.'
+  }
+
+  if (Number(value) < 0) {
+    return 'A média desejada não pode ser negativa.'
+  }
+
+  if (Number(value) > maxGrade.value) {
+    return 'A média desejada deve ser de no máximo 10.'
+  }
+
+  return ''
+}
+
 function simulate() {
   if (!selectedDiscipline.value) {
     return
   }
 
-  const target = Number(desiredAverage.value)
+  desiredAverageError.value = validateDesiredAverage(desiredAverage.value)
 
-  if (
-    Number.isNaN(target) ||
-    target < 0 ||
-    target > maxGrade.value
-  ) {
+  if (desiredAverageError.value) {
+    showResult.value = false
     return
   }
+
+  const target = Number(desiredAverage.value)
 
   const numberOfNotes = notes.value.length
 
@@ -1129,6 +1224,9 @@ watch(selectedPeriod, () => {
 // toda vez que mudar a disciplina, recarrega as notas
 watch(selectedDiscipline, async () => {
   showResult.value = false
+  addGradeHint.value = ''
+  activities.value = []
+  activitiesStatus.value = 'idle'
 
   if (!selectedDiscipline.value) {
     notes.value = []
@@ -1147,13 +1245,21 @@ watch(selectedDiscipline, async () => {
       Number(discipline.passingAverage ?? 6)
   }
 
-  await loadGrades()
+  await Promise.all([loadGrades(), loadActivities()])
 })
 
 </script>
 
 
 <style scoped>
+
+.field-error {
+  color: #c4463e;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 6px 0 0;
+}
+
 
 /* =========================
    PÁGINA
@@ -1266,63 +1372,6 @@ watch(selectedDiscipline, async () => {
 }
 
 
-.notification-button {
-
-  position: relative;
-
-  width: 42px;
-  height: 42px;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  border: none;
-
-  background: transparent;
-
-  color: #555267;
-
-}
-
-
-.notification-button svg {
-
-  width: 21px;
-  height: 21px;
-
-}
-
-
-.notification-button span {
-
-  position: absolute;
-
-  top: -2px;
-  right: -2px;
-
-  width: 18px;
-  height: 18px;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  border-radius: 50%;
-
-  background: #6330e0;
-
-  color: white;
-
-  font-size: 10px;
-
-}
-
-
 .help-button {
 
   height: 42px;
@@ -1418,70 +1467,16 @@ watch(selectedDiscipline, async () => {
 }
 
 
-.select-wrapper {
+/* Listas de filtro no mesmo padrão dos outros campos do site (AppSelect). */
+.filter {
 
-  position: relative;
+  --app-select-height: 42px;
 
-}
+  --app-select-font-size: 14px;
 
+  --app-select-radius: 8px;
 
-.field-icon {
-
-  position: absolute;
-
-  left: 14px;
-
-  top: 50%;
-
-  transform: translateY(-50%);
-
-  color: #6330e0;
-
-  pointer-events: none;
-
-}
-
-
-.field-icon svg {
-
-  width: 18px;
-  height: 18px;
-
-  display: block;
-
-}
-
-
-.filter select {
-
-  width: 100%;
-
-  height: 42px;
-
-  box-sizing: border-box;
-
-  padding: 0 38px 0 43px;
-
-  border: 1px solid #dddbe6;
-
-  border-radius: 8px;
-
-  background: #ffffff !important;
-
-  color: #292638 !important;
-
-  font-size: 14px;
-
-  outline: none;
-
-}
-
-
-.filter select:focus {
-
-  border-color: #6330e0;
-
-  box-shadow: 0 0 0 2px rgba(99, 48, 224, .08);
+  --app-select-padding: 0 12px 0 14px;
 
 }
 
@@ -2196,6 +2191,57 @@ watch(selectedDiscipline, async () => {
   color: #6330e0 !important;
 
   cursor: pointer;
+
+}
+
+
+.add-grade-button:hover {
+
+  border-color: #6330e0;
+
+  background: #f7f3ff;
+
+}
+
+
+.add-grade-button:focus-visible {
+
+  outline: 2px solid rgba(99, 48, 224, 0.45);
+
+  outline-offset: 2px;
+
+}
+
+
+.add-grade-hint {
+
+  margin: 8px 0 0;
+
+  color: #b4520c;
+
+  font-size: 12px;
+
+  font-weight: 600;
+
+}
+
+
+.evaluation-text {
+
+  display: grid;
+
+  gap: 2px;
+
+  min-width: 0;
+
+}
+
+
+.evaluation-text small {
+
+  color: #8a879b !important;
+
+  font-size: 10px;
 
 }
 
