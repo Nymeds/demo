@@ -15,7 +15,8 @@ public record GradeResponse(
         LocalDate recordedAt,
         Instant createdAt,
         Instant updatedAt,
-        UUID activityId
+        UUID activityId,
+        String observation
 ) {
 
     public static GradeResponse from(Grade grade) {
@@ -28,7 +29,8 @@ public record GradeResponse(
                 grade.getCreatedAt(),
                 grade.getUpdatedAt(),
                 // getId() de um proxy LAZY não dispara consulta à tabela de atividades.
-                grade.getActivity() == null ? null : grade.getActivity().getId()
+                grade.getActivity() == null ? null : grade.getActivity().getId(),
+                grade.getObservation()
         );
     }
 }

@@ -3,15 +3,11 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AppToast from '../../components/ui/AppToast.vue'
 import { createApiClient, SessionExpiredError } from '../../api/apiClient'
 import AppSelect from '../../components/ui/AppSelect.vue'
-import GradeModal from '../simulator/GradeModal.vue'
-import AverageEvolutionChart from './AverageEvolutionChart.vue'
+import GradeModal from './GradeEntryModal.vue'
 import GradesSummaryCards from './GradesSummaryCards.vue'
 import GradesTable from './GradesTable.vue'
-import PerformanceDonut from './PerformanceDonut.vue'
 import {
   SORT_OPTIONS,
-  distributionOf,
-  evolutionOf,
   latestPeriodKey,
   matchesSearch,
   periodKeyOf,
@@ -35,16 +31,47 @@ const loading = ref(true)
 const loadError = ref('')
 const dashboardId = ref('')
 const entries = ref([])
-const gradeGoal = ref(null)
+const activeStatus = ref('all')
+const viewMode = ref('list')
+const page = ref(1)
+const pageSize = 8
+const statuses = [
+  { value: 'all', label: 'Todas' },
+  { value: 'IN_PROGRESS', label: 'Em andamento' },
+  { value: 'COMPLETED', label: 'Concluídas' },
+  { value: 'LOCKED', label: 'Trancadas' },
+]
+const editingGrade = ref(null)
+const deletion = ref(null)
+const deleting = ref(false)
+const deleteError = ref('')
+const deleteDialog = ref(null)
+let deleteTrigger = null
+watch(deletion, async value => {
+  await nextTick()
+  if (value) deleteDialog.value?.querySelector('button')?.focus()
+  else deleteTrigger?.focus()
+})
+function trapDeleteFocus(event) {
+  const buttons = [...deleteDialog.value.querySelectorAll('button:not(:disabled)')]
+  const first = buttons[0]
+  const last = buttons.at(-1)
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last?.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first?.focus()
+  }
+}
 
 const search = ref('')
 const selectedPeriod = ref(ALL)
-const selectedDiscipline = ref(ALL)
-const sortOrder = ref(SORT_OPTIONS[0].value)
+const sortOrder = ref('name')
 const toast = ref({ message: '', type: 'success' })
 let toastTimer = null
 
-// Lançamento de nota pela tela Notas: mesmo modal do simulador, com a nota ligada à prova (RF06).
+// Formulário de notas vinculado às avaliações cadastradas em Atividades.
 const addGradeButton = ref(null)
 const showAddGrade = ref(false)
 const addDisciplineId = ref('')
@@ -62,27 +89,31 @@ const periodEntries = computed(() => (
     ? entries.value
     : entries.value.filter(entry => periodKeyOf(entry) === selectedPeriod.value)
 ))
-const disciplineOptions = computed(() => [...periodEntries.value].sort((first, second) => first.name.localeCompare(second.name, 'pt-BR')))
 const visibleEntries = computed(() => sortEntries(
   periodEntries.value.filter(entry => (
-    (selectedDiscipline.value === ALL || entry.disciplineId === selectedDiscipline.value)
+    (activeStatus.value === ALL || entry.status === activeStatus.value)
     && matchesSearch(entry, search.value)
   )),
   sortOrder.value,
 ))
 const summary = computed(() => summarize(periodEntries.value))
-const distribution = computed(() => distributionOf(periodEntries.value))
-const evolution = computed(() => evolutionOf(entries.value))
+const pageCount = computed(() => Math.max(1, Math.ceil(visibleEntries.value.length / pageSize)))
+const pagedEntries = computed(() => visibleEntries.value.slice((page.value - 1) * pageSize, page.value * pageSize))
+watch([search, activeStatus, sortOrder, selectedPeriod], () => { page.value = 1 })
+watch(pageCount, count => { page.value = Math.min(page.value, count) })
+function clearFilters() {
+  search.value = ''
+  activeStatus.value = ALL
+  selectedPeriod.value = ALL
+  sortOrder.value = 'name'
+  page.value = 1
+}
 const periodLabel = computed(() => (selectedPeriod.value === ALL ? 'Em todos os períodos' : `No período ${selectedPeriod.value}`))
 
 // Opções das listas de filtro no formato do AppSelect (lista no visual do site).
 const periodSelectOptions = computed(() => [
   { value: ALL, label: 'Todos' },
   ...periodOptions.value.map(period => ({ value: period, label: period })),
-])
-const disciplineSelectOptions = computed(() => [
-  { value: ALL, label: 'Todas' },
-  ...disciplineOptions.value.map(entry => ({ value: entry.disciplineId, label: entry.name })),
 ])
 
 const addDisciplineOptions = computed(() => [...entries.value]
@@ -95,10 +126,6 @@ const addDisciplineName = computed(() => (
   entries.value.find(entry => entry.disciplineId === addDisciplineId.value)?.name ?? ''
 ))
 
-// A disciplina escolhida pode não existir no novo período.
-watch(selectedPeriod, () => {
-  selectedDiscipline.value = ALL
-})
 
 function showToast(message, type = 'success') {
   clearTimeout(toastTimer)
@@ -119,16 +146,6 @@ function handleFailure(error) {
   showToast(error.message || 'Não foi possível carregar as informações.', 'error')
 }
 
-async function loadPreferences() {
-  try {
-    return await request('/api/v1/settings/preferences')
-  } catch (error) {
-    if (error instanceof SessionExpiredError) throw error
-    // A meta é opcional: sem as preferências, o cartão mostra o atalho para defini-la.
-    return null
-  }
-}
-
 async function load() {
   loading.value = true
   loadError.value = ''
@@ -144,13 +161,8 @@ async function load() {
 
     dashboardId.value = dashboard.id
 
-    const [gradebook, preferences] = await Promise.all([
-      request(`/api/v1/dashboards/${dashboard.id}/gradebook`),
-      loadPreferences(),
-    ])
-
+    const gradebook = await fetchGradebook()
     entries.value = gradebook
-    gradeGoal.value = preferences?.gradeGoal ?? null
     selectedPeriod.value = latestPeriodKey(gradebook) ?? ALL
   } catch (error) {
     if (error instanceof SessionExpiredError) {
@@ -164,6 +176,13 @@ async function load() {
   }
 }
 
+async function fetchGradebook() {
+  const [gradebook, disciplines] = await Promise.all([
+    request(`/api/v1/dashboards/${dashboardId.value}/gradebook`),
+    request(`/api/v1/dashboards/${dashboardId.value}/disciplines`),
+  ])
+  return gradebook.map(entry => ({ ...entry, status: disciplines.find(item => item.id === entry.disciplineId)?.status ?? 'IN_PROGRESS' }))
+}
 function loadGrades(disciplineId) {
   return request(`/api/v1/dashboards/${dashboardId.value}/disciplines/${disciplineId}/grades`)
 }
@@ -171,7 +190,7 @@ function loadGrades(disciplineId) {
 // Atualiza as médias sem mexer nos filtros que a pessoa escolheu.
 async function refreshGradebook() {
   try {
-    entries.value = await request(`/api/v1/dashboards/${dashboardId.value}/gradebook`)
+    entries.value = await fetchGradebook()
     tableVersion.value += 1
   } catch (error) {
     handleFailure(error)
@@ -215,17 +234,17 @@ async function selectAddDiscipline(disciplineId) {
   }
 }
 
-// Já abre na disciplina filtrada, ou na única do período, para poupar um clique.
+// Abre na disciplina quando há apenas uma no período.
 function openAddGrade() {
-  const preselected = selectedDiscipline.value !== ALL
-    ? selectedDiscipline.value
-    : (periodEntries.value.length === 1 ? periodEntries.value[0].disciplineId : '')
+  editingGrade.value = null
+  const preselected = periodEntries.value.length === 1 ? periodEntries.value[0].disciplineId : ''
 
   showAddGrade.value = true
   selectAddDiscipline(preselected)
 }
 
 async function closeAddGrade() {
+  if (savingGrade.value) return
   showAddGrade.value = false
   await nextTick()
   addGradeButton.value?.focus()
@@ -244,11 +263,13 @@ async function saveGrade(formData) {
 
   try {
     await request(
-      `/api/v1/dashboards/${dashboardId.value}/disciplines/${addDisciplineId.value}/grades`,
-      { method: 'POST', body: formData },
+      `/api/v1/dashboards/${dashboardId.value}/disciplines/${addDisciplineId.value}/grades${editingGrade.value ? `/${editingGrade.value.id}` : ''}`,
+      { method: editingGrade.value ? 'PUT' : 'POST', body: formData },
     )
 
-    await closeAddGrade()
+    showAddGrade.value = false
+    await nextTick()
+    addGradeButton.value?.focus()
     showToast('Nota lançada.')
     await refreshGradebook()
   } catch (error) {
@@ -264,6 +285,30 @@ async function saveGrade(formData) {
   }
 }
 
+async function editGrade(entry, grade) {
+  editingGrade.value = grade
+  showAddGrade.value = true
+  await selectAddDiscipline(entry.disciplineId)
+}
+function askDelete(entry, grade) {
+  deleteTrigger = document.activeElement
+  deletion.value = { entry, grade }
+  deleteError.value = ''
+}
+async function deleteGrade() {
+  if (deleting.value || !deletion.value) return
+  deleting.value = true
+  try {
+    const { entry, grade } = deletion.value
+    await request(`/api/v1/dashboards/${dashboardId.value}/disciplines/${entry.disciplineId}/grades/${grade.id}`, { method: 'DELETE' })
+    deletion.value = null
+    showToast('Nota excluída.')
+    await refreshGradebook()
+  } catch (error) {
+    deleteError.value = error.message
+    handleFailure(error)
+  } finally { deleting.value = false }
+}
 onMounted(load)
 onBeforeUnmount(() => clearTimeout(toastTimer))
 </script>
@@ -281,6 +326,12 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
         </div>
       </div>
 
+      <div class="grades-header-actions">
+        <label class="grades-field is-search">
+          <span class="grades-visually-hidden">Buscar disciplina ou professor</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+          <input v-model="search" type="search" maxlength="120" placeholder="Buscar disciplina...">
+        </label>
       <button
         ref="addGradeButton"
         class="grades-button is-primary"
@@ -289,8 +340,9 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
         @click="openAddGrade"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-        Adicionar notas
+        Adicionar nota
       </button>
+      </div>
     </header>
 
     <div v-if="loading" class="grades-status" role="status">
@@ -311,91 +363,42 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
     </div>
 
     <template v-else>
-      <GradesSummaryCards
-        :summary="summary"
-        :goal="gradeGoal"
-        :period-label="periodLabel"
-        @open-settings="emit('navigate', 'settings')"
-      />
-
-      <div class="grades-layout">
-        <section class="grades-panel grades-list" aria-labelledby="grades-list-title">
-          <h2 id="grades-list-title" class="grades-visually-hidden">Médias por disciplina</h2>
-
-          <div class="grades-filters">
-            <label class="grades-field is-search">
-              <span class="grades-visually-hidden">Buscar disciplina ou professor</span>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-              <input v-model="search" type="search" maxlength="120" placeholder="Buscar disciplina ou professor…">
-            </label>
-
-            <label class="grades-field">
-              <span>Período</span>
-              <AppSelect v-model="selectedPeriod" :options="periodSelectOptions" />
-            </label>
-
-            <label class="grades-field">
-              <span>Disciplinas</span>
-              <AppSelect v-model="selectedDiscipline" :options="disciplineSelectOptions" />
-            </label>
-
-            <label class="grades-field">
-              <span>Ordenar por</span>
-              <AppSelect v-model="sortOrder" :options="SORT_OPTIONS" />
-            </label>
-          </div>
-
-          <GradesTable
-            :key="tableVersion"
-            :entries="visibleEntries"
-            :load-grades="loadGrades"
-            @open-simulator="emit('navigate', 'simulator')"
-            @failed="handleFailure"
-          />
-
-          <p class="grades-count" aria-live="polite">
-            Mostrando {{ visibleEntries.length }} de {{ periodEntries.length }} disciplinas
-          </p>
-        </section>
-
-        <aside class="grades-side">
-          <section class="grades-panel" aria-labelledby="grades-distribution-title">
-            <h2 id="grades-distribution-title">Resumo de desempenho</h2>
-            <PerformanceDonut :distribution="distribution" :general-average="summary.generalAverage" />
-          </section>
-
-          <section class="grades-panel" aria-labelledby="grades-evolution-title">
-            <h2 id="grades-evolution-title">Evolução da média geral</h2>
-            <AverageEvolutionChart :points="evolution" :goal="gradeGoal" />
-          </section>
-
-          <section class="grades-panel grades-info" aria-labelledby="grades-info-title">
-            <h2 id="grades-info-title">Como as médias são calculadas</h2>
-            <p>
-              A média de cada disciplina é a média simples das notas lançadas nela. A média geral é a média
-              das disciplinas que já têm notas no período escolhido.
-            </p>
-          </section>
-        </aside>
-      </div>
-
-      <aside class="grades-tip" aria-label="Dica">
-        <span class="grades-tip-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z" /></svg>
-        </span>
-        <div>
-          <strong>Dica</strong>
-          <p>Quer saber quanto precisa tirar na próxima avaliação? O simulador usa as notas que você já lançou.</p>
+      <GradesSummaryCards :summary="summary" :period-label="periodLabel" />
+      <div class="grades-toolbar">
+        <div class="grades-tabs" aria-label="Situação da disciplina">
+          <button v-for="status in statuses" :key="status.value" type="button" :class="{ active: activeStatus === status.value }" :aria-pressed="activeStatus === status.value" @click="activeStatus = status.value">{{ status.label }}</button>
         </div>
-        <button class="grades-button is-secondary" type="button" @click="emit('navigate', 'simulator')">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8" /></svg>
-          Simulador de Notas
-        </button>
+        <div class="grades-toolbar-actions">
+          <label v-if="periodOptions.length > 1" class="grades-field grades-period"><span class="grades-visually-hidden">Período</span><AppSelect v-model="selectedPeriod" :options="periodSelectOptions" /></label>
+          <label class="grades-sort"><span>Ordenar por:</span><AppSelect v-model="sortOrder" :options="SORT_OPTIONS" /></label>
+          <button class="grades-button is-secondary" type="button" @click="clearFilters"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18l-7 8v7l-4 2v-9Z" /></svg>Limpar filtros</button>
+          <div class="grades-view-toggle" aria-label="Visualização">
+            <button type="button" :class="{ active: viewMode === 'list' }" :aria-pressed="viewMode === 'list'" aria-label="Visualizar em lista" @click="viewMode = 'list'"><svg viewBox="0 0 24 24"><path d="M8 5h13M8 12h13M8 19h13M3 5h1M3 12h1M3 19h1" /></svg></button>
+            <button type="button" :class="{ active: viewMode === 'grid' }" :aria-pressed="viewMode === 'grid'" aria-label="Visualizar em grade" @click="viewMode = 'grid'"><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" /></svg></button>
+          </div>
+        </div>
+      </div>
+      <section class="grades-panel grades-list" aria-label="Notas por disciplina">
+        <GradesTable :key="tableVersion" :entries="pagedEntries" :view-mode="viewMode" :load-grades="loadGrades" @edit="editGrade" @delete="askDelete" @add="entry => { openAddGrade(); selectAddDiscipline(entry.disciplineId) }" @failed="handleFailure" />
+      </section>
+      <footer class="grades-footer">
+        <p class="grades-count" aria-live="polite">Mostrando {{ pagedEntries.length }} de {{ visibleEntries.length }} disciplinas</p>
+        <nav class="grades-pagination" aria-label="Páginas de disciplinas">
+          <button type="button" :disabled="page === 1" @click="page--">Anterior</button>
+          <span aria-current="page">{{ page }}</span>
+          <button type="button" :disabled="page === pageCount" @click="page++">Próxima</button>
+        </nav>
+      </footer>
+      <aside class="grades-tip" aria-label="Dica">
+        <span class="grades-tip-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z" /></svg></span>
+        <div><strong>Dica</strong><p>Quer saber quanto precisa tirar na próxima avaliação? O simulador usa as notas que você já lançou.</p></div>
+        <button class="grades-button is-secondary" type="button" @click="emit('navigate', 'simulator')"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8" /></svg>Simulador de Notas</button>
       </aside>
     </template>
 
     <GradeModal
       v-if="showAddGrade"
+      :grade="editingGrade"
       :disciplines="addDisciplineOptions"
       :discipline-id="addDisciplineId"
       :discipline-name="addDisciplineName"
@@ -411,6 +414,14 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
       @save="saveGrade"
     />
 
+    <div v-if="deletion" class="grades-confirm-overlay" @keydown.esc="!deleting && (deletion = null)">
+      <section ref="deleteDialog" class="grades-confirm" role="alertdialog" aria-modal="true" aria-labelledby="delete-grade-title" @keydown.tab="trapDeleteFocus">
+        <h2 id="delete-grade-title">Excluir nota?</h2>
+        <p>A nota de {{ deletion.grade.assessmentName }} em {{ deletion.entry.name }} será excluída e a média será recalculada.</p>
+        <p v-if="deleteError" role="alert">{{ deleteError }}</p>
+        <div><button class="grades-button is-secondary" type="button" :disabled="deleting" @click="deletion = null">Cancelar</button><button class="grades-button is-danger" type="button" :disabled="deleting" @click="deleteGrade">{{ deleting ? 'Excluindo...' : 'Excluir nota' }}</button></div>
+      </section>
+    </div>
     <AppToast :message="toast.message" :type="toast.type" @close="closeToast" />
   </section>
 </template>

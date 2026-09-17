@@ -54,6 +54,13 @@ public class Grade {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal score;
 
+    @Column(length = 200)
+    private String observation;
+
+    public void updateObservation(String observation) {
+        this.observation = observation == null || observation.isBlank() ? null : observation.trim();
+    }
+
     @Column(name = "recorded_at", nullable = false)
     private LocalDate recordedAt;
 

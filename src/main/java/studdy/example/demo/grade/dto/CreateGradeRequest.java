@@ -28,10 +28,17 @@ public record CreateGradeRequest(
         LocalDate recordedAt,
 
         // Prova ou trabalho da mesma disciplina que comprova a nota; opcional para notas avulsas.
-        UUID activityId
+        UUID activityId,
+
+        @Size(max = 200, message = "A observação deve ter no máximo 200 caracteres.")
+        String observation
 ) {
 
     public CreateGradeRequest(String assessmentName, BigDecimal score, LocalDate recordedAt) {
         this(assessmentName, score, recordedAt, null);
+    }
+
+    public CreateGradeRequest(String assessmentName, BigDecimal score, LocalDate recordedAt, UUID activityId) {
+        this(assessmentName, score, recordedAt, activityId, null);
     }
 }

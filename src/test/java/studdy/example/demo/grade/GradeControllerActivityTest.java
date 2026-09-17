@@ -28,6 +28,8 @@ import java.util.UUID;
 
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -55,6 +57,37 @@ class GradeControllerActivityTest {
 
     @Autowired
     private JwtService jwtService;
+
+    @Autowired
+    private GradeRepository gradeRepository;
+
+    @Test
+    void persistsAndUpdatesObservation() throws Exception {
+        String payload = """
+                {"assessmentName":"Prova", "score":8.5, "recordedAt":"%s", "observation":"  Trabalho em grupo  "}
+                """.formatted(TODAY);
+        mockMvc.perform(post(url).header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON).content(payload))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.observation").value("Trabalho em grupo"));
+        var grade = gradeRepository.findAllByDiscipline_IdOrderByRecordedAtDescCreatedAtDesc(discipline.getId()).getFirst();
+        mockMvc.perform(get(url).header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$[0].observation").value("Trabalho em grupo"));
+        mockMvc.perform(put(url + "/" + grade.getId()).header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON).content(payload.replace("Trabalho em grupo", "Prova revisada")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.observation").value("Prova revisada"));
+    }
+
+    @Test
+    void rejectsObservationAboveTwoHundredCharacters() throws Exception {
+        String payload = """
+                {"assessmentName":"Prova", "score":8.5, "recordedAt":"%s", "observation":"%s"}
+                """.formatted(TODAY, "a".repeat(201));
+        mockMvc.perform(post(url).header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON).content(payload))
+                .andExpect(status().isBadRequest());
+    }
 
     private Discipline discipline;
     private String url;

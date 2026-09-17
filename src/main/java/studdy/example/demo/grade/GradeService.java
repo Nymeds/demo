@@ -60,6 +60,7 @@ public class GradeService {
                 activity
         );
 
+        grade.updateObservation(request.observation());
         try {
             return GradeResponse.from(gradeRepository.saveAndFlush(grade));
         } catch (DataIntegrityViolationException exception) {
@@ -113,6 +114,7 @@ public class GradeService {
                 activity
         );
 
+        grade.updateObservation(request.observation());
         try {
             gradeRepository.flush();
         } catch (DataIntegrityViolationException exception) {

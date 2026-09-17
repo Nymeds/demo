@@ -4,19 +4,11 @@ import { bandInfo, bandOf, formatGrade } from './gradesPresentation'
 
 const props = defineProps({
   summary: { type: Object, required: true },
-  goal: { type: Number, default: null },
   periodLabel: { type: String, required: true },
 })
 
-const emit = defineEmits(['open-settings'])
 
 const generalBand = computed(() => bandInfo(bandOf(props.summary.generalAverage)))
-const goalStatus = computed(() => {
-  if (props.summary.generalAverage === null) return 'Lance notas para comparar com a meta'
-
-  const missing = props.goal - props.summary.generalAverage
-  return missing <= 0 ? 'Meta alcançada' : `Faltam ${formatGrade(missing)} pontos na média geral`
-})
 </script>
 
 <template>
@@ -54,29 +46,19 @@ const goalStatus = computed(() => {
       </div>
     </article>
 
-    <article class="grades-summary-card is-blue">
-      <span class="grades-summary-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1.5" /></svg>
-      </span>
-      <div>
-        <p>Meta definida</p>
-        <strong>{{ goal === null ? '—' : formatGrade(goal) }}</strong>
-        <small v-if="goal !== null">{{ goalStatus }}</small>
-        <button v-else class="grades-summary-link" type="button" @click="emit('open-settings')">Definir meta em Configurações</button>
-      </div>
-    </article>
+
   </div>
 </template>
 
 <style scoped>
-.grades-summary { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.grades-summary-card { align-items: center; background: #fff; border: 1px solid #e7e8f0; border-radius: 14px; box-shadow: 0 8px 24px rgba(30, 36, 65, .04); display: flex; gap: 14px; min-width: 0; padding: 18px; }
+.grades-summary { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grades-summary-card { align-items: center; background: #fff; border: 1px solid #e7e8f0; border-radius: 14px; box-shadow: 0 8px 24px rgba(30, 36, 65, .04); display: flex; gap: 24px; min-width: 0; padding: 22px; min-height: 124px; }
 .grades-summary-card > div { min-width: 0; }
-.grades-summary-icon { align-items: center; background: #f1edff; border-radius: 50%; color: #6739e7; display: flex; flex: 0 0 48px; height: 48px; justify-content: center; }
+.grades-summary-icon { align-items: center; background: #f1edff; border-radius: 50%; color: #6739e7; display: flex; flex: 0 0 64px; height: 64px; justify-content: center; }
 .grades-summary-icon svg { fill: none; height: 23px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 23px; }
-.grades-summary-card p { color: #596078; font-size: .7rem; margin: 0; }
-.grades-summary-card strong { color: #171c30; display: block; font-size: 1.45rem; font-variant-numeric: tabular-nums; line-height: 1; margin: 7px 0 6px; }
-.grades-summary-card small { color: #6330e0; display: block; font-size: .64rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grades-summary-card p { color: #596078; font-size: .82rem; margin: 0; }
+.grades-summary-card strong { color: #171c30; display: block; font-size: 1.8rem; font-variant-numeric: tabular-nums; line-height: 1; margin: 7px 0 6px; }
+.grades-summary-card small { color: #6330e0; display: block; font-size: .78rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grades-summary-card.is-green .grades-summary-icon { background: #e8f8ef; color: #2daf68; }
 .grades-summary-card.is-green small { color: #23894f; }
 .grades-summary-card.is-orange .grades-summary-icon { background: #fff0e2; color: #ee831e; }

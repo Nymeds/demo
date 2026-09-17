@@ -1,16 +1,16 @@
 <script setup>
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { ref } from 'vue'
 import { bandInfo, formatGrade, safeColor } from './gradesPresentation'
 
 const props = defineProps({
   entries: { type: Array, required: true },
+  viewMode: { type: String, default: 'list' },
   loadGrades: { type: Function, required: true },
 })
 
-const emit = defineEmits(['open-simulator', 'failed'])
+const emit = defineEmits(['edit', 'delete', 'add', 'failed'])
 
 const expandedId = ref(null)
-const openMenuId = ref(null)
 // Notas já buscadas por disciplina, para não repetir a requisição ao abrir de novo.
 const gradesByDiscipline = ref({})
 
@@ -18,9 +18,6 @@ function progressOf(entry) {
   return entry.average === null ? 0 : Math.round(Number(entry.average) * 10)
 }
 
-function initialOf(name) {
-  return name.trim().charAt(0).toUpperCase()
-}
 
 function formatDate(isoDate) {
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -36,7 +33,7 @@ function setGradesState(disciplineId, state) {
 }
 
 async function toggleGrades(entry) {
-  openMenuId.value = null
+
 
   if (expandedId.value === entry.disciplineId) {
     expandedId.value = null
@@ -56,34 +53,10 @@ async function toggleGrades(entry) {
   }
 }
 
-function toggleMenu(disciplineId) {
-  openMenuId.value = openMenuId.value === disciplineId ? null : disciplineId
-}
-
-function openSimulator() {
-  openMenuId.value = null
-  emit('open-simulator')
-}
-
-// Quem navega pelo teclado e sai do menu com Tab também fecha o menu.
-function closeMenuWhenFocusLeaves(event) {
-  if (!event.currentTarget.contains(event.relatedTarget)) openMenuId.value = null
-}
-
-function closeMenuOnOutsidePointer(event) {
-  if (!event.target.closest?.('.grades-row-actions')) openMenuId.value = null
-}
-
-watch(openMenuId, disciplineId => {
-  if (disciplineId) document.addEventListener('pointerdown', closeMenuOnOutsidePointer)
-  else document.removeEventListener('pointerdown', closeMenuOnOutsidePointer)
-})
-
-onBeforeUnmount(() => document.removeEventListener('pointerdown', closeMenuOnOutsidePointer))
 </script>
 
 <template>
-  <div class="grades-table-wrap">
+  <div class="grades-table-wrap" :class="{ 'is-grid': viewMode === 'grid' }">
     <table class="grades-table">
       <thead>
         <tr>
@@ -92,7 +65,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeMenuOnOut
           <th scope="col" class="is-number">Média parcial</th>
           <th scope="col">Situação</th>
           <th scope="col">Progresso</th>
-          <th scope="col"><span class="grades-visually-hidden">Ações</span></th>
+          <th scope="col" class="is-number">Ações</th>
         </tr>
       </thead>
       <tbody>
@@ -105,7 +78,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeMenuOnOut
             <td>
               <div class="grades-discipline">
                 <span class="grades-discipline-badge" :style="{ '--discipline-color': safeColor(entry.color) }" aria-hidden="true">
-                  {{ initialOf(entry.name) }}
+                  <svg viewBox="0 0 24 24"><path d="M5 3h14v18H5zM8 7h8M8 11h8M8 15h5" /></svg>
                 </span>
                 <div>
                   <strong>{{ entry.name }}</strong>
@@ -128,27 +101,13 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeMenuOnOut
                 <span class="grades-progress-value">{{ entry.average === null ? '—' : `${progressOf(entry)}%` }}</span>
               </div>
             </td>
-            <td
-              class="grades-row-actions"
-              @keydown.esc="openMenuId = null"
-              @focusout="closeMenuWhenFocusLeaves"
-            >
-              <button
-                class="grades-icon-button"
-                type="button"
-                aria-haspopup="menu"
-                :aria-expanded="openMenuId === entry.disciplineId"
-                :aria-label="`Ações de ${entry.name}`"
-                @click="toggleMenu(entry.disciplineId)"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="12" cy="19" r="1.6" /></svg>
+            <td class="grades-row-actions">
+              <button class="grades-icon-button is-edit" type="button" :aria-label="`Gerenciar notas de ${entry.name}`" :aria-expanded="expandedId === entry.disciplineId" @click="entry.gradeCount ? toggleGrades(entry) : emit('add', entry)">
+                <svg viewBox="0 0 24 24"><path d="m4 20 4-1L20 7l-3-3L5 16l-1 4ZM14 7l3 3" /></svg>
               </button>
-              <div v-if="openMenuId === entry.disciplineId" class="grades-menu" role="menu">
-                <button type="button" role="menuitem" @click="toggleGrades(entry)">
-                  {{ expandedId === entry.disciplineId ? 'Ocultar notas lançadas' : 'Ver notas lançadas' }}
-                </button>
-                <button type="button" role="menuitem" @click="openSimulator">Abrir no Simulador de Notas</button>
-              </div>
+              <button class="grades-icon-button is-delete" type="button" :disabled="!entry.gradeCount" :aria-label="`Escolher nota para excluir de ${entry.name}`" @click="toggleGrades(entry)">
+                <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v7M14 10v7" /></svg>
+              </button>
             </td>
           </tr>
 
@@ -164,9 +123,11 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeMenuOnOut
                 </p>
                 <ul class="grades-detail-list">
                   <li v-for="grade in gradesState(entry.disciplineId).items" :key="grade.id">
-                    <span>{{ grade.assessmentName }}</span>
+                    <span>{{ grade.assessmentName }}<small v-if="grade.observation" class="grades-observation">{{ grade.observation }}</small></span>
                     <time :datetime="grade.recordedAt">{{ formatDate(grade.recordedAt) }}</time>
                     <strong>{{ formatGrade(grade.score) }}</strong>
+                    <button class="grades-icon-button is-edit" type="button" :aria-label="`Editar nota de ${grade.assessmentName}`" @click="emit('edit', entry, grade)"><svg viewBox="0 0 24 24"><path d="m4 20 4-1L20 7l-3-3L5 16l-1 4ZM14 7l3 3" /></svg></button>
+                    <button class="grades-icon-button is-delete" type="button" :aria-label="`Excluir nota de ${grade.assessmentName}`" @click="emit('delete', entry, grade)"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v7M14 10v7" /></svg></button>
                   </li>
                 </ul>
               </template>
@@ -182,7 +143,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeMenuOnOut
 .grades-table-wrap { overflow-x: auto; }
 .grades-table { border-collapse: collapse; min-width: 760px; width: 100%; }
 .grades-table th { border-bottom: 1px solid #eff0f5; color: #596078; font-size: .66rem; font-weight: 700; padding: 13px 16px; text-align: left; white-space: nowrap; }
-.grades-table td { border-bottom: 1px solid #eff0f5; color: #30364a; font-size: .74rem; padding: 12px 16px; vertical-align: middle; }
+.grades-table td { border-bottom: 1px solid #eff0f5; color: #30364a; font-size: .74rem; padding: 18px 18px; vertical-align: middle; }
 .grades-table .is-number { font-variant-numeric: tabular-nums; text-align: center; }
 .grades-table-empty { color: #7b8192; padding: 32px 16px; text-align: center; }
 .grades-table tr.is-expanded td { border-bottom-color: transparent; }
@@ -206,7 +167,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeMenuOnOut
 .grades-chip.is-insufficient { background: #fff0ef; color: #c4463e; }
 .grades-chip.is-empty { background: #f1f2f6; color: #6c7287; }
 
-.grades-progress { align-items: center; display: flex; gap: 10px; min-width: 130px; }
+.grades-progress { align-items: center; display: flex; gap: 10px; min-width: 170px; }
 .grades-progress-track { background: #edeaf5; border-radius: 999px; flex: 1; height: 7px; overflow: hidden; }
 .grades-progress-bar { border-radius: inherit; display: block; height: 100%; }
 .grades-progress-bar.is-excellent { background: #1f9d57; }
@@ -215,11 +176,11 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeMenuOnOut
 .grades-progress-bar.is-insufficient { background: #e0443a; }
 .grades-progress-value { color: #596078; flex: 0 0 34px; font-size: .64rem; font-variant-numeric: tabular-nums; text-align: right; }
 
-.grades-row-actions { position: relative; text-align: right; width: 48px; }
+.grades-row-actions { position: relative; text-align: right; width: 120px; white-space: nowrap; }
 .grades-icon-button { align-items: center; background: transparent; border: 0; border-radius: 8px; color: #6c7287; cursor: pointer; display: inline-flex; height: 32px; justify-content: center; width: 32px; }
 .grades-icon-button:hover { background: #f4f1ff; color: #30364a; }
 .grades-icon-button:focus-visible { outline: 2px solid rgba(105, 54, 224, .45); }
-.grades-icon-button svg { fill: currentColor; height: 18px; width: 18px; }
+.grades-icon-button svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; height: 18px; width: 18px; }
 .grades-menu { background: #fff; border: 1px solid #e7e8f0; border-radius: 10px; box-shadow: 0 14px 34px rgba(30, 36, 65, .14); display: grid; min-width: 210px; padding: 5px; position: absolute; right: 12px; top: calc(100% - 6px); z-index: 20; }
 .grades-menu button { background: transparent; border: 0; border-radius: 7px; color: #30364a; cursor: pointer; font-size: .72rem; padding: 9px 10px; text-align: left; }
 .grades-menu button:hover,
@@ -228,7 +189,28 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeMenuOnOut
 .grades-detail-row td { background: #faf9fd; padding: 4px 16px 16px 66px; }
 .grades-detail-status { color: #6c7287; font-size: .68rem; margin: 8px 0; }
 .grades-detail-list { display: grid; gap: 6px; list-style: none; margin: 0; padding: 0; }
-.grades-detail-list li { align-items: center; background: #fff; border: 1px solid #eceaf3; border-radius: 9px; display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr) auto 48px; padding: 8px 12px; }
+.grades-detail-list li { align-items: center; background: #fff; border: 1px solid #eceaf3; border-radius: 9px; display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr) auto 48px 32px 32px; padding: 8px 12px; }
 .grades-detail-list time { color: #7b8192; font-size: .64rem; }
 .grades-detail-list strong { color: #171c30; font-variant-numeric: tabular-nums; text-align: right; }
+
+.grades-discipline-badge svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.grades-row-actions .grades-icon-button { height: 40px; width: 44px; margin-inline: 4px; }
+.grades-icon-button.is-edit { background: #f5f4f9; }
+.grades-icon-button.is-delete { color: #f02324; }
+.grades-icon-button:disabled { opacity: .3; cursor: not-allowed; }
+.grades-observation { display: block; color: #7b8192; margin-top: 4px; overflow-wrap: anywhere; }
+.grades-table tbody > tr:last-child > td { border-bottom: 0; }
+.is-grid { overflow: visible; }
+.is-grid .grades-table { display: block; min-width: 0; }
+.is-grid thead { display: none; }
+.is-grid tbody { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 18px; padding: 18px; }
+.is-grid tbody > tr { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); border: 1px solid #eeeaf5; border-radius: 12px; padding: 12px; }
+.is-grid .grades-table td { border: 0; padding: 10px; }
+.is-grid td:first-child, .is-grid td:nth-child(5), .is-grid .grades-row-actions { grid-column: 1/-1; }
+.is-grid td:nth-child(2)::before { content: 'Avaliações: '; }
+.is-grid td:nth-child(3)::before { content: 'Média: '; }
+.is-grid .grades-row-actions { width: auto; text-align: right; }
+.is-grid .grades-detail-row { grid-column: 1/-1; display: block; }
+.is-grid .grades-detail-row > td { display: block; }
+@media(max-width: 600px) { .is-grid .grades-detail-list li { grid-template-columns: 1fr 40px 32px 32px; } .is-grid .grades-detail-list time { grid-column: 1; } }
 </style>
