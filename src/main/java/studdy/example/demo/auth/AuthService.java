@@ -14,7 +14,6 @@ import studdy.example.demo.user.UserRepository;
 import studdy.example.demo.user.dto.UserResponse;
 
 import java.util.Locale;
-import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -68,16 +67,6 @@ public class AuthService {
                 "Bearer",
                 jwtService.getExpirationInSeconds()
         );
-    }
-
-    public UserResponse getCurrentUser(UUID userId) {
-        AppUser user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Usuário não encontrado."
-                ));
-
-        return UserResponse.from(user);
     }
 
     private String normalizeEmail(String email) {

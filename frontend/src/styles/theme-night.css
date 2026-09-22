@@ -1,0 +1,42 @@
+/* Ajustes manuais do modo noite. As demais cores são geradas por postcss/nightTheme.js; aqui
+   ficam só os pontos em que a troca automática não basta — principalmente a barra lateral,
+   que no modo noite vira a parte clara da página. O #app dá prioridade sobre as regras geradas. */
+
+:root[data-theme="night"] {
+  color-scheme: dark;
+}
+
+/* Barra lateral */
+:root[data-theme="night"] #app .dashboard-sidebar { box-shadow: inset -1px 0 0 #e2e5ef; color: #171c30; }
+:root[data-theme="night"] #app .dashboard-brand { border-bottom-color: #e2e5ef; }
+:root[data-theme="night"] #app .dashboard-brand small { color: #626a7f; }
+:root[data-theme="night"] #app .dashboard-navigation button:not(.active),
+:root[data-theme="night"] #app .dashboard-logout { color: #3b4257; }
+:root[data-theme="night"] #app .dashboard-navigation button:not(.active):hover,
+:root[data-theme="night"] #app .dashboard-logout:hover { background: #ebe6fb; color: #171c30; }
+:root[data-theme="night"] #app .dashboard-sidebar-footer { border-top-color: #e2e5ef; }
+
+/* Caixa do usuário e menu da conta */
+:root[data-theme="night"] #app .user-menu-trigger { background: #ffffff; border-color: #e2e5ef; color: #171c30; }
+:root[data-theme="night"] #app .user-menu-trigger:hover { background: #f1eefb; }
+:root[data-theme="night"] #app .user-menu-trigger[aria-expanded="true"] { border-color: #b9a6f3; }
+:root[data-theme="night"] #app .user-menu-details small { color: #626a7f; }
+:root[data-theme="night"] #app .user-menu-chevron { stroke: #8a90a2; }
+:root[data-theme="night"] #app .user-menu-panel { background: #ffffff; border-color: #e2e5ef; box-shadow: 0 18px 40px rgba(17, 26, 47, .16); }
+:root[data-theme="night"] #app .user-menu-item { color: #2b3146; }
+:root[data-theme="night"] #app .user-menu-item:hover,
+:root[data-theme="night"] #app .user-menu-item:focus-visible { background: #f1eefb; }
+:root[data-theme="night"] #app .user-menu-item.is-current { color: #5f2bd5; }
+:root[data-theme="night"] #app .user-menu-switch { background: #d8dbe6; }
+:root[data-theme="night"] #app .user-menu-item[aria-checked="true"] .user-menu-switch { background: #6b3ad6; }
+:root[data-theme="night"] #app .user-menu-switch span { background: #ffffff; }
+:root[data-theme="night"] #app .user-menu-separator { background: #eceef4; }
+
+/* Prévia da caixa do usuário no recorte da foto de perfil (acompanha a barra lateral clara) */
+:root[data-theme="night"] #app .crop-sidebar-preview { box-shadow: inset 0 0 0 1px #e2e5ef; }
+:root[data-theme="night"] #app .crop-sidebar-text strong { color: #171c30; }
+:root[data-theme="night"] #app .crop-sidebar-text small { color: #626a7f; }
+
+@media (max-width: 760px) {
+  :root[data-theme="night"] #app .user-menu-trigger { background: transparent; border-color: transparent; }
+}

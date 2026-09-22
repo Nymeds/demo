@@ -28,3 +28,7 @@ O código atual é uma base Spring Boot; não presuma que funcionalidades de dom
 - Não trate um requisito de interface como implementado apenas porque há um endpoint: valide o fluxo completo com usuários quando aplicável.
 - Considere heurísticas de usabilidade, respostas de erro compreensíveis e estados de carregamento/sucesso ao propor integrações com o cliente.
 - Documente decisões de produto que afetem estudantes, privacidade ou organização de dados.
+
+## Padrão visual do frontend
+
+- Use Disciplinas e Frequência como referência de dimensões para as demais telas: cards de resumo, filtros, ordenação, botões de adicionar e campos de pesquisa devem manter o mesmo padrão de fontes, ícones, bordas e espaçamentos, com adaptação para telas pequenas.

@@ -6,6 +6,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import studdy.example.demo.discipline.dto.CreateDisciplineRequest;
 import studdy.example.demo.discipline.dto.DisciplineResponse;
 import studdy.example.demo.discipline.dto.UpdateDisciplineRequest;
+import studdy.example.demo.discipline.dto.UpdateDisciplineStatusRequest;
 
 import java.util.List;
 import java.util.UUID;
@@ -64,6 +66,16 @@ public class DisciplineController {
             @Valid @RequestBody UpdateDisciplineRequest request
     ) {
         return disciplineService.update(userId, dashboardId, disciplineId, request);
+    }
+
+    @PatchMapping("/{disciplineId}/status")
+    public DisciplineResponse updateStatus(
+            @AuthenticationPrincipal UUID userId,
+            @PathVariable UUID dashboardId,
+            @PathVariable UUID disciplineId,
+            @Valid @RequestBody UpdateDisciplineStatusRequest request
+    ) {
+        return disciplineService.updateStatus(userId, dashboardId, disciplineId, request.status());
     }
 
     @DeleteMapping("/{disciplineId}")

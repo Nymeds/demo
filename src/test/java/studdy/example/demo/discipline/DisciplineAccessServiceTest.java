@@ -54,7 +54,9 @@ class DisciplineAccessServiceTest {
                         new BigDecimal("6.00"),
                         new BigDecimal("75.0"),
                         dashboard,
-                        List.of()
+                        List.of(),
+                        "2026.2",
+                        "2"
                 )
         );
     }

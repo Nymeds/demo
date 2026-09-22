@@ -477,6 +477,9 @@ class CalendarEventServiceTest {
                 new BigDecimal("75.00"),
                 target,
                 List.of()
+                ,
+                "2026.2",
+                "2"
         ));
     }
 

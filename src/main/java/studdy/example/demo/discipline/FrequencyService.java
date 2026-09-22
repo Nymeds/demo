@@ -1,7 +1,5 @@
 package studdy.example.demo.discipline;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
@@ -15,8 +13,6 @@ import studdy.example.demo.discipline.dto.UpdateFrequencyRequest;
 
 @Service
 public class FrequencyService {
-
-    private static final BigDecimal ONE_HUNDRED = BigDecimal.valueOf(100);
 
     private final FrequencyRepository frequencyRepository;
     private final DisciplineAccessService disciplineAccessService;
@@ -38,8 +34,6 @@ public class FrequencyService {
     ) {
         Discipline discipline = disciplineAccessService.findOwnedDiscipline(userId, dashboardId, disciplineId);
 
-        validateAbsences(request.totalClasses(), request.absences());
-
         if (frequencyRepository.findByDiscipline_Id(disciplineId).isPresent()) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
@@ -49,7 +43,6 @@ public class FrequencyService {
 
         Frequency frequency = frequencyRepository.save(new Frequency(
                 discipline,
-                request.totalClasses(),
                 request.absences()
         ));
 
@@ -66,9 +59,7 @@ public class FrequencyService {
         Discipline discipline = disciplineAccessService.findOwnedDiscipline(userId, dashboardId, disciplineId);
         Frequency frequency = findFrequency(disciplineId);
 
-        validateAbsences(request.totalClasses(), request.absences());
-
-        frequency.update(request.totalClasses(), request.absences());
+        frequency.update(request.absences());
 
         return toResponse(discipline, frequencyRepository.save(frequency));
     }
@@ -85,27 +76,13 @@ public class FrequencyService {
     }
 
     private FrequencyResponse toResponse(Discipline discipline, Frequency frequency) {
-        int totalClasses = frequency.getTotalClasses();
-        int attendedClasses = totalClasses - frequency.getAbsences();
-
-        BigDecimal attendancePercentage = BigDecimal.valueOf(attendedClasses)
-                .multiply(ONE_HUNDRED)
-                .divide(BigDecimal.valueOf(totalClasses), 2, RoundingMode.HALF_UP);
-
-        // Arredonda para cima: cursar meia aula a menos não cumpre a exigência da disciplina.
-        int minimumAttendanceClasses = BigDecimal.valueOf(totalClasses)
-                .multiply(discipline.getMinimumAttendancePercentage())
-                .divide(ONE_HUNDRED, 0, RoundingMode.CEILING)
-                .intValue();
-
         return new FrequencyResponse(
                 frequency.getId(),
                 discipline.getId(),
-                totalClasses,
                 frequency.getAbsences(),
-                attendancePercentage,
-                minimumAttendanceClasses,
-                totalClasses - minimumAttendanceClasses
+                frequency.attendancePercentage(),
+                FrequencyRules.LOSS_PER_ABSENCE,
+                FrequencyRules.maximumAbsences(discipline.getMinimumAttendancePercentage())
         );
     }
 
@@ -117,12 +94,4 @@ public class FrequencyService {
                 ));
     }
 
-    private void validateAbsences(Integer totalClasses, Integer absences) {
-        if (absences > totalClasses) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "A quantidade de faltas não pode ser maior que a quantidade total de aulas."
-            );
-        }
-    }
 }

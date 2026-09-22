@@ -51,6 +51,9 @@ class DisciplineCascadeDeleteTest {
     private FrequencyRepository frequencyRepository;
 
     @Autowired
+    private AbsenceRecordRepository absenceRecordRepository;
+
+    @Autowired
     private EntityManager entityManager;
 
     private Dashboard dashboard;
@@ -66,7 +69,10 @@ class DisciplineCascadeDeleteTest {
         Discipline discipline = newDiscipline("Cálculo");
         UUID gradeId = gradeRepository.save(newGrade(discipline)).getId();
         UUID activityId = activityRepository.save(newActivity(discipline)).getId();
-        UUID frequencyId = frequencyRepository.save(new Frequency(discipline, 60, 6)).getId();
+        UUID frequencyId = frequencyRepository.save(new Frequency(discipline, 6)).getId();
+        UUID absenceRecordId = absenceRecordRepository.save(new AbsenceRecord(
+                discipline, LocalDate.of(2026, 8, 10), 1, "Saúde", "", new BigDecimal("5.00")
+        )).getId();
         UUID disciplineId = discipline.getId();
 
         deleteReloaded(disciplineId);
@@ -75,6 +81,7 @@ class DisciplineCascadeDeleteTest {
         assertFalse(gradeRepository.existsById(gradeId), "a nota ficou órfã");
         assertFalse(activityRepository.existsById(activityId), "a atividade ficou órfã");
         assertFalse(frequencyRepository.existsById(frequencyId), "a frequência ficou órfã");
+        assertFalse(absenceRecordRepository.existsById(absenceRecordId), "o histórico de faltas ficou órfão");
         assertEquals(0L, countSchedulesOf(disciplineId), "os horários ficaram órfãos");
     }
 
@@ -93,11 +100,11 @@ class DisciplineCascadeDeleteTest {
         Discipline kept = newDiscipline("Física");
         gradeRepository.save(newGrade(deleted));
         activityRepository.save(newActivity(deleted));
-        frequencyRepository.save(new Frequency(deleted, 60, 6));
+        frequencyRepository.save(new Frequency(deleted, 6));
 
         UUID keptGradeId = gradeRepository.save(newGrade(kept)).getId();
         UUID keptActivityId = activityRepository.save(newActivity(kept)).getId();
-        UUID keptFrequencyId = frequencyRepository.save(new Frequency(kept, 40, 2)).getId();
+        UUID keptFrequencyId = frequencyRepository.save(new Frequency(kept, 2)).getId();
         UUID keptDisciplineId = kept.getId();
 
         deleteReloaded(deleted.getId());
@@ -137,6 +144,9 @@ class DisciplineCascadeDeleteTest {
                 new BigDecimal("75.0"),
                 dashboard,
                 List.of(new ClassSchedule(DayOfWeek.MONDAY, LocalTime.of(8, 0), LocalTime.of(10, 0)))
+                ,
+                "2026.2",
+                "2"
         ));
     }
 

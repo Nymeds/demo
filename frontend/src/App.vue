@@ -1,5 +1,5 @@
 <script setup>
-import AuthScreen from './components/AuthScreen.vue'
+import AuthScreen from './features/auth/AuthScreen.vue'
 </script>
 
 <template>

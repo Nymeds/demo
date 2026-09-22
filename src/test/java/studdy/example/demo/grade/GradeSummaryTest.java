@@ -108,7 +108,7 @@ class GradeSummaryTest {
 
     private Discipline newDiscipline(String name, BigDecimal passingAverage) {
         return disciplineRepository.save(
-                new Discipline(name, "Professora Ana", "#4F46E5", passingAverage, new BigDecimal("75.0"), dashboard, List.of())
+                new Discipline(name, "Professora Ana", "#4F46E5", passingAverage, new BigDecimal("75.0"), dashboard, List.of(), "2026.2", "2")
         );
     }
 

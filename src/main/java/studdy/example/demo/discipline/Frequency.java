@@ -1,5 +1,6 @@
 package studdy.example.demo.discipline;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -26,27 +27,32 @@ public class Frequency {
     @JoinColumn(name = "discipline_id", nullable = false)
     private Discipline discipline;
 
+    // Compatibilidade com bancos existentes: esta coluna não participa dos cálculos.
     @Column(name = "total_classes", nullable = false)
-    private Integer totalClasses;
+    @Getter(AccessLevel.NONE)
+    private Integer legacyTotalClasses = 0;
 
     @Column(nullable = false)
     private Integer absences;
 
     public Frequency(
             Discipline discipline,
-            Integer totalClasses,
             Integer absences
     ) {
         this.discipline = discipline;
-        this.totalClasses = totalClasses;
         this.absences = absences;
     }
 
     public void update(
-            Integer totalClasses,
             Integer absences
     ) {
-        this.totalClasses = totalClasses;
         this.absences = absences;
+    }
+
+    public BigDecimal attendancePercentage() {
+        return BigDecimal.valueOf(100)
+                .subtract(BigDecimal.valueOf(absences).multiply(FrequencyRules.LOSS_PER_ABSENCE))
+                .max(BigDecimal.ZERO)
+                .setScale(2);
     }
 }

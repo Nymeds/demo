@@ -44,7 +44,9 @@ public class DisciplineService {
                 request.passingAverage(),
                 request.minimumAttendancePercentage(),
                 dashboard,
-                toSchedules(request.schedules())
+                toSchedules(request.schedules()),
+                request.semester(),
+                request.periodo()
         );
 
         return toResponse(disciplineRepository.save(discipline));
@@ -82,6 +84,18 @@ public class DisciplineService {
                 toSchedules(request.schedules())
         );
 
+        return toResponse(discipline);
+    }
+
+    @Transactional
+    public DisciplineResponse updateStatus(
+            UUID userId,
+            UUID dashboardId,
+            UUID disciplineId,
+            DisciplineLifecycleStatus status
+    ) {
+        Discipline discipline = disciplineAccessService.findOwnedDiscipline(userId, dashboardId, disciplineId);
+        discipline.changeStatus(status);
         return toResponse(discipline);
     }
 

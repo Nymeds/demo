@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import jakarta.persistence.CollectionTable;
@@ -12,10 +13,13 @@ import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OrderColumn;
@@ -33,7 +37,8 @@ import studdy.example.demo.grade.Grade;
 
 @Getter
 @Entity
-@Table(name = "disciplines")
+// Índice na chave do dashboard: toda listagem de disciplinas e a tela Notas filtram por ela.
+@Table(name = "disciplines", indexes = @Index(name = "idx_disciplines_dashboard_id", columnList = "dashboard_id"))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Discipline {
 
@@ -56,6 +61,10 @@ public class Discipline {
     @Column(name = "minimum_attendance_percentage", nullable = false, precision = 5, scale = 2)
     private BigDecimal minimumAttendancePercentage;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20, columnDefinition = "varchar(20) default 'IN_PROGRESS'")
+    private DisciplineLifecycleStatus status = DisciplineLifecycleStatus.IN_PROGRESS;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "dashboard_id", nullable = false)
     private Dashboard dashboard;
@@ -73,7 +82,17 @@ public class Discipline {
 
     @OneToOne(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true)
     private Frequency frequency;
-    
+
+    @OneToMany(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<AbsenceRecord> absenceRecords = new ArrayList<>();
+
+    // semestre
+    @Column(name = "semester", nullable = false)
+    private String semester;
+
+    @Column(name = "periodo", nullable = false)
+    private String periodo;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -87,7 +106,9 @@ public class Discipline {
             BigDecimal passingAverage,
             BigDecimal minimumAttendancePercentage,
             Dashboard dashboard,
-            List<ClassSchedule> schedules
+            List<ClassSchedule> schedules,
+            String semester,
+            String periodo
     ) {
         this.name = name;
         this.professorName = professorName;
@@ -96,6 +117,8 @@ public class Discipline {
         this.minimumAttendancePercentage = normalizeMinimumAttendancePercentage(minimumAttendancePercentage);
         this.dashboard = dashboard;
         this.schedules = new ArrayList<>(schedules);
+        this.semester = semester;
+        this.periodo = periodo;
     }
 
     public void update(
@@ -113,6 +136,11 @@ public class Discipline {
         this.minimumAttendancePercentage = normalizeMinimumAttendancePercentage(minimumAttendancePercentage);
         this.schedules.clear();
         this.schedules.addAll(schedules);
+        this.updatedAt = Instant.now();
+    }
+
+    public void changeStatus(DisciplineLifecycleStatus status) {
+        this.status = Objects.requireNonNull(status, "A situação da disciplina é obrigatória.");
         this.updatedAt = Instant.now();
     }
 

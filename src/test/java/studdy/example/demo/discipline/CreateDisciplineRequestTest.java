@@ -113,7 +113,9 @@ class CreateDisciplineRequestTest {
                 "#4F46E5",
                 new BigDecimal("6.00"),
                 MINIMUM_ATTENDANCE,
-                defaultSchedules()
+                defaultSchedules(),
+                "2023.1",
+                "1"
         );
 
         assertTrue(validator.validate(request).isEmpty());
@@ -130,7 +132,9 @@ class CreateDisciplineRequestTest {
                 color,
                 new BigDecimal("6.00"),
                 MINIMUM_ATTENDANCE,
-                defaultSchedules()
+                defaultSchedules(),
+                "2023.1",
+                "1"
         );
     }
 
@@ -146,6 +150,9 @@ class CreateDisciplineRequestTest {
                 passingAverage,
                 minimumAttendancePercentage,
                 schedules
+                ,
+                "2023.1",
+                "1"
         );
     }
 

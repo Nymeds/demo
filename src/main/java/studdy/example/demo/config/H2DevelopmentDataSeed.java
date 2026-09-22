@@ -35,7 +35,7 @@ import studdy.example.demo.user.UserRepository;
 public class H2DevelopmentDataSeed implements ApplicationRunner {
 
     public static final String DEVELOPER_EMAIL = "desenvolvedor@dev.com";
-    public static final String DEVELOPER_PASSWORD = "123";
+    public static final String DEVELOPER_PASSWORD = "desenvolvedor@dev.com";
 
     private final DataSource dataSource;
     private final PasswordEncoder passwordEncoder;
@@ -95,7 +95,9 @@ public class H2DevelopmentDataSeed implements ApplicationRunner {
                 List.of(
                         new ClassSchedule(DayOfWeek.MONDAY, LocalTime.of(19, 0), LocalTime.of(20, 40)),
                         new ClassSchedule(DayOfWeek.WEDNESDAY, LocalTime.of(19, 0), LocalTime.of(20, 40))
-                )
+                ),
+                "2026.2",
+                "2"
         ));
 
         Discipline databases = disciplineRepository.save(new Discipline(
@@ -110,6 +112,9 @@ public class H2DevelopmentDataSeed implements ApplicationRunner {
                         LocalTime.of(20, 50),
                         LocalTime.of(22, 30)
                 ))
+                ,
+                "2026.2",
+                "2"
         ));
 
         Discipline ux = disciplineRepository.save(new Discipline(
@@ -124,6 +129,9 @@ public class H2DevelopmentDataSeed implements ApplicationRunner {
                         LocalTime.of(19, 0),
                         LocalTime.of(22, 30)
                 ))
+                ,
+                "2026.2",
+                "2"
         ));
 
         LocalDate today = LocalDate.now();
@@ -165,9 +173,9 @@ public class H2DevelopmentDataSeed implements ApplicationRunner {
         ));
 
         frequencyRepository.saveAll(List.of(
-                new Frequency(algorithms, 24, 2),
-                new Frequency(databases, 18, 1),
-                new Frequency(ux, 20, 2)
+                new Frequency(algorithms, 2),
+                new Frequency(databases, 1),
+                new Frequency(ux, 2)
         ));
     }
 

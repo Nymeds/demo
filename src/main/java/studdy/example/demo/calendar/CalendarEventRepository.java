@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -51,4 +52,7 @@ public interface CalendarEventRepository extends JpaRepository<CalendarEvent, UU
     );
 
     Optional<CalendarEvent> findByIdAndDashboard_Id(UUID id, UUID dashboardId);
+
+    // Usado na exclusão de conta, antes de apagar os dashboards aos quais os eventos pertencem.
+    void deleteAllByDashboard_IdIn(Collection<UUID> dashboardIds);
 }

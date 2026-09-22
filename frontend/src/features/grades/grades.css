@@ -1,0 +1,110 @@
+/* Estilos compartilhados da tela Notas. Todas as classes usam o prefixo grades- para não
+   vazar para as outras telas; as cores seguem as mesmas do restante do AcadOrganize. */
+
+.grades-page { display: grid; gap: 22px; margin: 0 auto; width: 100%; }
+
+.grades-header { align-items: center; display: flex; flex-wrap: wrap; gap: 14px; justify-content: space-between; }
+.grades-title { align-items: center; display: flex; gap: 14px; }
+.grades-title-icon { align-items: center; background: #f1edff; border-radius: 12px; color: #6330e0; display: flex; flex: 0 0 46px; height: 46px; justify-content: center; }
+.grades-title-icon svg,
+.grades-button svg,
+.grades-field svg,
+.grades-tip-icon svg { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.9; }
+.grades-title-icon svg { height: 24px; width: 24px; }
+.grades-title h1 { color: #171c30; font-size: clamp(1.45rem, 2.2vw, 1.85rem); font-weight: 820; letter-spacing: -.035em; line-height: 1.15; margin: 0 0 3px; }
+.grades-title p { color: #73798e; font-size: .78rem; margin: 0; }
+
+.grades-button { align-items: center; border-radius: 9px; cursor: pointer; display: inline-flex; font-size: .74rem; font-weight: 750; gap: 8px; justify-content: center; min-height: 40px; padding: 9px 16px; transition: background .18s, box-shadow .18s, opacity .18s; }
+.grades-button svg { height: 17px; width: 17px; }
+.grades-button:disabled { cursor: not-allowed; opacity: .55; }
+.grades-button:focus-visible { outline: 3px solid rgba(105, 54, 224, .28); outline-offset: 2px; }
+.grades-button.is-primary { background: linear-gradient(100deg, #5c20de, #741dff); border: 0; box-shadow: 0 8px 19px rgba(102, 36, 225, .2); color: #fff; }
+.grades-button.is-secondary { background: #fff; border: 1px solid #dcd3f7; color: #5f2bd5; }
+
+.grades-layout { align-items: start; display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr) 330px; }
+.grades-panel { background: #fff; border: 1px solid #e7e8f0; border-radius: 14px; box-shadow: 0 8px 24px rgba(30, 36, 65, .04); min-width: 0; padding: 20px; }
+.grades-panel h2 { color: #171c30; font-size: .95rem; font-weight: 800; letter-spacing: -.02em; margin: 0 0 14px; }
+.grades-list { padding: 0; }
+.grades-side { display: grid; gap: 16px; }
+.grades-info p { color: #6c7287; font-size: .72rem; line-height: 1.6; margin: 0; }
+
+.grades-filters { align-items: end; border-bottom: 1px solid #eff0f5; display: grid; gap: 12px; grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(120px, 1fr)); padding: 18px 20px; }
+.grades-field { color: #30364a; display: grid; font-size: .68rem; font-weight: 700; gap: 6px; min-width: 0; position: relative; }
+.grades-field { --app-select-height: 40px; --app-select-font-size: .76rem; --app-select-radius: 9px; --app-select-padding: 8px 11px; }
+.grades-field input { background: #fff; border: 1px solid #dfe1e8; border-radius: 9px; color: #171c30; font-size: .76rem; font-weight: 500; min-height: 40px; padding: 8px 11px; width: 100%; }
+.grades-field input:focus { border-color: #7a4de6; box-shadow: 0 0 0 3px rgba(105, 54, 224, .16); outline: none; }
+.grades-field.is-search input { padding-left: 34px; }
+.grades-field.is-search svg { color: #8a90a2; height: 16px; left: 11px; pointer-events: none; position: absolute; top: 12px; width: 16px; }
+
+.grades-count { color: #7b8192; font-size: .76rem; margin: 0; }
+
+.grades-tip { align-items: center; background: #f2efff; border: 1px solid #e3dbff; border-radius: 14px; display: flex; gap: 14px; padding: 16px 20px; }
+.grades-tip-icon { align-items: center; background: #e3dbff; border-radius: 50%; color: #6330e0; display: flex; flex: 0 0 42px; height: 42px; justify-content: center; }
+.grades-tip-icon svg { height: 21px; width: 21px; }
+.grades-tip > div { flex: 1; min-width: 0; }
+.grades-tip strong { color: #171c30; display: block; font-size: .8rem; margin-bottom: 2px; }
+.grades-tip p { color: #596078; font-size: .72rem; margin: 0; }
+
+.grades-status { background: #fff; border: 1px solid #e7e8f0; border-radius: 14px; color: #73798e; font-size: .78rem; padding: 36px 24px; text-align: center; }
+.grades-status h2 { color: #171c30; font-size: 1.05rem; margin: 0 0 6px; }
+.grades-status p { margin: 0; }
+.grades-status .grades-button { margin-top: 16px; }
+
+.grades-visually-hidden { border: 0; clip: rect(0 0 0 0); height: 1px; margin: -1px; overflow: hidden; padding: 0; position: absolute; white-space: nowrap; width: 1px; }
+
+@media (max-width: 1180px) {
+  .grades-layout { grid-template-columns: 1fr; }
+  .grades-side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grades-info { grid-column: 1 / -1; }
+}
+
+@media (max-width: 900px) {
+  .grades-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .grades-side,
+  .grades-filters { grid-template-columns: 1fr; }
+  .grades-header .grades-button { width: 100%; }
+  .grades-tip { align-items: stretch; flex-direction: column; }
+}
+
+.grades-header-actions, .grades-toolbar, .grades-toolbar-actions, .grades-tabs, .grades-footer, .grades-pagination { display: flex; align-items: center; gap: 12px; }
+.grades-header-actions { flex-wrap: wrap; gap: 11px; justify-content: flex-end; min-width: 0; }
+.grades-header-actions .is-search { flex: 0 1 245px; max-width: 245px; width: 245px; }
+.grades-header-actions .is-search input { border-radius: 8px; font-size: .72rem; font-weight: 400; min-height: 0; padding: 11px 12px 11px 38px; }
+.grades-header-actions .is-search svg { height: 18px; left: 12px; top: 50%; transform: translateY(-50%); width: 18px; }
+.grades-header-actions .grades-button { border-radius: 7px; font-size: .72rem; font-weight: 700; gap: 7px; min-height: 0; padding: 11px 15px; white-space: nowrap; }
+.grades-header-actions .grades-button svg { height: .84rem; width: 1.05rem; }
+.grades-toolbar { justify-content: space-between; flex-wrap: wrap; gap: 20px; min-width: 0; }
+.grades-toolbar-actions { flex-wrap: wrap; }
+.grades-tabs { flex-wrap: wrap; gap: 10px; min-width: 0; }
+.grades-tabs button { border: 1px solid #e1e3ec; background: #fff; color: #515975; border-radius: 7px; padding: 10px 17px; font-size: .7rem; cursor: pointer; }
+.grades-tabs button.active { border-color: #8039ff; color: #7424ff; font-weight: 700; }
+.grades-sort { display: flex; align-items: center; gap: 8px; border: 1px solid #e1e3ec; border-radius: 7px; background: #fff; padding: 0 9px 0 14px; min-width: 0; }
+.grades-sort > span { white-space: nowrap; font-size: .68rem; font-weight: 700; color: #1b2440; }
+.grades-sort .app-select { width: 150px; --app-select-height: 36px; --app-select-font-size: .68rem; --app-select-radius: 7px; --app-select-padding: 0 8px; }
+.grades-sort .app-select-trigger { border: 0; }
+.grades-period { width: 130px; --app-select-height: 38px; --app-select-font-size: .68rem; --app-select-radius: 7px; --app-select-padding: 0 8px; }
+.grades-toolbar .grades-button { font-weight: 500; color: #515975; min-height: 38px; border-color: #e1e3ec; border-radius: 7px; font-size: .68rem; padding: 11px 13px; }
+.grades-view-toggle { display: flex; overflow: hidden; border: 1px solid #e1e3ec; border-radius: 7px; background: #fff; }
+.grades-view-toggle button { background: transparent; border: 0; color: #59627f; cursor: pointer; width: 43px; height: 38px; display: grid; place-items: center; }
+.grades-view-toggle button.active { background: #eee4ff; color: #7026ed; }
+.grades-view-toggle svg { height: 21px; width: 21px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.grades-footer { justify-content: space-between; }
+.grades-pagination button, .grades-pagination > span { padding: 11px 16px; border: 1px solid #e4e5ef; border-radius: 9px; color: #626c86; background: #fff; font-size: .73rem; }
+.grades-pagination button { cursor: pointer; }
+.grades-pagination button:disabled { opacity: .4; cursor: not-allowed; }
+.grades-pagination > span { background: #7524fa; color: #fff; border-color: #7524fa; }
+.grades-tip { margin-top: 24px; }
+.grades-confirm-overlay { position: fixed; inset: 0; background: #111a3766; z-index: 210; display: grid; place-items: center; padding: 20px; }
+.grades-confirm { background: #fff; border-radius: 14px; padding: 26px; width: min(100%,450px); color: #242c42; }
+.grades-confirm p { font-size: .82rem; line-height: 1.6; }
+.grades-confirm > div { display: flex; gap: 12px; justify-content: flex-end; }
+.grades-button.is-danger { background: #cc3540; color: #fff; border: 0; }
+@media(max-width: 760px) { .grades-header-actions { width: 100%; flex-wrap: wrap; } .grades-header-actions .is-search { flex: 0 1 245px; } .grades-toolbar-actions { width: 100%; } .grades-tabs { gap: 8px; } .grades-tabs button { padding: 10px 17px; } .grades-footer { flex-wrap: wrap; } }
+
+@media (max-width: 640px) {
+  .grades-header-actions { align-items: stretch; flex-direction: column; }
+  .grades-header-actions .is-search { flex: auto; max-width: none; width: 100%; }
+}
