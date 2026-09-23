@@ -31,6 +31,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import studdy.example.demo.exams.Exam;
 import studdy.example.demo.activities.Activity;
 import studdy.example.demo.dashboard.Dashboard;
 import studdy.example.demo.grade.Grade;
