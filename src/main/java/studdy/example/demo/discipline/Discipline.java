@@ -81,6 +81,9 @@ public class Discipline {
     @OneToMany(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Activity> activities = new ArrayList<>();
 
+    @OneToMany(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Exam> exams = new ArrayList<>();
+
     @OneToOne(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true)
     private Frequency frequency;
 
