@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ActivitiesScreen from '../activities/ActivitiesScreen.vue'
+import ProvasScreen from '../exams/ProvasScreen.vue'
 import DisciplinesEmpty from '../disciplines/DisciplinesEmpty.vue'
 import FrequencyPage from '../frequency/FrequencyPage.vue'
 import ProfileScreen from '../profile/ProfileScreen.vue'
@@ -378,6 +379,18 @@ onBeforeUnmount(() => {
         </button>
         <button
           type="button"
+          :class="{ active: activeSection === 'exams' }"
+          :aria-current="activeSection === 'exams' ? 'page' : undefined"
+          @click="activeSection = 'exams'"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="5" y="3" width="14" height="18" rx="2" />
+            <path d="M9 3V2m6 1V2M8 9h8m-8 4h8m-8 4h5" />
+          </svg>
+          Provas
+        </button>
+        <button
+          type="button"
           :class="{ active: activeSection === 'frequency' }"
           :aria-current="activeSection === 'frequency' ? 'page' : undefined"
           @click="activeSection = 'frequency'"
@@ -751,6 +764,10 @@ onBeforeUnmount(() => {
         v-if="activeSection === 'activities'"
         :access-token="accessToken"
         @navigate="activeSection = $event"
+      />
+      <ProvasScreen
+        v-if="activeSection === 'exams'"
+        :access-token="accessToken"
       />
       <FrequencyPage
         v-if="activeSection === 'frequency'"
