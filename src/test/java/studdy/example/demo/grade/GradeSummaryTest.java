@@ -97,7 +97,7 @@ class GradeSummaryTest {
 
         assertEquals(DisciplineStatus.APPROVED, summaryOf(discipline).academicSituation());
 
-        discipline.update("Cálculo", "Professora Ana", "#4F46E5", new BigDecimal("9.00"), new BigDecimal("75.0"), List.of());
+        discipline.update("Cálculo", "Professora Ana", "#4F46E5", new BigDecimal("9.00"), new BigDecimal("75.0"), List.of(), discipline.getSemester(), discipline.getPeriodo());
 
         assertEquals(DisciplineStatus.FAILED_BY_GRADE, summaryOf(discipline).academicSituation());
     }

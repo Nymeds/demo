@@ -25,8 +25,11 @@ const disciplineToDelete = ref(null)
 const statusMenu = ref(null)
 const statusMenuElement = ref(null)
 const statusUpdating = ref(false)
+const saving = ref(false)
+const deleting = ref(false)
 const saveFeedback = ref('')
 const requestError = ref('')
+const loadError = ref('')
 const loading = ref(true)
 const dashboardId = ref('')
 const disciplines = ref([])
@@ -72,7 +75,8 @@ function openEditModal(discipline) {
   showAddModal.value = true
 }
 
-function closeAddModal() {
+function closeAddModal(force = false) {
+  if (saving.value && !force) return
   showAddModal.value = false
   editingDiscipline.value = null
 }
@@ -118,6 +122,7 @@ function normalizeDiscipline(discipline) {
 async function loadDisciplines() {
   loading.value = true
   requestError.value = ''
+  loadError.value = ''
 
   try {
     const dashboards = await apiRequest('/api/v1/dashboards')
@@ -135,6 +140,7 @@ async function loadDisciplines() {
     disciplines.value = savedDisciplines.map(normalizeDiscipline)
   } catch (error) {
     requestError.value = error.message || 'Não foi possível carregar as disciplinas.'
+    loadError.value = requestError.value
     showToast(requestError.value, 'error')
   } finally {
     loading.value = false
@@ -142,6 +148,8 @@ async function loadDisciplines() {
 }
 
 async function saveDiscipline(formData) {
+  if (saving.value) return
+  saving.value = true
   requestError.value = ''
 
   try {
@@ -165,10 +173,12 @@ async function saveDiscipline(formData) {
     }
 
     showToast(saveFeedback.value)
-    closeAddModal()
+    closeAddModal(true)
   } catch (error) {
     requestError.value = error.message || 'Não foi possível salvar a disciplina.'
     showToast(requestError.value, 'error')
+  } finally {
+    saving.value = false
   }
 }
 
@@ -245,13 +255,15 @@ function handleStatusMenuKeydown(event) {
   if (event.key === 'Escape') closeStatusMenu()
 }
 
-function closeDeleteModal() {
+function closeDeleteModal(force = false) {
+  if (deleting.value && !force) return
   disciplineToDelete.value = null
 }
 
 async function confirmDeleteDiscipline() {
-  if (!disciplineToDelete.value) return
+  if (!disciplineToDelete.value || deleting.value) return
 
+  deleting.value = true
   requestError.value = ''
 
   try {
@@ -262,10 +274,12 @@ async function confirmDeleteDiscipline() {
     disciplines.value = disciplines.value.filter(item => item.id !== disciplineId)
     saveFeedback.value = 'Disciplina excluída com sucesso.'
     showToast(saveFeedback.value)
-    closeDeleteModal()
+    closeDeleteModal(true)
   } catch (error) {
     requestError.value = error.message || 'Não foi possível excluir a disciplina.'
     showToast(requestError.value, 'error')
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -415,7 +429,7 @@ function statusDetails(status) {
           <input v-model="searchTerm" type="search" placeholder="Buscar disciplina...">
         </label>
 
-        <button class="disciplines-add-button" type="button" :disabled="loading || !dashboardId" @click="openAddModal">
+        <button class="disciplines-add-button" type="button" :disabled="loading || !dashboardId || !!loadError" @click="openAddModal">
           <span aria-hidden="true">＋</span>
           Nova disciplina
         </button>
@@ -492,6 +506,11 @@ function statusDetails(status) {
     <article v-if="loading" class="disciplines-loading-card" aria-live="polite">
       <span class="loading-spinner" aria-hidden="true"></span>
       <p>Carregando disciplinas...</p>
+    </article>
+
+    <article v-else-if="loadError" class="disciplines-loading-card" role="alert">
+      <p>{{ loadError }}</p>
+      <button type="button" class="disciplines-empty-button" @click="loadDisciplines">Tentar novamente</button>
     </article>
 
     <article v-else-if="disciplines.length === 0" class="disciplines-empty-card" aria-labelledby="disciplines-empty-title">
@@ -578,7 +597,7 @@ function statusDetails(status) {
                   </span>
                 </div>
               </td>
-              <td :class="['discipline-average', { 'is-low': typeof discipline.average === 'number' && discipline.average < 7 }]">
+              <td :class="['discipline-average', { 'is-low': typeof discipline.average === 'number' && discipline.average < Number(discipline.passingAverage) }]">
                 {{ formatAverage(discipline.average) }}
               </td>
               <td>
@@ -703,6 +722,7 @@ function statusDetails(status) {
     <DisciplineModal
       v-if="showAddModal"
       :discipline="editingDiscipline"
+      :saving="saving"
       @close="closeAddModal"
       @save="saveDiscipline"
     />
@@ -710,6 +730,7 @@ function statusDetails(status) {
     <DeleteDisciplineModal
       v-if="disciplineToDelete"
       :discipline-name="disciplineToDelete.name"
+      :deleting="deleting"
       @close="closeDeleteModal"
       @confirm="confirmDeleteDiscipline"
     />

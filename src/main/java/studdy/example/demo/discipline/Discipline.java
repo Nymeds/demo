@@ -127,7 +127,9 @@ public class Discipline {
             String color,
             BigDecimal passingAverage,
             BigDecimal minimumAttendancePercentage,
-            List<ClassSchedule> schedules
+            List<ClassSchedule> schedules,
+            String semester,
+            String periodo
     ) {
         this.name = name;
         this.professorName = professorName;
@@ -136,6 +138,8 @@ public class Discipline {
         this.minimumAttendancePercentage = normalizeMinimumAttendancePercentage(minimumAttendancePercentage);
         this.schedules.clear();
         this.schedules.addAll(schedules);
+        this.semester = semester;
+        this.periodo = periodo;
         this.updatedAt = Instant.now();
     }
 

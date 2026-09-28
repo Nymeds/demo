@@ -43,10 +43,14 @@ class DisciplineTest {
                 "#4F46E5",
                 new BigDecimal("8.00"),
                 new BigDecimal("75.0"),
-                List.of()
+                List.of(),
+                "2",
+                "2027"
         );
 
         assertEquals(new BigDecimal("8.00"), discipline.getPassingAverage());
+        assertEquals("2", discipline.getSemester());
+        assertEquals("2027", discipline.getPeriodo());
     }
 
     @Test
@@ -61,7 +65,9 @@ class DisciplineTest {
                 discipline.getColor(),
                 discipline.getPassingAverage(),
                 discipline.getMinimumAttendancePercentage(),
-                discipline.getSchedules()
+                discipline.getSchedules(),
+                discipline.getSemester(),
+                discipline.getPeriodo()
         );
 
         discipline.changeStatus(DisciplineLifecycleStatus.COMPLETED);

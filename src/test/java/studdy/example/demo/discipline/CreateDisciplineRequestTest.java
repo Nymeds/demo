@@ -9,6 +9,7 @@ import studdy.example.demo.discipline.dto.CreateDisciplineRequest;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -74,7 +75,16 @@ class CreateDisciplineRequestTest {
     void rejectsADisciplineWithoutSchedules() {
         CreateDisciplineRequest request = newRequest(new BigDecimal("6.00"), MINIMUM_ATTENDANCE, List.of());
 
-        assertRejects(request, "A disciplina deve ter pelo menos um horário.");
+        assertRejects(request, "A disciplina deve ter entre 1 e 50 horários.");
+    }
+
+    @Test
+    void rejectsMoreThanFiftySchedules() {
+        CreateDisciplineRequest request = newRequest(new BigDecimal("6.00"), MINIMUM_ATTENDANCE,
+                Collections.nCopies(51, new ClassScheduleRequest(
+                        DayOfWeek.MONDAY, LocalTime.of(8, 0), LocalTime.of(10, 0))));
+
+        assertRejects(request, "A disciplina deve ter entre 1 e 50 horários.");
     }
 
     @Test
@@ -86,6 +96,39 @@ class CreateDisciplineRequestTest {
         );
 
         assertRejects(request, "O horário final deve ser posterior ao horário inicial.");
+    }
+
+    @Test
+    void rejectsOverlappingSchedulesOnTheSameDay() {
+        CreateDisciplineRequest request = newRequest(new BigDecimal("6.00"), MINIMUM_ATTENDANCE,
+                List.of(
+                        new ClassScheduleRequest(DayOfWeek.MONDAY, LocalTime.of(8, 0), LocalTime.of(10, 0)),
+                        new ClassScheduleRequest(DayOfWeek.MONDAY, LocalTime.of(9, 0), LocalTime.of(11, 0))
+                ));
+
+        assertRejects(request, "Os horários da disciplina não podem se sobrepor no mesmo dia.");
+    }
+
+    @Test
+    void acceptsAdjacentSchedulesOnTheSameDay() {
+        CreateDisciplineRequest request = newRequest(new BigDecimal("6.00"), MINIMUM_ATTENDANCE,
+                List.of(
+                        new ClassScheduleRequest(DayOfWeek.MONDAY, LocalTime.of(8, 0), LocalTime.of(10, 0)),
+                        new ClassScheduleRequest(DayOfWeek.MONDAY, LocalTime.of(10, 0), LocalTime.of(11, 0))
+                ));
+
+        assertTrue(validator.validate(request).isEmpty());
+    }
+
+    @Test
+    void rejectsInvalidAcademicPeriod() {
+        CreateDisciplineRequest request = new CreateDisciplineRequest(
+                "Cálculo", "Ana", "#4F46E5", new BigDecimal("6.00"), MINIMUM_ATTENDANCE,
+                defaultSchedules(), "xyz", "abc"
+        );
+
+        assertRejects(request, "O semestre deve ser 1 ou 2.");
+        assertRejects(request, "O ano deve estar entre 1900 e 2200.");
     }
 
     @Test
@@ -114,8 +157,8 @@ class CreateDisciplineRequestTest {
                 new BigDecimal("6.00"),
                 MINIMUM_ATTENDANCE,
                 defaultSchedules(),
-                "2023.1",
-                "1"
+                "1",
+                "2023"
         );
 
         assertTrue(validator.validate(request).isEmpty());
@@ -133,8 +176,8 @@ class CreateDisciplineRequestTest {
                 new BigDecimal("6.00"),
                 MINIMUM_ATTENDANCE,
                 defaultSchedules(),
-                "2023.1",
-                "1"
+                "1",
+                "2023"
         );
     }
 
@@ -151,8 +194,8 @@ class CreateDisciplineRequestTest {
                 minimumAttendancePercentage,
                 schedules
                 ,
-                "2023.1",
-                "1"
+                "1",
+                "2023"
         );
     }
 

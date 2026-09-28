@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -33,16 +34,23 @@ public record CreateDisciplineRequest(
         @NotNull(message = "O percentual mínimo de frequência é obrigatório.")
         @DecimalMin(value = "0.0", message = "O percentual mínimo de frequência não pode ser menor que 0.")
         @DecimalMax(value = "100.0", message = "O percentual mínimo de frequência não pode ser maior que 100.")
+        @Digits(integer = 3, fraction = 2, message = "O percentual mínimo de frequência deve ter no máximo duas casas decimais.")
         BigDecimal minimumAttendancePercentage,
 
         @NotNull(message = "A lista de horários é obrigatória.")
-        @Size(min = 1, message = "A disciplina deve ter pelo menos um horário.")
-        List<@Valid ClassScheduleRequest> schedules,
+        @Size(min = 1, max = 50, message = "A disciplina deve ter entre 1 e 50 horários.")
+        List<@NotNull @Valid ClassScheduleRequest> schedules,
 
         @NotBlank(message = "O semestre é obrigatório.")
+        @Pattern(regexp = "^[12]$", message = "O semestre deve ser 1 ou 2.")
         String semester,
 
         @NotBlank(message = "O período é obrigatório.")
+        @Pattern(regexp = "^(19[0-9]{2}|20[0-9]{2}|21[0-9]{2}|2200)$", message = "O ano deve estar entre 1900 e 2200.")
         String periodo
 ) {
+    @AssertTrue(message = "Os horários da disciplina não podem se sobrepor no mesmo dia.")
+    public boolean isSchedulesNonOverlapping() {
+        return DisciplineScheduleValidation.nonOverlapping(schedules);
+    }
 }

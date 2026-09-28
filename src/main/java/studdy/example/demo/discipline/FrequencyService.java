@@ -15,13 +15,16 @@ import studdy.example.demo.discipline.dto.UpdateFrequencyRequest;
 public class FrequencyService {
 
     private final FrequencyRepository frequencyRepository;
+    private final AbsenceRecordRepository absenceRecordRepository;
     private final DisciplineAccessService disciplineAccessService;
 
     public FrequencyService(
             FrequencyRepository frequencyRepository,
+            AbsenceRecordRepository absenceRecordRepository,
             DisciplineAccessService disciplineAccessService
     ) {
         this.frequencyRepository = frequencyRepository;
+        this.absenceRecordRepository = absenceRecordRepository;
         this.disciplineAccessService = disciplineAccessService;
     }
 
@@ -58,6 +61,14 @@ public class FrequencyService {
     ) {
         Discipline discipline = disciplineAccessService.findOwnedDiscipline(userId, dashboardId, disciplineId);
         Frequency frequency = findFrequency(disciplineId);
+
+        if (absenceRecordRepository.existsByDiscipline_Id(disciplineId)
+                && !request.absences().equals(frequency.getAbsences())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Altere as faltas pelos lançamentos do histórico desta disciplina."
+            );
+        }
 
         frequency.update(request.absences());
 

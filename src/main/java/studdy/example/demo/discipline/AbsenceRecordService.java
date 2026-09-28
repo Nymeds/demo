@@ -41,7 +41,16 @@ public class AbsenceRecordService {
                 .orElseGet(() -> new Frequency(discipline, 0));
 
         BigDecimal previousAttendance = frequency.attendancePercentage();
-        frequency.update(frequency.getAbsences() + request.quantity());
+        int totalAbsences;
+        try {
+            totalAbsences = Math.addExact(frequency.getAbsences(), request.quantity());
+        } catch (ArithmeticException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "A quantidade de faltas excede o limite permitido."
+            );
+        }
+        frequency.update(totalAbsences);
         frequencyRepository.save(frequency);
 
         BigDecimal impact = previousAttendance.subtract(frequency.attendancePercentage());

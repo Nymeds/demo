@@ -4,6 +4,7 @@ import AppToast from '../../components/ui/AppToast.vue'
 import FrequencyConfigModal from './FrequencyConfigModal.vue'
 import RegisterAbsenceModal from './RegisterAbsenceModal.vue'
 import { frequencySituation, LOSS_PER_ABSENCE, maximumAbsencesFor } from './frequencyRules.js'
+import { periodKeyOf } from '../grades/gradesPresentation.js'
 
 const props = defineProps({
   accessToken: { type: String, required: true },
@@ -173,8 +174,7 @@ onMounted(loadData)
 onBeforeUnmount(() => clearTimeout(toastTimer))
 
 function periodOf(discipline) {
-  if (!discipline.periodo) return '—'
-  return `${discipline.periodo}.${discipline.semester ?? 1}`
+  return periodKeyOf(discipline) ?? '—'
 }
 
 function buildRow(discipline) {
@@ -315,14 +315,17 @@ function replaceFrequency(disciplineId, frequency) {
 }
 
 function disciplinePayload(discipline, minimumAttendancePercentage) {
+  const period = periodKeyOf(discipline)
+  if (!period) throw new Error('Corrija o ano e o semestre da disciplina antes de configurar a frequência.')
+  const [periodo, semester] = period.split('.')
   return {
     name: discipline.name,
     professorName: discipline.professorName ?? '',
     color: discipline.color,
     passingAverage: discipline.passingAverage,
     minimumAttendancePercentage,
-    periodo: String(discipline.periodo),
-    semester: String(discipline.semester),
+    periodo,
+    semester,
     schedules: (discipline.schedules ?? []).map(({ dayOfWeek, startTime, endTime }) => ({
       dayOfWeek,
       startTime,

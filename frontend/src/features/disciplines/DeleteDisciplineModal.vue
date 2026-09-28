@@ -1,13 +1,14 @@
 <script setup>
 defineProps({
   disciplineName: { type: String, required: true },
+  deleting: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['close', 'confirm'])
 </script>
 
 <template>
-  <div class="delete-backdrop" @mousedown.self="emit('close')">
+  <div class="delete-backdrop" @mousedown.self="!deleting && emit('close')">
     <section
       class="delete-modal"
       role="alertdialog"
@@ -23,16 +24,16 @@ const emit = defineEmits(['close', 'confirm'])
 
       <h2 id="delete-title">Excluir disciplina?</h2>
       <p id="delete-description">
-        A disciplina <span class="discipline-name">“{{ disciplineName }}”</span> será excluída. Esta ação não pode ser desfeita.
+        A disciplina <span class="discipline-name">“{{ disciplineName }}”</span> e suas notas, atividades, frequência e histórico de faltas serão excluídos permanentemente. Eventos vinculados no calendário continuarão sem o vínculo com a disciplina.
       </p>
 
       <div class="delete-modal-actions">
-        <button class="cancel-delete" type="button" autofocus @click="emit('close')">Cancelar</button>
-        <button class="confirm-delete" type="button" @click="emit('confirm')">
+        <button class="cancel-delete" type="button" autofocus :disabled="deleting" @click="emit('close')">Cancelar</button>
+        <button class="confirm-delete" type="button" :disabled="deleting" @click="emit('confirm')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" />
           </svg>
-          Excluir disciplina
+          {{ deleting ? 'Excluindo...' : 'Excluir disciplina' }}
         </button>
       </div>
     </section>

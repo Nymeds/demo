@@ -14,6 +14,7 @@ import studdy.example.demo.dashboard.Dashboard;
 import studdy.example.demo.dashboard.DashboardRepository;
 import studdy.example.demo.dashboard.DashboardStatus;
 import studdy.example.demo.discipline.dto.CreateFrequencyRequest;
+import studdy.example.demo.discipline.dto.CreateAbsenceRecordRequest;
 import studdy.example.demo.discipline.dto.FrequencyResponse;
 import studdy.example.demo.discipline.dto.UpdateFrequencyRequest;
 import studdy.example.demo.user.AppUser;
@@ -21,6 +22,7 @@ import studdy.example.demo.user.UserRepository;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -41,6 +43,9 @@ class FrequencyServiceTest {
 
     @Autowired
     private FrequencyService frequencyService;
+
+    @Autowired
+    private AbsenceRecordService absenceRecordService;
 
     @Autowired
     private EntityManager entityManager;
@@ -131,6 +136,31 @@ class FrequencyServiceTest {
         FrequencyResponse reset = frequencyService.update(owner.getId(), dashboard.getId(),
                 discipline.getId(), new UpdateFrequencyRequest(0));
         assertEquals(new BigDecimal("100.00"), reset.attendancePercentage());
+    }
+
+    @Test
+    void doesNotAllowManualChangesAfterAbsenceHistoryExists() {
+        absenceRecordService.create(owner.getId(), dashboard.getId(), discipline.getId(),
+                new CreateAbsenceRecordRequest(LocalDate.now(), 1, "Pessoal", ""));
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> frequencyService.update(owner.getId(), dashboard.getId(), discipline.getId(),
+                        new UpdateFrequencyRequest(0)));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatusCode());
+        assertEquals(1, frequencyService.findByDiscipline(owner.getId(), dashboard.getId(),
+                discipline.getId()).absences());
+    }
+
+    @Test
+    void rejectsAbsenceAdditionThatOverflowsTheCounter() {
+        create(discipline, Integer.MAX_VALUE);
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> absenceRecordService.create(owner.getId(), dashboard.getId(), discipline.getId(),
+                        new CreateAbsenceRecordRequest(LocalDate.now(), 1, "Pessoal", "")));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
     }
 
     @Test

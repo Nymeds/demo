@@ -217,8 +217,8 @@ Todas as rotas abaixo de `/api/v1/dashboards` exigem o cabeçalho `Authorization
 | `POST` | `/api/v1/dashboards/{dashboardId}/disciplines` | Cadastra uma disciplina com seus horários. |
 | `GET` | `/api/v1/dashboards/{dashboardId}/disciplines` | Lista as disciplinas do dashboard em ordem alfabética. |
 | `GET` | `/api/v1/dashboards/{dashboardId}/disciplines/{disciplineId}` | Detalha uma disciplina, já com média e situação. |
-| `PUT` | `/api/v1/dashboards/{dashboardId}/disciplines/{disciplineId}` | Atualiza os dados e os horários da disciplina. |
-| `DELETE` | `/api/v1/dashboards/{dashboardId}/disciplines/{disciplineId}` | Remove a disciplina e, em cascata, as notas dela. |
+| `PUT` | `/api/v1/dashboards/{dashboardId}/disciplines/{disciplineId}` | Atualiza os dados, o ano, o semestre e os horários da disciplina. |
+| `DELETE` | `/api/v1/dashboards/{dashboardId}/disciplines/{disciplineId}` | Remove a disciplina, suas notas, atividades, frequência e lançamentos de falta. Eventos de calendário permanecem sem o vínculo. |
 
 ### Notas
 
@@ -239,9 +239,9 @@ Cada disciplina tem no máximo um registro de frequência, em `/api/v1/dashboard
 
 | Método | Rota | Finalidade |
 | --- | --- | --- |
-| `POST` | `` | Registra o total de aulas e as faltas. Responde `409` se já houver um registro. |
-| `GET` | `` | Devolve o percentual de presença, o mínimo de aulas exigido e o teto de faltas. |
-| `PUT` | `` | Atualiza o total de aulas e as faltas, recalculando os limites. |
+| `POST` | `` | Registra o total inicial de faltas. Responde `409` se já houver um registro. |
+| `GET` | `` | Devolve o percentual de presença, a frequência mínima e o teto de faltas. |
+| `PUT` | `` | Atualiza o total de faltas antes do primeiro lançamento no histórico; depois disso, só aceita repetir o valor atual. |
 
 ### Atividades
 
@@ -257,6 +257,8 @@ Cada disciplina carrega os dois critérios, definidos no cadastro e usados em c�
 | `minimumAttendancePercentage` | 0 a 100 | Define quantas aulas o aluno precisa cursar e, por consequência, o teto de faltas. |
 
 Os dois são obrigatórios ao criar ou atualizar uma disciplina. Como cada matéria guarda o próprio critério, disciplinas do mesmo dashboard podem exigir médias diferentes — não existe valor global em arquivo de configuração.
+
+O período acadêmico é salvo como ano em `periodo` (`1900` a `2200`) e semestre em `semester` (`1` ou `2`). Cada disciplina aceita de 1 a 50 horários; horários consecutivos são permitidos, mas não podem se sobrepor no mesmo dia. A interface interpreta disciplinas antigas que usavam os campos de período em outra ordem e as salva no formato atual quando editadas.
 
 ## Tela de teste
 

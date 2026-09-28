@@ -2,9 +2,11 @@
 import { computed, ref } from 'vue'
 import AppSelect from '../../components/ui/AppSelect.vue'
 import AppTimePicker from '../../components/ui/AppTimePicker.vue'
+import { periodKeyOf } from '../grades/gradesPresentation.js'
 
 const props = defineProps({
   discipline: { type: Object, default: null },
+  saving: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['close', 'save'])
@@ -14,21 +16,15 @@ const name = ref(props.discipline?.name ?? '')
 const professorName = ref(props.discipline?.professorName ?? '')
 const selectedColor = ref(props.discipline?.color ?? '#6432df')
 const timeError = ref('')
+const averageError = ref('')
 const currentYear = new Date().getFullYear()
 
 const defaultPassingAverage = 6
 const defaultMinimumAttendancePercentage = 75
-
-const year = ref(
-  props.discipline?.periodo ?? currentYear
-)
-const periodo = ref(
-  props.discipline?.periodo ?? String(currentYear)
-)
-
-const semester = ref(
-  props.discipline?.semester ?? '1'
-)
+const [initialYear, initialSemester] = (periodKeyOf(props.discipline ?? {}) ?? `${currentYear}.1`).split('.')
+const periodo = ref(initialYear)
+const semester = ref(initialSemester)
+const passingAverage = ref(Number(props.discipline?.passingAverage ?? defaultPassingAverage))
 const initialSchedules = props.discipline?.schedules?.length
   ? props.discipline.schedules.map((schedule, index) => ({ id: index + 1, ...schedule }))
   : [{ id: 1, dayOfWeek: 'MONDAY', startTime: '', endTime: '' }]
@@ -66,6 +62,10 @@ const colors = [
 ]
 
 function addSchedule() {
+  if (schedules.value.length >= 50) {
+    timeError.value = 'A disciplina pode ter no máximo 50 horários.'
+    return
+  }
   schedules.value.push({
     id: nextScheduleId++,
     dayOfWeek: 'MONDAY',
@@ -79,7 +79,14 @@ function removeSchedule(index) {
 }
 
 function submitForm() {
+  if (props.saving) return
   submitted.value = true
+
+  if (!Number.isFinite(passingAverage.value) || passingAverage.value < 0 || passingAverage.value > 10) {
+    averageError.value = 'A média de aprovação deve estar entre 0 e 10.'
+    return
+  }
+  averageError.value = ''
 
   if (schedules.value.length === 0) {
     timeError.value = 'Adicione pelo menos um horário para a disciplina.'
@@ -100,13 +107,22 @@ function submitForm() {
     return
   }
 
+  const hasOverlap = schedules.value.some((schedule, index) => schedules.value.slice(index + 1).some(other => (
+    schedule.dayOfWeek === other.dayOfWeek
+      && schedule.startTime < other.endTime && other.startTime < schedule.endTime
+  )))
+  if (hasOverlap) {
+    timeError.value = 'Os horários da disciplina não podem se sobrepor no mesmo dia.'
+    return
+  }
+
   timeError.value = ''
 
  emit('save', {
   name: name.value.trim(),
   professorName: professorName.value.trim(),
   color: selectedColor.value,
-  passingAverage: props.discipline?.passingAverage ?? defaultPassingAverage,
+  passingAverage: passingAverage.value,
   minimumAttendancePercentage: props.discipline?.minimumAttendancePercentage ?? defaultMinimumAttendancePercentage,
 
   periodo: String(periodo.value),
@@ -135,7 +151,7 @@ function submitForm() {
           </div>
         </div>
 
-        <button class="modal-close" type="button" aria-label="Fechar modal" @click="emit('close')">×</button>
+        <button class="modal-close" type="button" aria-label="Fechar modal" :disabled="saving" @click="emit('close')">×</button>
       </header>
 
       <form @submit.prevent="submitForm">
@@ -171,6 +187,12 @@ function submitForm() {
         </label>
 
       </div>
+
+        <label class="form-field">
+          <span>Média de aprovação <strong>*</strong></span>
+          <input v-model.number="passingAverage" type="number" min="0" max="10" step="0.01" required>
+        </label>
+        <p v-if="averageError" class="time-error" role="alert">{{ averageError }}</p>
 
         <fieldset class="schedule-fieldset">
           <legend>Horário das aulas <strong>*</strong></legend>
@@ -226,10 +248,10 @@ function submitForm() {
         </fieldset>
 
         <footer class="modal-footer">
-          <button class="cancel-button" type="button" @click="emit('close')">Cancelar</button>
-          <button class="save-button" type="submit">
+          <button class="cancel-button" type="button" :disabled="saving" @click="emit('close')">Cancelar</button>
+          <button class="save-button" type="submit" :disabled="saving">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h12l2 2v14H5V4Z" /><path d="M8 4v6h8V4M9 20v-6h6v6" /></svg>
-            {{ isEditing ? 'Salvar alterações' : 'Salvar disciplina' }}
+            {{ saving ? 'Salvando...' : isEditing ? 'Salvar alterações' : 'Salvar disciplina' }}
           </button>
         </footer>
       </form>
@@ -556,6 +578,11 @@ button:focus-visible {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.save-button:disabled {
+  cursor: wait;
+  opacity: .65;
+}
+
 .period-fields {
   --app-select-height: 44px;
   --app-select-font-size: .74rem;
@@ -583,10 +610,6 @@ button:focus-visible {
 
   .schedule-row {
     grid-template-columns: 1fr 1fr 43px;
-  }
-
-  .performance-fields {
-    grid-template-columns: 1fr;
   }
 
   .schedule-row .app-select {

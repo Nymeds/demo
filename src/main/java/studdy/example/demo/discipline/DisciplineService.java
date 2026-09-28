@@ -81,7 +81,9 @@ public class DisciplineService {
                 request.color(),
                 request.passingAverage(),
                 request.minimumAttendancePercentage(),
-                toSchedules(request.schedules())
+                toSchedules(request.schedules()),
+                request.semester(),
+                request.periodo()
         );
 
         return toResponse(discipline);
