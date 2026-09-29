@@ -1,8 +1,9 @@
 <script setup>
 import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
 import { ref } from 'vue'
-defineProps({
+const props = defineProps({
   disciplineName: { type: String, required: true },
+  deleting: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['close', 'confirm'])
@@ -10,11 +11,12 @@ const emit = defineEmits(['close', 'confirm'])
 const trapRef = ref(null)
 useFocusTrap(() => true, trapRef, {
   onClose: () => emit('close'),
+  closeOnEscape: () => !props.deleting,
 })
 </script>
 
 <template>
-  <div class="delete-backdrop" @mousedown.self="emit('close')">
+  <div class="delete-backdrop" @mousedown.self="!deleting && emit('close')">
     <section
       class="delete-modal"
       ref="trapRef" tabindex="-1" role="alertdialog"
@@ -34,8 +36,8 @@ useFocusTrap(() => true, trapRef, {
       </p>
 
       <div class="delete-modal-actions">
-        <button class="cancel-delete" type="button" autofocus @click="emit('close')">Cancelar</button>
-        <button class="confirm-delete" type="button" @click="emit('confirm')">
+        <button class="cancel-delete" type="button" autofocus :disabled="deleting" @click="emit('close')">Cancelar</button>
+        <button class="confirm-delete" type="button" :disabled="deleting" @click="emit('confirm')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" />
           </svg>
@@ -144,6 +146,12 @@ useFocusTrap(() => true, trapRef, {
   display: flex;
   gap: 8px;
   justify-content: center;
+}
+
+.cancel-delete:disabled,
+.confirm-delete:disabled {
+  cursor: wait;
+  opacity: .6;
 }
 
 .confirm-delete:hover {

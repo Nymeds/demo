@@ -1,0 +1,1205 @@
+/* Estilos da tela Simulador de Notas. Todos os seletores começam por .simulator-page para não
+   vazar para as outras telas; os subcomponentes da pasta reutilizam estas mesmas classes. */
+
+.simulator-page .field-error {
+  color: #c4463e;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 6px 0 0;
+}
+
+.simulator-page .load-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #f3d3ce;
+  border-radius: 9px;
+  background: #fdf1ef;
+}
+
+.simulator-page .load-error p {
+  margin: 0;
+  color: #a3392f !important;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.simulator-page .retry-button {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid #c4463e;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #a3392f !important;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.simulator-page .retry-button:hover {
+  background: #fbe6e3;
+}
+
+.simulator-page .page-load-error {
+  margin-bottom: 20px;
+}
+
+
+/* =========================
+   PÁGINA
+========================= */
+
+.simulator-page {
+
+  width: 100%;
+  min-height: 100vh;
+
+  box-sizing: border-box;
+
+  padding: 28px 32px 40px;
+
+  background: #f7f7fb;
+
+  color: #202033;
+
+}
+
+
+/* =========================
+   CABEÇALHO
+========================= */
+
+.simulator-page .page-header {
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  margin-bottom: 26px;
+
+}
+
+
+.simulator-page .title-area {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 14px;
+
+}
+
+
+.simulator-page .title-icon {
+
+  width: 42px;
+  height: 42px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 10px;
+
+  background: #f0eaff;
+
+  color: #6330e0;
+
+}
+
+
+.simulator-page .title-icon svg {
+
+  width: 23px;
+  height: 23px;
+
+}
+
+
+.simulator-page .title-area h1 {
+
+  margin: 0;
+
+  color: #151525 !important;
+
+  font-size: 28px;
+
+  font-weight: 700;
+
+}
+
+
+.simulator-page .title-area p {
+
+  margin: 6px 0 0;
+
+  color: #555267 !important;
+
+  font-size: 14px;
+
+}
+
+
+.simulator-page .header-actions {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 14px;
+
+}
+
+
+.simulator-page .help-button {
+
+  height: 42px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 0 18px;
+
+  border: 1px solid #dedce8;
+
+  border-radius: 9px;
+
+  background: white;
+
+  color: #3d3a4d;
+
+  font-size: 14px;
+
+}
+
+
+.simulator-page .help-icon {
+
+  width: 17px;
+  height: 17px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border: 1px solid #858292;
+
+  border-radius: 50%;
+
+}
+
+
+/* =========================
+   FILTROS
+========================= */
+
+.simulator-page .filters-card {
+
+  display: grid;
+
+  grid-template-columns: 1.3fr 1fr;
+
+  margin-bottom: 20px;
+
+  background: white;
+
+  border: 1px solid #eceaf2;
+
+  border-radius: 12px;
+
+  overflow: hidden;
+
+}
+
+
+.simulator-page .filter {
+
+  padding: 17px 22px;
+
+  border-right: 1px solid #eceaf2;
+
+}
+
+
+.simulator-page .filter:last-child {
+
+  border-right: none;
+
+}
+
+
+.simulator-page .filter label {
+
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #686579 !important;
+
+  font-size: 13px;
+
+}
+
+
+/* Listas de filtro no mesmo padrão dos outros campos do site (AppSelect). */
+.simulator-page .filter {
+
+  --app-select-height: 42px;
+
+  --app-select-font-size: 14px;
+
+  --app-select-radius: 8px;
+
+  --app-select-padding: 0 12px 0 14px;
+
+}
+
+
+/* =========================
+   GRID
+========================= */
+
+.simulator-page .main-grid,
+.simulator-page .bottom-grid {
+
+  display: grid;
+
+  grid-template-columns: 1.05fr .95fr;
+
+  gap: 20px;
+
+  margin-bottom: 20px;
+
+}
+
+
+.simulator-page .card {
+
+  box-sizing: border-box;
+
+  padding: 22px;
+
+  background: #ffffff;
+
+  border: 1px solid #eceaf2;
+
+  border-radius: 12px;
+
+  box-shadow: 0 2px 8px rgba(25, 20, 60, .03);
+
+}
+
+
+.simulator-page .card h2 {
+
+  margin: 0;
+
+  color: #202033 !important;
+
+  font-size: 17px;
+
+  font-weight: 700;
+
+}
+
+
+/* =========================
+   TÍTULOS DOS CARDS
+========================= */
+
+.simulator-page .card-heading {
+
+  margin-bottom: 18px;
+
+}
+
+
+.simulator-page .heading-left {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+}
+
+
+.simulator-page .badge {
+
+  padding: 5px 9px;
+
+  border-radius: 20px;
+
+  background: #f0eaff;
+
+  color: #6330e0 !important;
+
+  font-size: 11px;
+
+  font-weight: 600;
+
+}
+
+
+/* =========================
+   SITUAÇÃO ATUAL
+========================= */
+
+.simulator-page .situation-body {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 30px;
+
+  min-height: 190px;
+
+}
+
+
+.simulator-page .average-circle {
+
+  width: 170px;
+  height: 170px;
+
+  flex-shrink: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background:
+
+    radial-gradient(
+      circle,
+      white 0 61%,
+      transparent 62%
+    ),
+
+    conic-gradient(
+      #6330e0 0deg 306deg,
+      #dedde6 306deg 360deg
+    );
+
+}
+
+
+.simulator-page .circle-content {
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+}
+
+
+.simulator-page .circle-content strong {
+
+  color: #6330e0 !important;
+
+  font-size: 35px;
+
+}
+
+
+.simulator-page .circle-content span {
+
+  color: #555267 !important;
+
+  font-size: 12px;
+
+}
+
+
+.simulator-page .situation-info {
+
+  flex: 1;
+
+}
+
+
+.simulator-page .info-row {
+
+  min-height: 48px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  border-bottom: 1px solid #eeeef3;
+
+}
+
+
+.simulator-page .info-row span {
+
+  color: #686579 !important;
+
+  font-size: 13px;
+
+}
+
+
+.simulator-page .info-row strong {
+
+  color: #202033 !important;
+
+}
+
+
+.simulator-page .target-value {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+}
+
+
+.simulator-page .edit-button {
+
+  width: 30px;
+  height: 30px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid #dedce8;
+
+  border-radius: 7px;
+
+  background: #ffffff;
+
+  color: #6330e0;
+
+}
+
+
+.simulator-page .edit-button svg {
+
+  width: 15px;
+  height: 15px;
+
+}
+
+
+/* =========================
+   MENSAGEM VERDE
+========================= */
+
+.simulator-page .status-message {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 12px;
+
+  margin-top: 18px;
+
+  padding: 14px 16px;
+
+  border-radius: 9px;
+
+}
+
+
+.simulator-page .status-message.success {
+
+  background: #edf9f1;
+
+  color: #24834b !important;
+
+}
+
+
+.simulator-page .status-message.warning {
+
+  background: #fff7e8;
+
+  color: #a56c00 !important;
+
+}
+
+.simulator-page .status-message.neutral {
+  background: #f2f2f6;
+  color: #686579 !important;
+}
+
+
+.simulator-page .status-icon {
+
+  width: 25px;
+  height: 25px;
+
+  flex-shrink: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border: 1.5px solid currentColor;
+
+  border-radius: 50%;
+
+}
+
+
+.simulator-page .status-icon svg {
+
+  width: 15px;
+  height: 15px;
+
+}
+
+
+.simulator-page .status-message strong {
+
+  display: block;
+
+  color: inherit !important;
+
+  font-size: 12px;
+
+}
+
+
+.simulator-page .status-message span {
+
+  display: block;
+
+  margin-top: 3px;
+
+  color: inherit !important;
+
+  font-size: 11px;
+
+}
+
+
+/* =========================
+   SIMULAÇÃO
+========================= */
+
+.simulator-page .description {
+
+  margin: 6px 0 19px;
+
+  color: #686579 !important;
+
+  font-size: 12px;
+
+}
+
+
+.simulator-page .input-grid {
+
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 14px;
+
+}
+
+
+.simulator-page .field label {
+
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #555267 !important;
+
+  font-size: 12px;
+
+  font-weight: 600;
+
+}
+
+
+/* CAMPO CORRIGIDO */
+
+.simulator-page .field input {
+
+  width: 100%;
+
+  height: 42px;
+
+  box-sizing: border-box;
+
+  padding: 0 13px;
+
+  border: 1px solid #dedce8;
+
+  border-radius: 8px;
+
+  background: #ffffff !important;
+
+  color: #252338 !important;
+
+  font-size: 14px;
+
+  outline: none;
+
+  appearance: auto;
+
+}
+
+
+.simulator-page .field input:focus {
+
+  background: #ffffff !important;
+
+  color: #252338 !important;
+
+  border-color: #6330e0;
+
+  outline: none;
+
+  box-shadow: 0 0 0 2px rgba(99, 48, 224, .08);
+
+}
+
+
+.simulator-page .field input:disabled {
+
+  background: #f1f1f3 !important;
+
+  color: #555267 !important;
+
+  opacity: 1;
+
+}
+
+
+/* =========================
+   BOTÃO SIMULAR
+========================= */
+
+.simulator-page .simulate-button {
+
+  width: 100%;
+
+  height: 42px;
+
+  margin-top: 17px;
+
+  border: none;
+
+  border-radius: 8px;
+
+  background: #6330e0;
+
+  color: white;
+
+  font-size: 14px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+}
+
+
+.simulator-page .simulate-button:hover {
+
+  background: #5726ce;
+
+}
+
+.simulator-page .simulate-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+
+/* =========================
+   RESULTADO
+========================= */
+
+.simulator-page .result-box {
+
+  min-height: 110px;
+
+  display: grid;
+
+  grid-template-columns: 1fr 1px 1fr;
+
+  align-items: center;
+
+  margin-top: 18px;
+
+  padding: 10px 18px;
+
+  border: 1px solid #ddd2ff;
+
+  border-radius: 9px;
+
+  background: #f8f5ff;
+
+}
+
+
+.simulator-page .result-side {
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  text-align: center;
+
+}
+
+
+.simulator-page .result-side span {
+
+  color: #686579 !important;
+
+  font-size: 11px;
+
+}
+
+
+.simulator-page .result-side strong {
+
+  margin-top: 5px;
+
+  color: #6330e0 !important;
+
+  font-size: 29px;
+
+}
+
+
+.simulator-page .result-separator {
+
+  width: 1px;
+
+  height: 55px;
+
+  background: #dcd1f7;
+
+}
+
+
+.simulator-page .result-message {
+
+  margin: 9px 0 0;
+
+  color: #686579 !important;
+
+  font-size: 11px;
+
+  text-align: center;
+
+}
+
+
+.simulator-page .simulation-load-error {
+
+  margin-top: 17px;
+
+}
+
+
+.simulator-page .simulation-local-note {
+
+  margin: 10px 0 0;
+
+  color: #9997a8 !important;
+
+  font-size: 11px;
+
+  text-align: center;
+
+}
+
+
+.simulator-page .clear-simulation-button {
+
+  width: 100%;
+
+  height: 34px;
+
+  margin-top: 8px;
+
+  border: 1px solid #dedce8;
+
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  color: #686579 !important;
+
+  font-size: 12px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+}
+
+
+.simulator-page .clear-simulation-button:hover {
+
+  border-color: #6330e0;
+
+  color: #6330e0 !important;
+
+}
+
+
+/* =========================
+   TABELA DE NOTAS
+========================= */
+
+.simulator-page .grades-table,
+.simulator-page .scenario-table {
+
+  border: 1px solid #eeeef3;
+
+  border-radius: 8px;
+
+  overflow: hidden;
+
+}
+
+
+.simulator-page .grades-header,
+.simulator-page .grade-row,
+.simulator-page .total-row {
+
+  display: grid;
+
+  grid-template-columns: 1.5fr .8fr .8fr 45px;
+
+  align-items: center;
+
+  padding: 11px 12px;
+
+  font-size: 11px;
+
+}
+
+
+.simulator-page .grades-header {
+
+  background: #fafafd;
+
+  color: #686579 !important;
+
+  font-weight: 600;
+
+}
+
+
+.simulator-page .grade-row {
+
+  min-height: 48px;
+
+  border-top: 1px solid #eeeef3;
+
+}
+
+
+.simulator-page .evaluation {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 9px;
+
+}
+
+
+.simulator-page .evaluation-icon {
+
+  width: 29px;
+  height: 29px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 6px;
+
+  background: #f0eaff;
+
+  color: #6330e0;
+
+}
+
+
+.simulator-page .evaluation-icon svg {
+
+  width: 16px;
+  height: 16px;
+
+}
+
+
+.simulator-page .more-button {
+
+  border: none;
+
+  background: transparent;
+
+  color: #555267;
+
+  font-size: 19px;
+
+  cursor: pointer;
+
+}
+
+
+.simulator-page .total-row {
+
+  min-height: 42px;
+
+  border-top: 1px solid #eeeef3;
+
+}
+
+
+.simulator-page .total-row strong {
+
+  color: #6330e0 !important;
+
+}
+
+
+.simulator-page .empty-row {
+
+  padding: 25px;
+
+  color: #9997a8 !important;
+
+  text-align: center;
+
+}
+
+
+.simulator-page .add-grade-button {
+
+  width: 100%;
+
+  height: 40px;
+
+  margin-top: 12px;
+
+  border: 1px dashed #cfcbdc;
+
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  color: #6330e0 !important;
+
+  cursor: pointer;
+
+}
+
+
+.simulator-page .add-grade-button:hover {
+
+  border-color: #6330e0;
+
+  background: #f7f3ff;
+
+}
+
+
+.simulator-page .add-grade-button:focus-visible {
+
+  outline: 2px solid rgba(99, 48, 224, 0.45);
+
+  outline-offset: 2px;
+
+}
+
+
+.simulator-page .add-grade-hint {
+
+  margin: 8px 0 0;
+
+  color: #b4520c;
+
+  font-size: 12px;
+
+  font-weight: 600;
+
+}
+
+
+.simulator-page .evaluation-text {
+
+  display: grid;
+
+  gap: 2px;
+
+  min-width: 0;
+
+}
+
+
+.simulator-page .evaluation-text small {
+
+  color: #8a879b !important;
+
+  font-size: 10px;
+
+}
+
+
+/* =========================
+   CENÁRIOS
+========================= */
+
+.simulator-page .scenario-header,
+.simulator-page .scenario-row {
+
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  align-items: center;
+
+  min-height: 35px;
+
+  text-align: center;
+
+  font-size: 11px;
+
+}
+
+
+.simulator-page .scenario-header {
+
+  background: #fafafd;
+
+  color: #686579 !important;
+
+  font-weight: 600;
+
+}
+
+
+.simulator-page .scenario-row {
+
+  border-top: 1px solid #eeeef3;
+
+}
+
+
+.simulator-page .scenario-row strong {
+
+  color: #292638 !important;
+
+}
+
+
+.simulator-page .scenario-row strong.positive {
+
+  color: #238b4e !important;
+
+}
+
+
+/* =========================
+   RESPONSIVO
+========================= */
+
+@media (max-width: 1100px) {
+
+  .simulator-page .main-grid,
+  .simulator-page .bottom-grid {
+
+    grid-template-columns: 1fr;
+
+  }
+
+}
+
+
+@media (max-width: 800px) {
+
+  .simulator-page .filters-card {
+
+    grid-template-columns: 1fr;
+
+  }
+
+  .simulator-page .filter {
+
+    border-right: none;
+
+    border-bottom: 1px solid #eceaf2;
+
+  }
+
+  .simulator-page .header-actions {
+
+    display: none;
+
+  }
+
+}
+
+
+@media (max-width: 600px) {
+
+  .simulator-page {
+
+    padding: 18px;
+
+  }
+
+  .simulator-page .situation-body {
+
+    flex-direction: column;
+
+  }
+
+  .simulator-page .input-grid {
+
+    grid-template-columns: 1fr;
+
+  }
+
+}
+

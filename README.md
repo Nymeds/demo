@@ -181,7 +181,7 @@ Todas as rotas, exceto `auth` e `legal`, exigem `Authorization: Bearer <token>`.
 | Frequência | `POST`/`PUT`/`GET S/frequency` | Total de faltas e percentuais (`POST` responde `409` se já existir) |
 | Faltas | `POST`/`GET S/frequency/absences`; `DELETE S/frequency/absences/{recordId}` | Histórico de faltas |
 | Simulador | `POST S/simulator` | Nota necessária para a meta |
-| Calendário | `POST`/`GET D/calendar/events`; `GET D/calendar/events/upcoming`; `GET`/`PUT`/`DELETE D/calendar/events/{eventId}` | Eventos |
+| Calendário | `POST`/`GET D/calendar/events`; `GET D/calendar/events/upcoming` (filtro opcional `categories`); `GET`/`PUT`/`DELETE D/calendar/events/{eventId}` | Eventos |
 
 ## Migrações
 

@@ -1,0 +1,755 @@
+/* Estilos da tela Frequência. Todos os seletores começam por .frequency-page para não
+   vazar para as outras telas nem para os modais irmãos (que têm CSS próprio). */
+
+.frequency-page {
+  display: grid;
+  gap: 22px;
+}
+
+.frequency-page .frequency-header,
+.frequency-page .frequency-actions,
+.frequency-page .frequency-toolbar,
+.frequency-page .frequency-filter-options,
+.frequency-page .frequency-total-card,
+.frequency-page .table-card-header {
+  align-items: center;
+  display: flex;
+}
+
+.frequency-page .frequency-header {
+  gap: 20px;
+  justify-content: space-between;
+}
+
+.frequency-page .frequency-heading {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  gap: 13px;
+  min-width: 0;
+}
+
+.frequency-page .frequency-heading-icon {
+  align-items: center;
+  background: #f0eaff;
+  border-radius: 9px;
+  color: #6b37e8;
+  display: flex;
+  flex: 0 0 43px;
+  height: 43px;
+  justify-content: center;
+  width: 43px;
+}
+
+.frequency-page .frequency-heading-icon svg {
+  fill: none;
+  height: 25px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  width: 25px;
+}
+
+.frequency-page .frequency-heading h1 {
+  color: #151a2d;
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: -.04em;
+  line-height: 1.1;
+  margin: 0 0 6px;
+}
+
+.frequency-page .frequency-heading p {
+  color: #697086;
+  font-size: .78rem;
+}
+
+.frequency-page .frequency-actions {
+  flex-wrap: wrap;
+  gap: 11px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.frequency-page .frequency-search {
+  color: #747b90;
+  flex: 0 1 245px;
+  max-width: 245px;
+  min-width: 0;
+  position: relative;
+  width: 245px;
+}
+
+.frequency-page .frequency-search svg {
+  fill: none;
+  height: 18px;
+  left: 12px;
+  position: absolute;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+}
+
+.frequency-page .frequency-search input {
+  background: #fff;
+  border: 1px solid #dedfe8;
+  border-radius: 8px;
+  color: #252a3e;
+  font-size: .72rem;
+  min-width: 0;
+  outline: none;
+  padding: 11px 12px 11px 38px;
+  width: 100%;
+}
+
+.frequency-page .frequency-search input:focus,
+.frequency-page .frequency-period-filter:focus-within {
+  border-color: #7544eb;
+  box-shadow: 0 0 0 3px rgba(117, 68, 235, .12);
+}
+
+.frequency-page .primary-button {
+  align-items: center;
+  border-radius: 7px;
+  display: flex;
+  font-size: .72rem;
+  font-weight: 700;
+  gap: 7px;
+  justify-content: center;
+  padding: 11px 15px;
+  white-space: nowrap;
+}
+
+.frequency-page .primary-button {
+  background: linear-gradient(100deg, #5d20df, #7419f5);
+  border: 0;
+  box-shadow: 0 8px 18px rgba(101, 31, 225, .18);
+  color: #fff;
+}
+
+.frequency-page .primary-button span {
+  font-size: 1.05rem;
+  font-weight: 400;
+  line-height: .8;
+}
+
+.frequency-page .primary-button:hover {
+  box-shadow: 0 11px 23px rgba(101, 31, 225, .28);
+  transform: translateY(-1px);
+}
+
+.frequency-page .primary-button:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
+.frequency-page .primary-button:focus-visible,
+.frequency-page .see-all:focus-visible,
+.frequency-page .frequency-actions-cell button:focus-visible {
+  outline: 3px solid rgba(105, 54, 224, .28);
+  outline-offset: 3px;
+}
+
+.frequency-page .frequency-summary-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.frequency-page .frequency-toolbar {
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.frequency-page .frequency-situation-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+
+.frequency-page .frequency-situation-filters button,
+.frequency-page .frequency-period-filter,
+.frequency-page .clear-filters {
+  background: #fff;
+  border: 1px solid #e1e2e9;
+  color: #34394c;
+}
+
+.frequency-page .frequency-situation-filters button {
+  border-radius: 7px;
+  font-size: .7rem;
+  padding: 10px 17px;
+}
+
+.frequency-page .frequency-situation-filters button.active {
+  border-color: #6f36e7;
+  color: #6126d8;
+  font-weight: 700;
+}
+
+.frequency-page .frequency-filter-options {
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.frequency-page .frequency-period-filter {
+  align-items: center;
+  border-radius: 7px;
+  display: flex;
+  font-size: .68rem;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 9px 0 14px;
+}
+
+.frequency-page .frequency-period-filter span {
+  font-weight: 700;
+}
+
+.frequency-page .frequency-period-filter select {
+  background: transparent;
+  border: 0;
+  color: #43495e;
+  outline: none;
+  padding: 10px 4px;
+}
+
+.frequency-page .clear-filters {
+  border-radius: 7px;
+  color: #535a70;
+  font-size: .68rem;
+  padding: 11px 13px;
+}
+
+.frequency-page .clear-filters:hover {
+  border-color: #7650df;
+  color: #6030cb;
+}
+
+.frequency-page .sr-only {
+  clip: rect(0, 0, 0, 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+}
+
+.frequency-page .frequency-total-card {
+  background: #fff;
+  border: 1px solid #ebeaf1;
+  border-radius: 10px;
+  box-shadow: 0 5px 16px rgba(30, 36, 65, .035);
+  gap: 16px;
+  padding: 18px;
+  width: 100%;
+}
+
+.frequency-page .frequency-total-card > span {
+  align-items: center;
+  background: #f0eaff;
+  border-radius: 50%;
+  color: #6d38e8;
+  display: flex;
+  height: 52px;
+  justify-content: center;
+  width: 52px;
+}
+
+.frequency-page .frequency-total-card svg {
+  fill: none;
+  height: 26px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  width: 26px;
+}
+
+.frequency-page .frequency-total-card p {
+  color: #51586c;
+  font-size: .7rem;
+  font-weight: 650;
+}
+
+.frequency-page .frequency-total-card strong {
+  color: #151a2d;
+  display: block;
+  font-size: 1.35rem;
+  line-height: 1;
+  margin-top: 7px;
+}
+
+.frequency-page .frequency-total-card small {
+  color: #858b9e;
+  display: block;
+  font-size: .62rem;
+  margin-top: 6px;
+}
+
+.frequency-page .frequency-total-card.is-green > span {
+  background: #e9f8ef;
+  color: #20a95f;
+}
+
+.frequency-page .frequency-total-card.is-green small {
+  color: #259b5b;
+}
+
+.frequency-page .frequency-total-card.is-orange > span {
+  background: #fff1df;
+  color: #ee8a18;
+}
+
+.frequency-page .frequency-total-card.is-orange small {
+  color: #d98117;
+}
+
+.frequency-page .frequency-loading-card,
+.frequency-page .frequency-empty-card {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e9e8ef;
+  border-radius: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
+  min-height: 280px;
+  padding: 30px;
+  text-align: center;
+}
+
+.frequency-page .frequency-loading-card p,
+.frequency-page .frequency-empty-card p {
+  color: #747b8e;
+  font-size: .76rem;
+  line-height: 1.55;
+  max-width: 460px;
+}
+
+.frequency-page .frequency-empty-card h2 {
+  color: #171c30;
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: -.025em;
+  margin: 0;
+}
+
+.frequency-page .retry-button {
+  background: linear-gradient(100deg, #5d20df, #7419f5);
+  border: 0;
+  border-radius: 7px;
+  box-shadow: 0 8px 18px rgba(101, 31, 225, .18);
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 700;
+  padding: 11px 18px;
+}
+
+.frequency-page .frequency-stale-banner,
+.frequency-page .frequency-refresh-warning {
+  align-items: center;
+  background: #fff4e6;
+  border: 1px solid #f3d9ac;
+  border-radius: 10px;
+  color: #9a6414;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: .74rem;
+  gap: 12px;
+  justify-content: space-between;
+  line-height: 1.5;
+  padding: 13px 16px;
+}
+
+.frequency-page .frequency-stale-banner button,
+.frequency-page .frequency-refresh-warning button {
+  background: #fff;
+  border: 1px solid #eac488;
+  border-radius: 7px;
+  color: #8a5a10;
+  flex-shrink: 0;
+  font-size: .7rem;
+  font-weight: 700;
+  padding: 7px 13px;
+  white-space: nowrap;
+}
+
+.frequency-page .frequency-stale-banner button:hover,
+.frequency-page .frequency-refresh-warning button:hover {
+  background: #fff8ee;
+}
+
+.frequency-page .loading-spinner {
+  animation: frequency-spin .75s linear infinite;
+  border: 3px solid #e8e1fa;
+  border-radius: 50%;
+  border-top-color: #6932df;
+  height: 28px;
+  width: 28px;
+}
+
+@keyframes frequency-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frequency-page .loading-spinner {
+    animation-duration: 2.4s;
+  }
+
+  .frequency-page .primary-button:hover {
+    transform: none;
+  }
+}
+
+.frequency-page .frequency-table-card,
+.frequency-page .frequency-history-card {
+  background: #fff;
+  border: 1px solid #e8e8ef;
+  border-radius: 11px;
+  box-shadow: 0 5px 16px rgba(30, 36, 65, .035);
+  overflow: hidden;
+}
+
+.frequency-page .table-card-header {
+  border-bottom: 1px solid #ececf1;
+  justify-content: space-between;
+  padding: 18px 20px;
+}
+
+.frequency-page .table-card-header h2 {
+  color: #1d2337;
+  font-size: .95rem;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  margin: 0;
+}
+
+.frequency-page .see-all {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e1e2e9;
+  border-radius: 7px;
+  color: #535a70;
+  display: flex;
+  font-size: .68rem;
+  gap: 7px;
+  padding: 9px 13px;
+}
+
+.frequency-page .see-all:hover {
+  border-color: #7650df;
+  color: #6030cb;
+}
+
+.frequency-page .see-all svg {
+  fill: none;
+  height: 16px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+  width: 16px;
+}
+
+.frequency-page .frequency-table-scroll {
+  overflow-x: auto;
+}
+
+.frequency-page .frequency-table-card table,
+.frequency-page .frequency-history-card table {
+  border-collapse: collapse;
+  min-width: 940px;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.frequency-page .column-discipline { width: 24%; }
+.frequency-page .column-minimum { width: 13%; }
+.frequency-page .column-loss { width: 12%; }
+.frequency-page .column-absences { width: 8%; }
+.frequency-page .column-attendance { width: 17%; }
+.frequency-page .column-situation { width: 13%; }
+.frequency-page .column-actions { width: 10%; }
+
+.frequency-page .frequency-table-card th,
+.frequency-page .frequency-table-card td,
+.frequency-page .frequency-history-card th,
+.frequency-page .frequency-history-card td {
+  border-bottom: 1px solid #ececf1;
+  padding: 15px 14px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.frequency-page .frequency-table-card th,
+.frequency-page .frequency-history-card th {
+  color: #495066;
+  font-size: .72rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.frequency-page .frequency-table-card td,
+.frequency-page .frequency-history-card td {
+  color: #555c70;
+  font-size: .78rem;
+  line-height: 1.4;
+}
+
+.frequency-page .frequency-table-card tbody tr:last-child td,
+.frequency-page .frequency-history-card tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.frequency-page .frequency-table-card tbody tr:hover,
+.frequency-page .frequency-history-card tbody tr:hover {
+  background: #fbfaff;
+}
+
+.frequency-page .frequency-table-card th:last-child,
+.frequency-page .frequency-table-card td:last-child,
+.frequency-page .frequency-history-card th:last-child,
+.frequency-page .frequency-history-card td:last-child {
+  text-align: center;
+}
+
+.frequency-page .frequency-table-card th:not(:first-child),
+.frequency-page .frequency-table-card td:not(:first-child),
+.frequency-page .frequency-history-card th:nth-child(5),
+.frequency-page .frequency-history-card td:nth-child(5) {
+  text-align: center;
+}
+
+.frequency-page .discipline-name-cell {
+  align-items: center;
+  display: flex;
+  gap: 11px;
+  min-width: 185px;
+}
+
+.frequency-page .discipline-name {
+  color: #24293c;
+  display: block;
+  font-size: .8rem;
+}
+
+.frequency-page .discipline-name-cell small {
+  color: #858b9e;
+  font-size: .68rem;
+}
+
+.frequency-page .discipline-color {
+  align-items: center;
+  border-radius: 50%;
+  display: flex;
+  flex: 0 0 38px;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.frequency-page .discipline-color svg {
+  fill: none;
+  height: 20px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  width: 20px;
+}
+
+.frequency-page .absences-cell {
+  color: #303649 !important;
+  font-weight: 400;
+}
+
+.frequency-page .attendance-cell {
+  display: grid;
+  gap: 7px;
+  margin-inline: auto;
+  max-width: 185px;
+  min-width: 0;
+  width: 100%;
+}
+
+.frequency-page .attendance-value {
+  font-size: .9rem;
+  font-weight: 800;
+}
+
+.frequency-page .attendance-value.is-good { color: #1a9a54; }
+.frequency-page .attendance-value.is-warning { color: #d9811a; }
+.frequency-page .attendance-value.is-bad { color: #d93b2b; }
+.frequency-page .attendance-value.is-empty { color: #767d90; }
+.frequency-page .attendance-value.is-neutral { color: #767d90; }
+
+.frequency-page .attendance-track {
+  background: #e8e9ee;
+  border-radius: 999px;
+  display: block;
+  height: 5px;
+  max-width: 185px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.frequency-page .attendance-track span {
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+}
+
+.frequency-page .attendance-track .is-good { background: #20aa60; }
+.frequency-page .attendance-track .is-warning { background: #f0951f; }
+.frequency-page .attendance-track .is-bad { background: #e04433; }
+
+.frequency-page .frequency-status {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: .68rem;
+  font-weight: 700;
+  padding: 4px 11px;
+  white-space: nowrap;
+}
+
+.frequency-page .frequency-status.is-success {
+  background: #e8f7ed;
+  color: #258b50;
+}
+
+.frequency-page .frequency-status.is-warning {
+  background: #fff0df;
+  color: #ce741a;
+}
+
+.frequency-page .frequency-status.is-danger {
+  background: #ffeceb;
+  color: #c93a2c;
+}
+
+.frequency-page .frequency-status.is-neutral {
+  background: #eff0f4;
+  color: #646b7d;
+}
+
+.frequency-history-card .impact-badge {
+  background: #ffeceb;
+  border-radius: 999px;
+  color: #c93a2c;
+  display: inline-block;
+  font-size: .68rem;
+  font-weight: 700;
+  padding: 4px 10px;
+}
+
+.frequency-page .frequency-actions-cell {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+  justify-content: center;
+}
+
+.frequency-page .frequency-actions-cell button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #576079;
+  display: flex;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.frequency-page .frequency-actions-cell button:hover {
+  background: #f0ecff;
+  color: #6532d8;
+}
+
+.frequency-page .frequency-actions-cell button.undo-action {
+  color: #e13f32;
+}
+
+.frequency-page .frequency-actions-cell button.undo-action:hover {
+  background: #fff0ed;
+  color: #e24c39;
+}
+
+.frequency-page .frequency-actions-cell button:disabled {
+  cursor: not-allowed;
+  opacity: .4;
+}
+
+.frequency-page .frequency-actions-cell button:disabled:hover {
+  background: transparent;
+}
+
+.frequency-page .frequency-actions-cell svg {
+  fill: none;
+  height: 20px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  width: 20px;
+}
+
+.frequency-page .frequency-no-results {
+  color: #747b8e;
+  font-size: .72rem;
+  line-height: 1.55;
+  padding: 32px 20px;
+  text-align: center;
+}
+
+@media (max-width: 980px) {
+  .frequency-page .frequency-header,
+  .frequency-page .frequency-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .frequency-page .frequency-actions,
+  .frequency-page .frequency-filter-options {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .frequency-page .frequency-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .frequency-page .frequency-actions,
+  .frequency-page .frequency-filter-options {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .frequency-page .frequency-search,
+  .frequency-page .frequency-period-filter,
+  .frequency-page .primary-button,
+  .frequency-page .clear-filters {
+    max-width: none;
+    width: 100%;
+  }
+
+  .frequency-page .frequency-period-filter {
+    justify-content: space-between;
+  }
+}

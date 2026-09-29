@@ -6,21 +6,36 @@ import { createRenderer, nextTick } from 'vue'
 import { rewriteRelativeImports } from './helpers/rewriteImports.mjs'
 
 test('as abas Frequência e Perfil abrem páginas separadas com autenticação', async t => {
-  const source = await readFile(new URL('../src/features/dashboard/DashboardScreen.vue', import.meta.url), 'utf8')
-  const { descriptor } = parse(source)
-  const compiled = compileScript(descriptor, {
-    id: 'navigation-test',
-    inlineTemplate: true,
-    templateOptions: { compilerOptions: { hoistStatic: false } },
-  })
-  // Isola as telas filhas; a navegação e os eventos usam o componente real.
-  const code = compiled.content
-    .replace(/import (\w+) from ['"][^'"]+\.vue['"]/g, (_, name) =>
-      `const ${name} = { render() { return testH('${name}') } }`)
-    .replace(/from ['"]vue['"]/g, `from ${JSON.stringify(import.meta.resolve('vue'))}`)
-  const { default: DashboardScreen } = await import(`data:text/javascript;base64,${Buffer.from(
-    `import { h as testH } from ${JSON.stringify(import.meta.resolve('vue'))};\n${rewriteRelativeImports(code, new URL('../src/features/dashboard/DashboardScreen.vue', import.meta.url))}`,
-  ).toString('base64')}`)
+  // Isola as telas filhas; a navegação e os eventos usam o componente real,
+  // assim como os subcomponentes do próprio dashboard (irmãos Dashboard*.vue).
+  const parts = ['DashboardSidebar', 'DashboardSummaryCards', 'DashboardStatusHero', 'DashboardClassesPanel',
+    'DashboardActivitiesPanel', 'DashboardRemindersPanel', 'DashboardFrequencyPanel', 'DashboardProgressPanel',
+    'DashboardGuideCards']
+  const load = async name => {
+    const sfcUrl = new URL(`../src/features/dashboard/${name}.vue`, import.meta.url)
+    const { descriptor } = parse(await readFile(sfcUrl, 'utf8'))
+    const compiled = compileScript(descriptor, {
+      id: `navigation-test-${name}`,
+      inlineTemplate: true,
+      templateOptions: { compilerOptions: { hoistStatic: false } },
+    })
+    const code = compiled.content
+      .replace(/import ['"][^'"]+\.css['"]/g, '')
+      .replace(/import (\w+) from ['"]\.\/(Dashboard\w+)\.vue['"]/g, (_, local, file) =>
+        `const ${local} = globalThis.__dashboardParts.${file}`)
+      .replace(/import (\w+) from ['"][^'"]+\.vue['"]/g, (_, local) =>
+        `const ${local} = { render() { return testH('${local}') } }`)
+      .replace(/from ['"]vue['"]/g, `from ${JSON.stringify(import.meta.resolve('vue'))}`)
+    const { default: component } = await import(`data:text/javascript;base64,${Buffer.from(
+      `import { h as testH } from ${JSON.stringify(import.meta.resolve('vue'))};
+${rewriteRelativeImports(code, sfcUrl)}`,
+    ).toString('base64')}`)
+    return component
+  }
+  globalThis.__dashboardParts = {}
+  t.after(() => { delete globalThis.__dashboardParts })
+  for (const name of parts) globalThis.__dashboardParts[name] = await load(name)
+  const DashboardScreen = await load('DashboardScreen')
 
   t.mock.method(globalThis, 'fetch', async input => {
     const path = String(input)
@@ -84,6 +99,9 @@ test('as abas Frequência e Perfil abrem páginas separadas com autenticação',
   })
   const root = node('root')
   app = renderer.createApp(DashboardScreen, { user: { name: 'Estudante' } })
+  // Componente usado no template sem import vira warning do Vue; o teste deve falhar nesse caso.
+  const warnings = []
+  app.config.warnHandler = message => { warnings.push(message) }
   app.mount(root)
   const all = item => [item, ...item.children.flatMap(all)]
   const textOf = item => item.text + item.children.map(textOf).join('')
@@ -91,6 +109,7 @@ test('as abas Frequência e Perfil abrem páginas separadas com autenticação',
 
   await new Promise(resolve => setImmediate(resolve))
   await nextTick()
+  assert.deepEqual(warnings.filter(message => message.includes('Failed to resolve component')), [])
   const activityIcon = all(root).find(item => item.props.class === 'dashboard-compact-activity-icon')
   assert.equal(activityIcon?.props.style['--discipline-color'], '#f59a17')
   const frequencyRing = all(root).find(item => item.props.class === 'dashboard-frequency-ring')
@@ -138,4 +157,5 @@ test('as abas Frequência e Perfil abrem páginas separadas com autenticação',
     false,
     'o cartão do usuário não deve mais abrir o perfil',
   )
+  assert.deepEqual(warnings.filter(message => message.includes('Failed to resolve component')), [])
 })

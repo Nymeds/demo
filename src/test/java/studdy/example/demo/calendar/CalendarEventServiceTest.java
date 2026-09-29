@@ -409,7 +409,8 @@ class CalendarEventServiceTest {
         List<CalendarEventResponse> upcoming = calendarEventService.findUpcoming(
                 owner.getId(),
                 dashboard.getId(),
-                5
+                5,
+                null
         );
 
         assertEquals(
@@ -427,22 +428,58 @@ class CalendarEventServiceTest {
         List<CalendarEventResponse> upcoming = calendarEventService.findUpcoming(
                 owner.getId(),
                 dashboard.getId(),
-                2
+                2,
+                null
         );
 
         assertEquals(List.of("Primeiro", "Segundo"), upcoming.stream().map(CalendarEventResponse::title).toList());
     }
 
     @Test
+    void filtersTheNextEventsByCategoryBeforeApplyingTheLimit() {
+        create("Aula 1", CalendarEventCategory.CLASS, LocalDateTime.now(clock).plusDays(1), null, null);
+        create("Aula 2", CalendarEventCategory.CLASS, LocalDateTime.now(clock).plusDays(2), null, null);
+        create("Prova", CalendarEventCategory.EXAM, LocalDateTime.now(clock).plusDays(3), null, null);
+        create("Trabalho", CalendarEventCategory.ASSIGNMENT, LocalDateTime.now(clock).plusDays(4), null, null);
+
+        List<CalendarEventResponse> onlyExams = calendarEventService.findUpcoming(
+                owner.getId(),
+                dashboard.getId(),
+                1,
+                List.of(CalendarEventCategory.EXAM)
+        );
+        List<CalendarEventResponse> examsAndAssignments = calendarEventService.findUpcoming(
+                owner.getId(),
+                dashboard.getId(),
+                5,
+                List.of(CalendarEventCategory.EXAM, CalendarEventCategory.ASSIGNMENT)
+        );
+
+        assertEquals(List.of("Prova"), onlyExams.stream().map(CalendarEventResponse::title).toList());
+        assertEquals(
+                List.of("Prova", "Trabalho"),
+                examsAndAssignments.stream().map(CalendarEventResponse::title).toList()
+        );
+    }
+
+    @Test
+    void treatsAnEmptyCategoryFilterOnTheNextEventsAsNoFilter() {
+        create("Aula", CalendarEventCategory.CLASS, LocalDateTime.now(clock).plusDays(1), null, null);
+        create("Prova", CalendarEventCategory.EXAM, LocalDateTime.now(clock).plusDays(2), null, null);
+
+        assertEquals(2, calendarEventService.findUpcoming(owner.getId(), dashboard.getId(), 5, List.of()).size());
+    }
+
+    @Test
     void rejectsAnUpcomingLimitOutOfRange() {
-        assertBadRequest(() -> calendarEventService.findUpcoming(owner.getId(), dashboard.getId(), 0));
-        assertBadRequest(() -> calendarEventService.findUpcoming(owner.getId(), dashboard.getId(), 51));
+        assertBadRequest(() -> calendarEventService.findUpcoming(owner.getId(), dashboard.getId(), 0, null));
+        assertBadRequest(() -> calendarEventService.findUpcoming(owner.getId(), dashboard.getId(), 51, null));
     }
 
     @Test
     void hidesTheCalendarOfAnotherUser() {
         assertNotFound(() -> findByPeriodAs(intruder.getId(), MONDAY, MONDAY.plusDays(7)));
-        assertNotFound(() -> calendarEventService.findUpcoming(intruder.getId(), dashboard.getId(), 5));
+        assertNotFound(() -> calendarEventService.findUpcoming(intruder.getId(), dashboard.getId(), 5, null));
     }
 
     private CalendarEventResponse create(

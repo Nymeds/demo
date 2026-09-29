@@ -7,12 +7,32 @@ import DisciplinesEmpty from '../disciplines/DisciplinesEmpty.vue'
 import FrequencyPage from '../frequency/FrequencyPage.vue'
 import ProfileScreen from '../profile/ProfileScreen.vue'
 import SimulatorNotes from '../simulator/SimulatorNotes.vue'
-import { frequencySituation } from '../frequency/frequencyRules.js'
 import CalendarScreen from '../calendar/CalendarScreen.vue'
 import GradesScreen from '../grades/GradesScreen.vue'
 import SettingsScreen from '../settings/SettingsScreen.vue'
 import { sectionFromPreference } from '../settings/settingsApi'
-import SidebarUserMenu from './SidebarUserMenu.vue'
+import DashboardActivitiesPanel from './DashboardActivitiesPanel.vue'
+import DashboardClassesPanel from './DashboardClassesPanel.vue'
+import DashboardFrequencyPanel from './DashboardFrequencyPanel.vue'
+import DashboardGuideCards from './DashboardGuideCards.vue'
+import DashboardProgressPanel from './DashboardProgressPanel.vue'
+import DashboardRemindersPanel from './DashboardRemindersPanel.vue'
+import DashboardSidebar from './DashboardSidebar.vue'
+import DashboardStatusHero from './DashboardStatusHero.vue'
+import DashboardSummaryCards from './DashboardSummaryCards.vue'
+import {
+  averageOf,
+  compareByDueDate,
+  firstNameOf,
+  frequencyDetailsOf,
+  isOverdue,
+  nextClassOf,
+  overdueRemindersOf,
+  reminderLimitIsoOf,
+  upcomingRemindersOf,
+  visibleReminderGroupsOf,
+} from './dashboardPresentation.js'
+import './dashboard.css'
 import { loadActiveDashboard } from '../../shared/dashboards/useActiveDashboard.js'
 import {
   ATTENTION_MARGIN,
@@ -21,9 +41,6 @@ import {
   loadPreferences,
   normalizePreferences,
 } from '../../shared/settings/preferences.js'
-
-const REMINDER_LIMIT = 8
-const REMINDER_OVERDUE_SHARE = 4
 
 const { user } = defineProps({
   user: { type: Object, required: true },
@@ -47,33 +64,9 @@ let hasLoadedDashboard = false
 let dashboardRequestSeq = 0
 let activitiesRequestSeq = 0
 
-const weekDayNumbers = {
-  SUNDAY: 0,
-  MONDAY: 1,
-  TUESDAY: 2,
-  WEDNESDAY: 3,
-  THURSDAY: 4,
-  FRIDAY: 5,
-  SATURDAY: 6,
-}
-
-const weekDayLabels = {
-  SUNDAY: 'Dom',
-  MONDAY: 'Seg',
-  TUESDAY: 'Ter',
-  WEDNESDAY: 'Qua',
-  THURSDAY: 'Qui',
-  FRIDAY: 'Sex',
-  SATURDAY: 'Sáb',
-}
-
 let clockTimer
 
-const firstName = computed(() => {
-  const rawName = user.name?.trim() || 'estudante'
-  const firstPart = rawName.includes('@') ? rawName.split('@')[0] : rawName.split(/\s+/)[0]
-  return firstPart.charAt(0).toUpperCase() + firstPart.slice(1)
-})
+const firstName = computed(() => firstNameOf(user.name))
 const userInitial = computed(() => firstName.value.charAt(0).toUpperCase())
 const todayIso = computed(() => [
   currentDateTime.value.getFullYear(),
@@ -177,34 +170,12 @@ async function loadSidebarAvatar() {
   }
 }
 
+
 const pendingActivities = computed(() => activities.value.filter(activity => activity.status !== 'COMPLETED'))
-const generalAverage = computed(() => {
-  const values = disciplines.value.map(discipline => discipline.average).filter(value => typeof value === 'number')
-  return values.length ? values.reduce((total, value) => total + value, 0) / values.length : null
-})
-const averageAttendance = computed(() => {
-  const values = disciplines.value.map(discipline => discipline.attendancePercentage).filter(value => typeof value === 'number')
-  return values.length ? values.reduce((total, value) => total + value, 0) / values.length : null
-})
+const generalAverage = computed(() => averageOf(disciplines.value, 'average'))
+const averageAttendance = computed(() => averageOf(disciplines.value, 'attendancePercentage'))
 const completedActivities = computed(() => activities.value.filter(activity => activity.status === 'COMPLETED').length)
-// Atividades sem prazo não são atrasadas e vão para o fim das listas ordenadas por data.
-function dueDateOf(activity) {
-  return typeof activity?.dueDate === 'string' ? activity.dueDate : ''
-}
-
-function compareByDueDate(first, second) {
-  const firstDate = dueDateOf(first)
-  const secondDate = dueDateOf(second)
-  if (!firstDate || !secondDate) return Number(!firstDate) - Number(!secondDate)
-  return firstDate.localeCompare(secondDate)
-}
-
-function isOverdue(activity) {
-  const dueDate = dueDateOf(activity)
-  return Boolean(dueDate) && dueDate < todayIso.value
-}
-
-const overdueActivities = computed(() => pendingActivities.value.filter(isOverdue).length)
+const overdueActivities = computed(() => pendingActivities.value.filter(activity => isOverdue(activity, todayIso.value)).length)
 const completionPercentage = computed(() => activities.value.length
   ? Math.round((completedActivities.value / activities.value.length) * 100)
   : 0)
@@ -213,125 +184,14 @@ const dashboardActivities = computed(() => [...activities.value]
   .sort(compareByDueDate)
   .slice(0, 3))
 // Avisos: provas e atividades pendentes cujo prazo entra na antecedência configurada em Preferências.
-const reminderLimitIso = computed(() => {
-  const limit = new Date(currentDateTime.value)
-  limit.setDate(limit.getDate() + deadlineAlertDays.value)
-  const year = limit.getFullYear()
-  const month = String(limit.getMonth() + 1).padStart(2, '0')
-  const day = String(limit.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-})
-const upcomingReminders = computed(() => activities.value
-  .filter(activity => activity.status !== 'COMPLETED'
-    && dueDateOf(activity)
-    && !isOverdue(activity)
-    && dueDateOf(activity) <= reminderLimitIso.value)
-  .sort(compareByDueDate))
-const overdueReminders = computed(() => activities.value
-  .filter(activity => activity.status !== 'COMPLETED' && isOverdue(activity))
-  .sort(compareByDueDate))
-const visibleReminderGroups = computed(() => {
-  const overdueCount = upcomingReminders.value.length
-    ? Math.min(overdueReminders.value.length, REMINDER_OVERDUE_SHARE)
-    : Math.min(overdueReminders.value.length, REMINDER_LIMIT)
-  const upcomingCount = Math.min(upcomingReminders.value.length, REMINDER_LIMIT - overdueCount)
-
-  return [
-    { key: 'overdue', label: 'Atrasadas', items: overdueReminders.value.slice(0, overdueCount) },
-    { key: 'upcoming', label: 'Próximos prazos', items: upcomingReminders.value.slice(0, upcomingCount) },
-  ].filter(group => group.items.length > 0)
-})
+const reminderLimitIso = computed(() => reminderLimitIsoOf(currentDateTime.value, deadlineAlertDays.value))
+const upcomingReminders = computed(() => upcomingRemindersOf(activities.value, todayIso.value, reminderLimitIso.value))
+const overdueReminders = computed(() => overdueRemindersOf(activities.value, todayIso.value))
+const visibleReminderGroups = computed(() => visibleReminderGroupsOf(overdueReminders.value, upcomingReminders.value))
 const totalReminders = computed(() => overdueReminders.value.length + upcomingReminders.value.length)
 const hiddenReminderCount = computed(() => totalReminders.value
   - visibleReminderGroups.value.reduce((sum, group) => sum + group.items.length, 0))
-const nextClass = computed(() => disciplines.value
-  .flatMap(discipline => (discipline.schedules || []).map((schedule, scheduleIndex) => {
-    const dayNumber = weekDayNumbers[schedule.dayOfWeek]
-    const [hours, minutes] = String(schedule.startTime || '').split(':').map(Number)
-
-    if (dayNumber === undefined || !Number.isInteger(hours) || !Number.isInteger(minutes)) return null
-
-    const startsAt = new Date(currentDateTime.value)
-    const daysUntilClass = (dayNumber - startsAt.getDay() + 7) % 7
-    startsAt.setDate(startsAt.getDate() + daysUntilClass)
-    startsAt.setHours(hours, minutes, 0, 0)
-
-    if (startsAt <= currentDateTime.value) startsAt.setDate(startsAt.getDate() + 7)
-
-    return {
-      id: `${discipline.id}-${scheduleIndex}`,
-      discipline,
-      schedule,
-      startsAt,
-    }
-  }))
-  .filter(Boolean)
-  .sort((first, second) => first.startsAt - second.startsAt)
-  .at(0) || null)
-
-function formatAverage(value) {
-  return value === null ? '—' : value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function formatDate(date) {
-  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' })
-    .format(new Date(`${date}T12:00:00`))
-}
-
-function formatCompactDate(date) {
-  if (!date) return '—'
-  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' })
-    .format(new Date(`${date}T12:00:00`))
-}
-
-function disciplineName(disciplineId) {
-  return disciplines.value.find(discipline => discipline.id === disciplineId)?.name || 'Disciplina'
-}
-
-function disciplineColor(disciplineId) {
-  return disciplines.value.find(discipline => discipline.id === disciplineId)?.color || '#6631db'
-}
-
-function reminderSectionFor(activity) {
-  return activity.type === 'EXAM' ? 'exams' : 'activities'
-}
-
-function reminderKindLabel(activity) {
-  return activity.type === 'EXAM' ? 'Prova' : 'Atividade'
-}
-
-function activityStatus(activity) {
-  if (activity.status === 'COMPLETED') return { label: 'Concluída', className: 'is-completed' }
-  if (isOverdue(activity)) return { label: 'Atrasada', className: 'is-overdue' }
-  if (activity.status === 'IN_PROGRESS') return { label: 'Em andamento', className: 'is-progress' }
-  return { label: 'Pendente', className: 'is-pending' }
-}
-
-function formatClassSchedule(upcomingClass) {
-  const { schedule, startsAt } = upcomingClass
-  const todayStart = new Date(currentDateTime.value)
-  todayStart.setHours(0, 0, 0, 0)
-  const classStart = new Date(startsAt)
-  classStart.setHours(0, 0, 0, 0)
-  const daysUntilClass = Math.round((classStart - todayStart) / 86400000)
-  const dayLabel = daysUntilClass === 0
-    ? 'Hoje'
-    : daysUntilClass === 1
-      ? 'Amanhã'
-      : weekDayLabels[schedule.dayOfWeek]
-  const startTime = String(schedule.startTime).slice(0, 5)
-  const endTime = String(schedule.endTime).slice(0, 5)
-
-  return `${dayLabel} ${startTime}–${endTime}`
-}
-
-function classDateTime(upcomingClass) {
-  const date = upcomingClass.startsAt
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}T${String(upcomingClass.schedule.startTime).slice(0, 5)}`
-}
+const nextClass = computed(() => nextClassOf(disciplines.value, currentDateTime.value))
 
 function applyPreferences(raw) {
   const preferences = normalizePreferences(raw)
@@ -363,82 +223,10 @@ onMounted(() => {
 const selectedFrequencyDiscipline = computed(() => disciplines.value.find(
   discipline => discipline.id === selectedFrequencyDisciplineId.value,
 ) || disciplines.value[0] || null)
-const selectedFrequencyDetails = computed(() => {
-  const discipline = selectedFrequencyDiscipline.value
-  if (!discipline) return null
-
-  const hasAttendance = typeof discipline.attendancePercentage === 'number'
-  const absences = Math.max(0, Number(discipline.absences ?? 0))
-  const lossPerAbsence = Number(discipline.lossPerAbsence ?? 5)
-  const minimum = Number(discipline.minimumAttendancePercentage ?? 75)
-  const maximumAbsences = Math.max(0, Number(
-    discipline.maximumAbsences ?? Math.floor((100 - minimum) / lossPerAbsence),
-  ))
-  const remainingAbsences = Math.max(0, maximumAbsences - absences)
-
-  if (!hasAttendance) {
-    return {
-      discipline,
-      attendance: null,
-      absences,
-      lossPerAbsence,
-      minimum,
-      maximumAbsences,
-      remainingAbsences,
-      message: 'Sem frequência cadastrada para esta disciplina.',
-      messageClass: 'is-neutral',
-      ringColor: '#c7cbd8',
-    }
-  }
-
-  const attendance = Math.max(0, Math.min(100, Number(discipline.attendancePercentage)))
-  const situation = frequencySituation(attendance, minimum, maximumAbsences - absences, attendanceAlertMargin.value)
-
-  if (situation === 'bad') {
-    return {
-      discipline,
-      attendance,
-      absences,
-      lossPerAbsence,
-      minimum,
-      maximumAbsences,
-      remainingAbsences,
-      message: 'Sua frequência está abaixo do mínimo exigido para aprovação.',
-      messageClass: 'is-danger',
-      ringColor: '#e04433',
-    }
-  }
-
-  if (situation === 'warning') {
-    return {
-      discipline,
-      attendance,
-      absences,
-      lossPerAbsence,
-      minimum,
-      maximumAbsences,
-      remainingAbsences,
-      message: remainingAbsences === 0
-        ? 'Você está no limite mínimo. Uma nova falta deixará a frequência abaixo do exigido.'
-        : 'Atenção: resta apenas uma falta antes de atingir o limite mínimo.',
-      messageClass: 'is-warning',
-      ringColor: '#f0951f',
-    }
-  }
-
-  return {
-    discipline,
-    attendance,
-    absences,
-    lossPerAbsence,
-    minimum,
-    maximumAbsences,
-    remainingAbsences,
-    message: `Você está acima do mínimo exigido e ainda pode registrar ${remainingAbsences} ${remainingAbsences === 1 ? 'falta' : 'faltas'}.`,
-    messageClass: 'is-success',
-    ringColor: '#20aa60',
-  }
-})
+const selectedFrequencyDetails = computed(() => frequencyDetailsOf(
+  selectedFrequencyDiscipline.value,
+  attendanceAlertMargin.value,
+))
 watch(activeSection, section => {
   if (section === 'dashboard') loadDashboard()
 })
@@ -453,147 +241,14 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <div class="dashboard-shell">
-    <aside class="dashboard-sidebar">
-      <div class="dashboard-brand">
-        <span class="dashboard-brand-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <path d="m3 9 9-4 9 4-9 4-9-4Z" />
-            <path d="M7 11v5c3 2 7 2 10 0v-5M21 9v6" />
-          </svg>
-        </span>
-        <span>
-          <strong>AcadOrganize</strong>
-          <small>Organize seus estudos</small>
-        </span>
-      </div>
-      <nav class="dashboard-navigation" aria-label="Navegação principal">
-        <button
-          type="button"
-          :class="{ active: activeSection === 'dashboard' }"
-          :aria-current="activeSection === 'dashboard' ? 'page' : undefined"
-          @click="activeSection = 'dashboard'"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="m3 11 9-8 9 8" />
-            <path d="M5 10v10h14V10M9 20v-6h6v6" />
-          </svg>
-          Dashboard
-        </button>
-        <button
-          type="button"
-          :class="{ active: activeSection === 'disciplines' }"
-          :aria-current="activeSection === 'disciplines' ? 'page' : undefined"
-          @click="activeSection = 'disciplines'"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" />
-          </svg>
-          Disciplinas
-        </button>
-        <button
-          type="button"
-          :class="{ active: activeSection === 'activities' }"
-          :aria-current="activeSection === 'activities' ? 'page' : undefined"
-          @click="activeSection = 'activities'"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="5" y="4" width="14" height="17" rx="2" />
-            <path d="M9 4V2m6 2V2M8 9h8m-8 4 2 2 4-4" />
-          </svg>
-          Atividades
-        </button>
-        <button
-          type="button"
-          :class="{ active: activeSection === 'exams' }"
-          :aria-current="activeSection === 'exams' ? 'page' : undefined"
-          @click="activeSection = 'exams'"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="5" y="3" width="14" height="18" rx="2" />
-            <path d="M9 3V2m6 1V2M8 9h8m-8 4h8m-8 4h5" />
-          </svg>
-          Provas
-        </button>
-        <button
-          type="button"
-          :class="{ active: activeSection === 'frequency' }"
-          :aria-current="activeSection === 'frequency' ? 'page' : undefined"
-          @click="activeSection = 'frequency'"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="3" y="5" width="18" height="16" rx="2" />
-            <path d="M16 3v4M8 3v4M3 11h18m-13 5 2 2 4-4" />
-          </svg>
-          Frequência
-        </button>
-        <button
-          type="button"
-          :class="{ active: activeSection === 'grades' }"
-          :aria-current="activeSection === 'grades' ? 'page' : undefined"
-          @click="activeSection = 'grades'"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M3 17l6-6 4 4 8-8" />
-            <path d="M14 7h7v7" />
-          </svg>
-          Notas
-        </button>
-        <button
-          type="button"
-          :class="{ active: activeSection === 'simulator' }"
-          :aria-current="activeSection === 'simulator' ? 'page' : undefined"
-          @click="activeSection = 'simulator'"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 19V5h16v14H4Z" />
-            <path d="M8 15v-3m4 3V9m4 6v-5" />
-          </svg>
-          Simulador de Notas
-        </button>
-        <button
-          type="button"
-          :class="{ active: activeSection === 'calendar' }"
-          :aria-current="activeSection === 'calendar' ? 'page' : undefined"
-          @click="activeSection = 'calendar'"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="3" y="5" width="18" height="16" rx="2" />
-            <path d="M7 3v4m10-4v4M3 10h18" />
-          </svg>
-          Calendário
-        </button>
-      </nav>
-      <nav class="dashboard-profile-navigation" aria-label="Conta">
-        <button
-          type="button"
-          :class="{ active: activeSection === 'profile' }"
-          :aria-current="activeSection === 'profile' ? 'page' : undefined"
-          @click="activeSection = 'profile'"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="8" r="4" />
-            <path d="M4 21a8 8 0 0 1 16 0" />
-          </svg>
-          Perfil
-        </button>
-      </nav>
-      <div class="dashboard-sidebar-footer">
-        <SidebarUserMenu
-          :name="user.name"
-          :initial="userInitial"
-          :fallback-avatar-url="sidebarAvatarUrl"
-          :settings-active="activeSection === 'settings'"
-          @open-settings="activeSection = 'settings'"
-        />
-        <button class="dashboard-logout" type="button" @click="emit('logout')">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10" />
-          </svg>
-          Sair
-        </button>
-      </div>
-    </aside>
+    <DashboardSidebar
+      :name="user.name"
+      :initial="userInitial"
+      :avatar-url="sidebarAvatarUrl"
+      :active-section="activeSection"
+      @navigate="activeSection = $event"
+      @logout="emit('logout')"
+    />
     <main class="dashboard-main">
       <header v-if="activeSection === 'dashboard'" class="dashboard-topbar">
         <div class="dashboard-welcome">
@@ -614,335 +269,66 @@ onBeforeUnmount(() => {
         </time>
       </header>
       <section v-if="activeSection === 'dashboard'" class="dashboard-overview" aria-labelledby="dashboard-empty-title">
-        <div class="dashboard-summary-grid" aria-label="Resumo acadêmico">
-          <article class="dashboard-summary-card is-purple">
-            <span class="dashboard-summary-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" /></svg>
-            </span>
-            <div><p>Disciplinas</p><strong>{{ dashboardLoading ? '—' : disciplines.length }}</strong><small>{{ disciplines.length ? 'Cadastradas' : 'Nenhuma ainda' }}</small></div>
-          </article>
-          <article class="dashboard-summary-card is-green">
-            <span class="dashboard-summary-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4V2m6 2V2M8 9h8m-8 4 2 2 4-4" /></svg>
-            </span>
-            <div><p>Atividades</p><strong>{{ dashboardLoading ? '—' : activities.length }}</strong><small>{{ activities.length ? 'Em todas as disciplinas' : 'Nenhuma ainda' }}</small></div>
-          </article>
-          <article class="dashboard-summary-card is-orange">
-            <span class="dashboard-summary-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18m5 4h4" /></svg>
-            </span>
-            <div><p>Pendentes</p><strong>{{ dashboardLoading ? '—' : pendingActivities.length }}</strong><small>{{ pendingActivities.length ? 'Aguardando conclusão' : 'Tudo em dia' }}</small></div>
-          </article>
-          <article class="dashboard-summary-card is-violet">
-            <span class="dashboard-summary-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M4 19v-5m5 5V9m5 10v-7m5 7V5" /><path d="m4 10 5-4 5 3 6-6" /></svg>
-            </span>
-            <div><p>Média geral</p><strong>{{ dashboardLoading ? '—' : formatAverage(generalAverage) }}</strong><small>{{ generalAverage === null ? 'Aguardando notas' : 'Das disciplinas' }}</small></div>
-          </article>
-          <article class="dashboard-summary-card is-blue">
-            <span class="dashboard-summary-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 1-7.8 4.5" /><path d="M12 3v9l6 4" /></svg>
-            </span>
-            <div><p>Frequência média</p><strong>{{ dashboardLoading || averageAttendance === null ? '—' : `${Math.round(averageAttendance)}%` }}</strong><small>{{ averageAttendance === null ? 'Aguardando frequência' : 'Das disciplinas' }}</small></div>
-          </article>
-        </div>
-        <article v-if="dashboardLoading" class="dashboard-empty-hero">
-          <h2>Atualizando seu dashboard…</h2>
-          <p>Estamos reunindo suas disciplinas e atividades.</p>
-        </article>
-        <article v-else-if="dashboardError" class="dashboard-empty-hero">
-          <h2>Não foi possível carregar o dashboard</h2>
-          <p>{{ dashboardError }}</p>
-          <button type="button" @click="loadDashboard">Tentar novamente</button>
-        </article>
-        <article v-else-if="disciplines.length === 0" class="dashboard-empty-hero">
-          <svg class="dashboard-empty-illustration" viewBox="0 0 420 190" role="img" aria-label="Ilustração de um painel acadêmico vazio">
-            <defs>
-              <linearGradient id="window-gradient" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#f3efff" />
-                <stop offset="1" stop-color="#e3dcff" />
-              </linearGradient>
-              <linearGradient id="purple-gradient" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#8b6cf1" />
-                <stop offset="1" stop-color="#6642d8" />
-              </linearGradient>
-            </defs>
-            <path d="M45 164h330" stroke="#e5dfff" stroke-width="3" stroke-linecap="round" />
-            <rect x="112" y="25" width="205" height="137" rx="10" fill="url(#window-gradient)" stroke="#d7cefb" stroke-width="2" />
-            <path d="M112 36a11 11 0 0 1 11-11h183a11 11 0 0 1 11 11v15H112V36Z" fill="url(#purple-gradient)" />
-            <circle cx="128" cy="38" r="4" fill="#ddd5ff" /><circle cx="141" cy="38" r="4" fill="#ddd5ff" /><circle cx="154" cy="38" r="4" fill="#ddd5ff" />
-            <rect x="132" y="66" width="47" height="7" rx="3.5" fill="#dcd4fb" /><rect x="132" y="84" width="34" height="6" rx="3" fill="#e5dffd" />
-            <circle cx="137" cy="110" r="4" fill="#d7cff8" /><rect x="149" y="107" width="27" height="6" rx="3" fill="#e3dcfc" />
-            <circle cx="137" cy="130" r="4" fill="#d7cff8" /><rect x="149" y="127" width="22" height="6" rx="3" fill="#e3dcfc" />
-            <rect x="195" y="65" width="101" height="78" rx="6" fill="#f9f8ff" stroke="#ddd6fb" />
-            <path d="m211 126 22-19 18 10 30-35" fill="none" stroke="#9d84ed" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
-            <circle cx="211" cy="126" r="5" fill="#8567e6" /><circle cx="233" cy="107" r="5" fill="#8567e6" /><circle cx="251" cy="117" r="5" fill="#8567e6" /><circle cx="281" cy="82" r="5" fill="#8567e6" />
-            <path d="M70 160h45l-5-38H75l-5 38Z" fill="#b9a7f0" /><path d="M92 123c-1-21 7-36 20-45 2 21-6 36-20 45Zm-2 1c-18-13-25-28-21-44 17 12 25 27 21 44Zm4 0c15-11 30-13 43-7-12 15-27 19-43 7Z" fill="#8062dc" />
-            <rect x="323" y="139" width="55" height="11" rx="3" fill="#7655dc" /><rect x="316" y="150" width="62" height="11" rx="3" fill="#a78eea" /><rect x="328" y="128" width="49" height="11" rx="3" fill="#c1aff3" />
-            <path d="m72 43 4 9 9 4-9 4-4 9-4-9-9-4 9-4 4-9Zm280 21 3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7Z" fill="#c6b4f8" />
-          </svg>
-          <h2 id="dashboard-empty-title">Seu dashboard está vazio por enquanto</h2>
-          <p>Cadastre suas disciplinas para começar a montar seu resumo acadêmico.</p>
-          <button type="button" @click="activeSection = 'disciplines'">
-            <span aria-hidden="true">＋</span>
-            Cadastrar primeira disciplina
-          </button>
-        </article>
+        <DashboardSummaryCards
+          :loading="dashboardLoading"
+          :discipline-count="disciplines.length"
+          :activity-count="activities.length"
+          :pending-count="pendingActivities.length"
+          :general-average="generalAverage"
+          :average-attendance="averageAttendance"
+        />
+        <DashboardStatusHero
+          v-if="dashboardLoading || dashboardError || disciplines.length === 0"
+          :loading="dashboardLoading"
+          :error="dashboardError"
+          @retry="loadDashboard"
+          @navigate="activeSection = $event"
+        />
         <div v-else class="dashboard-content-grid">
           <div class="dashboard-main-column">
-            <section class="dashboard-panel dashboard-classes-panel" aria-labelledby="dashboard-classes-title">
-              <header class="dashboard-panel-header">
-                <div>
-                  <span class="dashboard-eyebrow">Próxima aula</span>
-                  <h2 id="dashboard-classes-title">Sua próxima aula</h2>
-                </div>
-                <button type="button" @click="activeSection = 'disciplines'">Ver disciplinas <span aria-hidden="true">→</span></button>
-              </header>
-
-              <div v-if="!nextClass" class="dashboard-panel-empty dashboard-classes-empty">
-                <span aria-hidden="true">
-                  <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18" /></svg>
-                </span>
-                <div><strong>Nenhum horário de aula cadastrado</strong><p>Adicione os dias e horários nas suas disciplinas para visualizar as próximas aulas.</p></div>
-                <button type="button" @click="activeSection = 'disciplines'">Cadastrar horários</button>
-              </div>
-
-              <ul v-else class="dashboard-class-list">
-                <li>
-                  <span
-                    class="dashboard-class-icon"
-                    :style="{ '--discipline-color': nextClass.discipline.color || '#6d3ce8' }"
-                    aria-hidden="true"
-                  >
-                    <svg viewBox="0 0 24 24"><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" /></svg>
-                  </span>
-                  <div class="dashboard-class-info">
-                    <strong>{{ nextClass.discipline.name }}</strong>
-                    <small>Prof: {{ nextClass.discipline.professorName || 'Não informado' }}</small>
-                  </div>
-                  <time class="dashboard-class-time" :datetime="classDateTime(nextClass)">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18" /></svg>
-                    <span>{{ formatClassSchedule(nextClass) }}</span>
-                  </time>
-                  <button
-                    class="dashboard-class-open"
-                    type="button"
-                    :aria-label="`Ver disciplina ${nextClass.discipline.name}`"
-                    @click="activeSection = 'disciplines'"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
-                  </button>
-                </li>
-              </ul>
-            </section>
-
-            <section class="dashboard-panel dashboard-side-activities" aria-labelledby="dashboard-activities-title">
-              <header class="dashboard-panel-header">
-                <h2 id="dashboard-activities-title">Atividades pendentes</h2>
-                <button type="button" @click="activeSection = 'activities'">Ver todas <span aria-hidden="true">→</span></button>
-              </header>
-
-              <div v-if="activitiesError" class="dashboard-panel-empty dashboard-activities-error">
-                <span aria-hidden="true">
-                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 8v5m0 3v.01" /></svg>
-                </span>
-                <div>
-                  <strong>Não foi possível carregar as atividades</strong>
-                  <p>{{ activitiesError }}</p>
-                </div>
-                <button type="button" @click="retryActivities">Tentar novamente</button>
-              </div>
-
-              <div v-else-if="dashboardActivities.length === 0" class="dashboard-compact-empty">
-                <span aria-hidden="true">✓</span>
-                <p>Você não possui atividades pendentes.</p>
-              </div>
-
-              <ul v-else class="dashboard-compact-activity-list">
-                <li v-for="activity in dashboardActivities" :key="activity.id">
-                  <span
-                    class="dashboard-compact-activity-icon"
-                    :style="{ '--discipline-color': disciplineColor(activity.disciplineId) }"
-                    aria-hidden="true"
-                  >
-                    <svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4V2m6 2V2M8 9h8m-8 4h6" /></svg>
-                  </span>
-                  <div class="dashboard-activity-info">
-                    <strong>{{ activity.title }}</strong>
-                    <small>{{ disciplineName(activity.disciplineId) }}</small>
-                  </div>
-                  <div class="dashboard-compact-activity-meta">
-                    <time :datetime="activity.dueDate || undefined">{{ formatCompactDate(activity.dueDate) }}</time>
-                    <span :class="['dashboard-activity-status', activityStatus(activity).className]">{{ activityStatus(activity).label }}</span>
-                  </div>
-                </li>
-              </ul>
-            </section>
+            <DashboardClassesPanel
+              :next-class="nextClass"
+              :now="currentDateTime"
+              @navigate="activeSection = $event"
+            />
+            <DashboardActivitiesPanel
+              :activities="dashboardActivities"
+              :activities-error="activitiesError"
+              :disciplines="disciplines"
+              :today-iso="todayIso"
+              @navigate="activeSection = $event"
+              @retry="retryActivities"
+            />
           </div>
 
           <aside class="dashboard-side-column">
-            <section class="dashboard-panel dashboard-reminders-panel" aria-labelledby="dashboard-reminders-title">
-              <header class="dashboard-panel-header">
-                <div>
-                  <span class="dashboard-eyebrow">Avisos</span>
-                  <h2 id="dashboard-reminders-title">Prazos se aproximando</h2>
-                </div>
-              </header>
-
-              <div v-if="visibleReminderGroups.length === 0" class="dashboard-compact-empty">
-                <span aria-hidden="true">✓</span>
-                <p>Nenhuma prova ou atividade dentro da antecedência configurada.</p>
-              </div>
-
-              <template v-else>
-              <template v-for="group in visibleReminderGroups" :key="group.key">
-              <h3 class="dashboard-reminder-group">{{ group.label }}</h3>
-              <ul class="dashboard-compact-activity-list">
-                <li v-for="reminder in group.items" :key="reminder.id">
-                  <span
-                    class="dashboard-compact-activity-icon"
-                    :style="{ '--discipline-color': disciplineColor(reminder.disciplineId) }"
-                    aria-hidden="true"
-                  >
-                    <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9" /><path d="M12 7v5l3 2" /></svg>
-                  </span>
-                  <div class="dashboard-activity-info">
-                    <strong>{{ reminder.title }}</strong>
-                    <small>{{ reminderKindLabel(reminder) }} · {{ disciplineName(reminder.disciplineId) }}</small>
-                  </div>
-                  <div class="dashboard-compact-activity-meta">
-                    <time :datetime="reminder.dueDate || undefined">{{ formatCompactDate(reminder.dueDate) }}</time>
-                    <button
-                      type="button"
-                      class="dashboard-reminder-link"
-                      :aria-label="`Ver ${reminderKindLabel(reminder).toLowerCase()} ${reminder.title}`"
-                      @click="activeSection = reminderSectionFor(reminder)"
-                    >
-                      Ver <span aria-hidden="true">→</span>
-                    </button>
-                  </div>
-                </li>
-              </ul>
-              </template>
-              </template>
-              <button
-                v-if="hiddenReminderCount > 0"
-                type="button"
-                class="dashboard-reminder-more"
-                @click="activeSection = 'activities'"
-              >
-                Ver todas em Atividades (+{{ hiddenReminderCount }}) <span aria-hidden="true">→</span>
-              </button>
-            </section>
-
-            <section
+            <DashboardRemindersPanel
+              :groups="visibleReminderGroups"
+              :hidden-count="hiddenReminderCount"
+              :disciplines="disciplines"
+              @navigate="activeSection = $event"
+            />
+            <DashboardFrequencyPanel
               v-if="selectedFrequencyDetails"
-              class="dashboard-panel dashboard-frequency-panel"
-              aria-labelledby="dashboard-frequency-title"
-            >
-              <header class="dashboard-panel-header">
-                <div>
-                  <span class="dashboard-eyebrow">Acompanhamento</span>
-                  <h2 id="dashboard-frequency-title">Detalhes da frequência</h2>
-                </div>
-                <button type="button" @click="activeSection = 'frequency'">Ver todas <span aria-hidden="true">→</span></button>
-              </header>
-
-              <div class="dashboard-frequency-content" aria-live="polite">
-                <select
-                  class="dashboard-frequency-select"
-                  aria-label="Selecionar disciplina para consultar a frequência"
-                  :value="selectedFrequencyDisciplineId"
-                  @change="selectedFrequencyDisciplineId = $event.target.value"
-                >
-                  <option v-for="discipline in disciplines" :key="discipline.id" :value="discipline.id">
-                    {{ discipline.name }}
-                  </option>
-                </select>
-
-                <div class="dashboard-frequency-details">
-                  <div
-                    class="dashboard-frequency-ring"
-                    :style="{
-                      '--frequency-angle': `${(selectedFrequencyDetails.attendance ?? 0) * 3.6}deg`,
-                      '--frequency-color': selectedFrequencyDetails.ringColor,
-                    }"
-                    role="img"
-                    :aria-label="selectedFrequencyDetails.attendance === null
-                      ? 'Sem frequência cadastrada'
-                      : `Frequência atual de ${Math.round(selectedFrequencyDetails.attendance)}%`"
-                  >
-                    <div>
-                      <strong v-if="selectedFrequencyDetails.attendance === null" class="dashboard-frequency-empty">—</strong>
-                      <strong v-else>{{ Math.round(selectedFrequencyDetails.attendance) }}%</strong>
-                      <span>Frequência</span>
-                    </div>
-                  </div>
-
-                  <dl class="dashboard-frequency-metrics">
-                    <div>
-                      <dt><span class="is-red" aria-hidden="true"></span>Faltas registradas</dt>
-                      <dd>{{ selectedFrequencyDetails.absences }}</dd>
-                    </div>
-                    <div>
-                      <dt><span class="is-purple" aria-hidden="true"></span>Limite de faltas</dt>
-                      <dd>{{ selectedFrequencyDetails.maximumAbsences }}</dd>
-                    </div>
-                    <div>
-                      <dt><span class="is-orange" aria-hidden="true"></span>Perda por falta</dt>
-                      <dd>{{ selectedFrequencyDetails.lossPerAbsence }}%</dd>
-                    </div>
-                  </dl>
-                </div>
-
-                <div class="dashboard-frequency-minimum">
-                  <span>Limite mínimo: {{ Math.round(selectedFrequencyDetails.minimum) }}%</span>
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v5m0-8v.01" /></svg>
-                </div>
-
-                <p :class="['dashboard-frequency-message', selectedFrequencyDetails.messageClass]">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 8v5m0 3v.01" /></svg>
-                  {{ selectedFrequencyDetails.message }}
-                </p>
-              </div>
-            </section>
-
-
-            <section class="dashboard-panel dashboard-progress-panel" aria-labelledby="dashboard-progress-title">
-              <span class="dashboard-eyebrow">Seu ritmo</span>
-              <h2 id="dashboard-progress-title">Progresso das atividades</h2>
-              <div class="dashboard-progress-value"><strong>{{ completionPercentage }}%</strong><span>{{ completedActivities }} de {{ activities.length }} concluídas</span></div>
-              <div class="dashboard-progress-track" aria-hidden="true"><span :style="{ width: `${completionPercentage}%` }"></span></div>
-              <div class="dashboard-progress-meta"><span><strong>{{ pendingActivities.length }}</strong> pendentes</span><span :class="{ 'has-overdue': overdueActivities > 0 }"><strong>{{ overdueActivities }}</strong> atrasadas</span></div>
-            </section>
+              :details="selectedFrequencyDetails"
+              :disciplines="disciplines"
+              :selected-discipline-id="selectedFrequencyDisciplineId"
+              @navigate="activeSection = $event"
+              @select="selectedFrequencyDisciplineId = $event"
+            />
+            <DashboardProgressPanel
+              :completion-percentage="completionPercentage"
+              :completed-count="completedActivities"
+              :total-count="activities.length"
+              :pending-count="pendingActivities.length"
+              :overdue-count="overdueActivities"
+            />
           </aside>
         </div>
-        <div v-if="!dashboardLoading && disciplines.length === 0" class="dashboard-guide-grid" aria-label="Próximos passos">
-          <article class="dashboard-guide-card is-purple">
-            <span class="dashboard-guide-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" /></svg>
-            </span>
-            <div><h3>Adicione suas disciplinas</h3><p>Comece pelas matérias que você está cursando.</p><button type="button" @click="activeSection = 'disciplines'">Cadastrar disciplina <span aria-hidden="true">→</span></button></div>
-          </article>
-          <article class="dashboard-guide-card is-green">
-            <span class="dashboard-guide-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4V2m6 2V2M8 9h8m-8 4 2 2 4-4" /></svg>
-            </span>
-            <div><h3>Crie atividades</h3><p>Organize tarefas, trabalhos e compromissos.</p><button type="button" @click="activeSection = 'activities'">Gerenciar atividades <span aria-hidden="true">→</span></button></div>
-          </article>
-          <article class="dashboard-guide-card is-orange">
-            <span class="dashboard-guide-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18m5 4h4" /></svg>
-            </span>
-            <div><h3>Agende suas provas</h3><p>Organize as datas das suas avaliações.</p><button type="button" @click="activeSection = 'exams'">Ver provas <span aria-hidden="true">→</span></button></div>
-          </article>
-          <article class="dashboard-guide-card is-violet">
-            <span class="dashboard-guide-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M4 19v-5m5 5V9m5 10v-7m5 7V5" /><path d="m4 10 5-4 5 3 6-6" /></svg>
-            </span>
-            <div><h3>Acompanhe seu progresso</h3><p>Veja gráficos e estatísticas das suas notas.</p><button type="button" @click="activeSection = 'grades'">Ver notas <span aria-hidden="true">→</span></button></div>
-          </article>
-        </div>
+        <DashboardGuideCards
+          v-if="!dashboardLoading && disciplines.length === 0"
+          @navigate="activeSection = $event"
+        />
         <p v-if="disciplines.length === 0" class="dashboard-tip">
           <span aria-hidden="true">💡</span>
           <strong>Dica:</strong> quanto mais você usar o AcadOrganize, mais completo será o seu dashboard.
@@ -988,303 +374,3 @@ onBeforeUnmount(() => {
     </main>
   </div>
 </template>
-<style scoped>
-.dashboard-reminder-group {
-  color: #5f6478;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  margin: 12px 0 6px;
-  text-transform: uppercase;
-}
-
-.dashboard-reminder-more {
-  background: none;
-  border: 0;
-  color: #6631db;
-  cursor: pointer;
-  font: inherit;
-  font-weight: 600;
-  margin-top: 10px;
-  padding: 4px 0;
-}
-
-.dashboard-reminder-more:focus-visible {
-  outline: 3px solid #b9a7f5;
-  outline-offset: 2px;
-}
-
-.dashboard-shell {
-  background: #f5f6fb;
-  color: #151a2d;
-  display: grid;
-  grid-template-columns: 252px minmax(0, 1fr);
-  max-width: 100%;
-  min-height: 100svh;
-  overflow-x: clip;
-  width: 100%;
-}
-
-.dashboard-sidebar {
-  --navigation-icon-size: 20px;
-  background: linear-gradient(180deg, #111a2f 0%, #091326 100%);
-  color: #fff;
-  display: flex;
-  flex-direction: column;
-  height: 100svh;
-  padding: 26px 16px 18px;
-  position: sticky;
-  top: 0;
-}
-.dashboard-brand { align-items: center; border-bottom: 1px solid rgba(255, 255, 255, .08); display: flex; gap: 12px; margin: 0 -16px 22px; padding: 0 22px 25px; }
-.dashboard-brand-icon { align-items: center; color: #7547ff; display: flex; flex: 0 0 42px; height: 42px; justify-content: center; }
-.dashboard-brand-icon svg { fill: #6d3cf2; height: 38px; stroke: #7d55f2; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.4; width: 38px; }
-.dashboard-brand strong { display: block; font-size: .96rem; letter-spacing: -.025em; }
-.dashboard-brand small { color: #9faac0; display: block; font-size: .64rem; margin-top: 3px; }
-.dashboard-navigation { display: grid; gap: 7px; }
-.dashboard-navigation button,
-.dashboard-profile-navigation button,
-.dashboard-logout {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 8px;
-  color: #d4d9e3;
-  display: flex;
-  font-size: .78rem;
-  gap: 13px;
-  padding: 12px 14px;
-  text-align: left;
-  transition: background-color .18s, color .18s;
-  width: 100%;
-}
-.dashboard-navigation button:hover,
-.dashboard-profile-navigation button:hover,
-.dashboard-logout:hover { background: rgba(255, 255, 255, .07); color: #fff; }
-.dashboard-navigation button.active,
-.dashboard-profile-navigation button.active { background: linear-gradient(100deg, #5431b5, #6b3ad6); box-shadow: 0 10px 24px rgba(32, 12, 88, .35); color: #fff; font-weight: 750; }
-.dashboard-navigation svg,
-.dashboard-profile-navigation svg,
-.dashboard-logout svg { display: block; fill: none; flex: 0 0 var(--navigation-icon-size); height: var(--navigation-icon-size); stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: var(--navigation-icon-size); }
-.dashboard-navigation button:focus-visible,
-.dashboard-profile-navigation button:focus-visible,
-.dashboard-logout:focus-visible { outline: 2px solid #947eff; outline-offset: 2px; }
-.dashboard-profile-navigation { margin-top: auto; padding-bottom: 12px; }
-.dashboard-sidebar-footer { border-top: 1px solid rgba(255, 255, 255, .07); padding-top: 16px; }
-.dashboard-user-card { align-items: center; background: rgba(255, 255, 255, .045); border-radius: 9px; color: inherit; display: flex; gap: 10px; margin-bottom: 9px; min-width: 0; padding: 10px; width: 100%; }
-.dashboard-user-avatar { align-items: center; background: linear-gradient(135deg, #7749f7, #5320da); border-radius: 50%; display: flex; flex: 0 0 36px; font-size: .78rem; font-weight: 800; height: 36px; justify-content: center; overflow: hidden; }
-.dashboard-user-avatar img { height: 100%; object-fit: cover; width: 100%; }
-.dashboard-user-details { min-width: 0; }
-.dashboard-user-details strong { display: block; font-size: .71rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dashboard-user-details small { color: #a9b1c1; display: block; font-size: .61rem; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dashboard-main { margin: 0 auto; max-width: 100%; min-width: 0; padding: 30px clamp(24px, 3vw, 48px) 48px; width: 100%; }
-.dashboard-topbar { align-items: center; background: linear-gradient(120deg, #5730b7 0%, #7043d7 52%, #875ceb 100%); border-radius: 20px; box-shadow: 0 18px 42px rgba(91, 51, 184, .2); color: #fff; display: flex; justify-content: space-between; margin-bottom: 22px; overflow: hidden; padding: 28px 30px; position: relative; }
-.dashboard-topbar::after { background: rgba(255, 255, 255, .08); border-radius: 50%; content: ''; height: 240px; position: absolute; right: -65px; top: -125px; width: 240px; }
-.dashboard-welcome { position: relative; z-index: 1; }
-.dashboard-welcome-label { color: #ded3ff; display: block; font-size: .62rem; font-weight: 800; letter-spacing: .12em; margin-bottom: 7px; text-transform: uppercase; }
-.dashboard-topbar h1 { color: #fff; font-size: clamp(1.65rem, 2.5vw, 2.15rem); font-weight: 820; letter-spacing: -.04em; line-height: 1.1; margin: 0 0 8px; }
-.dashboard-topbar p { color: #e5ddfa; font-size: .78rem; }
-.dashboard-welcome-actions { display: flex; gap: 9px; margin-top: 19px; }
-.dashboard-welcome-actions button { border: 1px solid rgba(255,255,255,.34); border-radius: 9px; cursor: pointer; font-size: .68rem; font-weight: 750; padding: 9px 13px; }
-.dashboard-welcome-actions button:first-child { background: #fff; border-color: #fff; color: #5f34c0; }
-.dashboard-welcome-actions button:last-child { background: rgba(255,255,255,.1); color: #fff; }
-.dashboard-date { align-items: center; background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .25); border-radius: 10px; color: #fff; display: flex; font-size: .68rem; font-weight: 700; gap: 9px; padding: 11px 13px; position: relative; z-index: 1; }
-.dashboard-date svg { fill: none; height: 18px; stroke: #fff; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; width: 18px; }
-.dashboard-overview { display: grid; gap: 18px; }
-.dashboard-summary-grid { display: grid; gap: 15px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
-.dashboard-summary-card { align-items: center; background: #fff; border: 1px solid #e5e7f0; border-radius: 15px; box-shadow: 0 8px 24px rgba(30, 36, 65, .05); display: flex; gap: 14px; min-height: 120px; min-width: 0; padding: 19px; transition: box-shadow .2s, transform .2s; }
-.dashboard-summary-card:hover { box-shadow: 0 12px 30px rgba(30, 36, 65, .075); transform: translateY(-2px); }
-.dashboard-summary-icon { align-items: center; background: #f1edff; border-radius: 50%; color: #6739e7; display: flex; flex: 0 0 48px; height: 48px; justify-content: center; }
-.dashboard-summary-icon svg { fill: none; height: 24px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 24px; }
-.dashboard-summary-card div { min-width: 0; }
-.dashboard-summary-card p { color: #626a7f; font-size: .71rem; line-height: 1.25; }
-.dashboard-summary-card strong { color: #171c30; display: block; font-size: 1.48rem; line-height: 1; margin: 8px 0 6px; }
-.dashboard-summary-card small { color: #8a90a2; display: block; font-size: .62rem; line-height: 1.25; }
-.dashboard-summary-card.is-green .dashboard-summary-icon { background: #e8f8ef; color: #2daf68; }
-.dashboard-summary-card.is-orange .dashboard-summary-icon { background: #fff0e2; color: #ee831e; }
-.dashboard-summary-card.is-violet .dashboard-summary-icon { background: #f1edff; color: #6330e0; }
-.dashboard-summary-card.is-blue .dashboard-summary-icon { background: #eaf2ff; color: #347bd8; }
-.dashboard-empty-hero { align-items: center; background: #fff; border: 1px solid #ebeaf1; border-radius: 12px; box-shadow: 0 5px 16px rgba(30, 36, 65, .035); display: flex; flex-direction: column; min-height: 405px; padding: 25px 30px 31px; text-align: center; }
-.dashboard-empty-illustration { display: block; height: 182px; max-width: 420px; width: min(100%, 420px); }
-.dashboard-empty-hero h2 { color: #171c30; font-size: 1.22rem; font-weight: 800; letter-spacing: -.025em; margin: 3px 0 8px; }
-.dashboard-empty-hero p { color: #73798e; font-size: .78rem; line-height: 1.55; max-width: 430px; }
-.dashboard-empty-hero button { align-items: center; background: linear-gradient(100deg, #5c20de, #741dff); border: 0; border-radius: 7px; box-shadow: 0 8px 19px rgba(102, 36, 225, .2); color: #fff; display: flex; font-size: .78rem; font-weight: 700; gap: 8px; margin-top: 19px; padding: 12px 18px; }
-.dashboard-empty-hero button span { font-size: 1.15rem; font-weight: 400; line-height: .8; }
-.dashboard-empty-hero button:hover { box-shadow: 0 11px 24px rgba(102, 36, 225, .28); transform: translateY(-1px); }
-.dashboard-empty-hero button:focus-visible { outline: 3px solid rgba(105, 54, 224, .28); outline-offset: 3px; }
-.dashboard-guide-grid { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.dashboard-guide-card { align-items: flex-start; background: #fff; border: 1px solid #e7e4f0; border-radius: 11px; display: flex; gap: 13px; min-height: 164px; padding: 20px 17px; }
-.dashboard-guide-icon { align-items: center; background: #f1edff; border-radius: 50%; color: #6330e0; display: flex; flex: 0 0 43px; height: 43px; justify-content: center; }
-.dashboard-guide-icon svg { fill: none; height: 21px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 21px; }
-.dashboard-guide-card > div { display: flex; flex: 1; flex-direction: column; min-height: 122px; }
-.dashboard-guide-card h3 { color: #202538; font-size: .71rem; font-weight: 750; margin: 2px 0 7px; }
-.dashboard-guide-card p { color: #7a8194; font-size: .64rem; line-height: 1.55; }
-.dashboard-guide-card button { align-self: flex-start; background: none; border: 0; color: #6429db; font-size: .64rem; font-weight: 750; margin-top: auto; padding: 4px 0; }
-.dashboard-guide-card button:hover { text-decoration: underline; }
-.dashboard-guide-card.is-green .dashboard-guide-icon { background: #e8f8ef; color: #2daf68; }
-.dashboard-guide-card.is-orange .dashboard-guide-icon { background: #fff0e2; color: #ee831e; }
-.dashboard-guide-card.is-violet .dashboard-guide-icon { background: #f1edff; color: #6330e0; }
-.dashboard-tip { background: #f2efff; border-radius: 8px; color: #6c7287; font-size: .7rem; padding: 12px 18px; text-align: center; }
-.dashboard-tip strong { color: #30364a; }
-.dashboard-content-grid { align-items: start; display: grid; gap: 18px; grid-template-columns: minmax(0, 1.65fr) minmax(300px, .8fr); }
-.dashboard-panel { background: #fff; border: 1px solid #e7e8f0; border-radius: 14px; box-shadow: 0 8px 24px rgba(30, 36, 65, .04); }
-.dashboard-panel-header { align-items: center; border-bottom: 1px solid #eff0f5; display: flex; justify-content: space-between; padding: 20px 22px 17px; }
-.dashboard-panel h2 { color: #171c30; font-size: 1rem; font-weight: 800; letter-spacing: -.02em; margin: 3px 0 0; }
-.dashboard-eyebrow { color: #7240df; display: block; font-size: .61rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
-.dashboard-panel-header button { background: transparent; border: 0; color: #6734d8; cursor: pointer; font-size: .7rem; font-weight: 750; padding: 7px; }
-.dashboard-class-list { list-style: none; margin: 0; padding: 0 22px; }
-.dashboard-class-list li { align-items: center; border-bottom: 1px solid #eff0f5; display: grid; gap: 16px; grid-template-columns: 52px minmax(0, 1fr) minmax(170px, auto) 28px; min-height: 86px; padding: 14px 3px; }
-.dashboard-class-list li:last-child { border-bottom: 0; }
-.dashboard-class-icon { align-items: center; background: #f0ebff; border-radius: 12px; color: var(--discipline-color); display: flex; height: 50px; justify-content: center; width: 50px; }
-.dashboard-class-icon svg { fill: none; height: 25px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.9; width: 25px; }
-.dashboard-class-info { min-width: 0; }
-.dashboard-class-info strong { color: #1f2539; display: block; font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dashboard-class-info small { color: #626b82; display: block; font-size: .68rem; margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dashboard-class-time { align-items: center; color: #26324e; display: flex; font-size: .72rem; font-weight: 650; gap: 9px; white-space: nowrap; }
-.dashboard-class-time svg { fill: none; height: 18px; stroke: #5c66a0; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 18px; }
-.dashboard-class-open { align-items: center; background: transparent; border: 0; border-radius: 7px; color: #52618a; cursor: pointer; display: flex; height: 28px; justify-content: center; padding: 0; width: 28px; }
-.dashboard-class-open:hover { background: #f2effb; color: #6530dc; }
-.dashboard-class-open:focus-visible { outline: 2px solid #8261dd; outline-offset: 2px; }
-.dashboard-class-open svg { fill: none; height: 18px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; width: 18px; }
-.dashboard-classes-empty > span svg { fill: none; height: 21px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 21px; }
-.dashboard-activity-list { list-style: none; margin: 0; padding: 0 22px; }
-.dashboard-activity-list li { align-items: center; border-bottom: 1px solid #eff0f5; display: grid; gap: 13px; grid-template-columns: 48px minmax(0, 1fr) auto; padding: 14px 0; }
-.dashboard-activity-list li:last-child { border-bottom: 0; }
-.dashboard-activity-list time { align-items: center; background: #f4f1ff; border-radius: 10px; color: #6330d4; display: flex; flex-direction: column; height: 46px; justify-content: center; text-transform: uppercase; }
-.dashboard-activity-list time strong { font-size: .84rem; line-height: 1; }
-.dashboard-activity-list time small { font-size: .48rem; font-weight: 800; margin-top: 3px; }
-.dashboard-activity-info { min-width: 0; }
-.dashboard-activity-info strong { color: #22283b; display: block; font-size: .76rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dashboard-activity-info small { color: #83899a; display: block; font-size: .63rem; margin-top: 4px; }
-.dashboard-activity-status { border-radius: 999px; font-size: .61rem; font-weight: 800; padding: 6px 10px; white-space: nowrap; }
-.dashboard-activity-status.is-completed { background: #e9f8ef; color: #23894f; }
-.dashboard-activity-status.is-overdue { background: #fff0ef; color: #c4463e; }
-.dashboard-activity-status.is-progress { background: #eaf2ff; color: #3471c7; }
-.dashboard-activity-status.is-pending { background: #fff2e5; color: #b76315; }
-.dashboard-reminder-link { background: #f1ecff; border: 0; border-radius: 999px; box-sizing: border-box; color: #5f2bd5; cursor: pointer; font-size: .61rem; font-weight: 800; justify-self: stretch; padding: 6px 10px; text-align: center; white-space: nowrap; width: 100%; }
-.dashboard-reminder-link:hover, .dashboard-reminder-link:focus-visible { background: #e2d6ff; }
-.dashboard-panel-empty { align-items: center; display: flex; gap: 12px; min-height: 180px; padding: 24px; }
-.dashboard-panel-empty > span { align-items: center; background: #e9f8ef; border-radius: 50%; color: #249255; display: flex; flex: 0 0 42px; height: 42px; justify-content: center; }
-.dashboard-panel-empty div { flex: 1; }
-.dashboard-panel-empty strong { color: #252a3d; font-size: .75rem; }
-.dashboard-panel-empty p { color: #7b8192; font-size: .63rem; margin-top: 3px; }
-.dashboard-panel-empty button { background: #6832df; border: 0; border-radius: 8px; color: #fff; cursor: pointer; font-size: .62rem; font-weight: 750; padding: 9px 11px; }
-.dashboard-activities-error > span { background: #fff0ef; color: #c4463e; }
-.dashboard-activities-error > span svg { fill: none; height: 20px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 20px; }
-.dashboard-main-column, .dashboard-side-column { display: grid; gap: 17px; min-width: 0; }
-.dashboard-frequency-panel { overflow: hidden; }
-.dashboard-frequency-content { display: grid; gap: 15px; padding: 17px 18px 18px; }
-.dashboard-frequency-select { appearance: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23575e73' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center; border: 1px solid #dfe2ea; border-radius: 8px; color: #252b40; font-size: .72rem; height: 40px; outline: none; overflow: hidden; padding: 0 38px 0 12px; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
-.dashboard-frequency-select:focus { border-color: #7544eb; box-shadow: 0 0 0 3px rgba(117, 68, 235, .11); }
-.dashboard-frequency-details { align-items: center; display: grid; gap: 15px; grid-template-columns: 108px minmax(0, 1fr); }
-.dashboard-frequency-ring { align-items: center; background: conic-gradient(from -90deg, var(--frequency-color) 0 var(--frequency-angle), #e7e9ef var(--frequency-angle) 360deg); border-radius: 50%; display: flex; height: 108px; justify-content: center; width: 108px; }
-.dashboard-frequency-ring > div { align-items: center; background: #fff; border-radius: 50%; display: flex; flex-direction: column; height: 78px; justify-content: center; width: 78px; }
-.dashboard-frequency-ring strong { color: #1d2337; font-size: 1.3rem; line-height: 1; }
-.dashboard-frequency-ring span { color: #747b8e; font-size: .58rem; margin-top: 5px; }
-.dashboard-frequency-metrics { display: grid; gap: 11px; margin: 0; min-width: 0; }
-.dashboard-frequency-metrics > div { align-items: center; display: flex; gap: 8px; justify-content: space-between; min-width: 0; }
-.dashboard-frequency-metrics dt { align-items: center; color: #5e667b; display: flex; font-size: .64rem; gap: 7px; min-width: 0; }
-.dashboard-frequency-metrics dt > span { border-radius: 50%; flex: 0 0 7px; height: 7px; width: 7px; }
-.dashboard-frequency-metrics dt > span.is-red { background: #ef4b46; }
-.dashboard-frequency-metrics dt > span.is-purple { background: #7544eb; }
-.dashboard-frequency-metrics dt > span.is-orange { background: #f2951d; }
-.dashboard-frequency-metrics dd { color: #242a3d; flex: 0 0 auto; font-size: .7rem; font-weight: 750; margin: 0; }
-.dashboard-frequency-minimum { align-items: center; background: #fff3df; border-radius: 7px; color: #a15f12; display: flex; font-size: .64rem; justify-content: space-between; padding: 9px 10px; }
-.dashboard-frequency-minimum svg { fill: none; height: 15px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 15px; }
-.dashboard-frequency-message { align-items: flex-start; border-radius: 7px; display: flex; font-size: .61rem; gap: 7px; line-height: 1.45; padding: 9px 10px; }
-.dashboard-frequency-message svg { fill: none; flex: 0 0 15px; height: 15px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 15px; }
-.dashboard-frequency-message.is-success { background: #edf8f0; color: #27824c; }
-.dashboard-frequency-message.is-warning { background: #fff5e5; color: #a76717; }
-.dashboard-frequency-message.is-danger { background: #fff0ef; color: #bd443b; }
-.dashboard-frequency-message.is-neutral { background: #f1f2f6; color: #626a80; }
-.dashboard-frequency-empty { color: #8a90a2; font-size: 1.05rem; }
-.dashboard-side-activities .dashboard-panel-header { padding: 16px 18px 13px; }
-.dashboard-side-activities .dashboard-panel-header h2 { color: #6933db; font-size: .66rem; letter-spacing: .07em; margin: 0; text-transform: uppercase; }
-.dashboard-compact-activity-list { list-style: none; margin: 0; padding: 0 18px; }
-.dashboard-compact-activity-list li { align-items: center; border-bottom: 1px solid #eff0f5; display: grid; gap: 10px; grid-template-columns: 36px minmax(0, 1fr) auto; min-height: 62px; padding: 9px 0; }
-.dashboard-compact-activity-list li:last-child { border-bottom: 0; }
-.dashboard-compact-activity-icon { align-items: center; background: color-mix(in srgb, var(--discipline-color) 12%, white); border-radius: 9px; color: var(--discipline-color); display: flex; height: 36px; justify-content: center; width: 36px; }
-.dashboard-compact-activity-icon svg { fill: none; height: 18px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 18px; }
-.dashboard-side-activities .dashboard-activity-info { padding-right: 45px; }
-.dashboard-compact-activity-meta { align-items: center; display: grid; gap: 40px; grid-template-columns: 40px 100px; white-space: nowrap; }
-.dashboard-compact-activity-meta .dashboard-activity-status { box-sizing: border-box; justify-self: stretch; text-align: center; width: 100%; }
-.dashboard-compact-activity-list time { color: #252b40; font-size: .67rem; font-variant-numeric: tabular-nums; font-weight: 750; text-align: center; white-space: nowrap; }
-.dashboard-compact-empty { align-items: center; color: #71798e; display: flex; font-size: .68rem; gap: 9px; min-height: 80px; padding: 17px 19px; }
-.dashboard-compact-empty > span { align-items: center; background: #e9f8ef; border-radius: 50%; color: #23894f; display: flex; flex: 0 0 28px; height: 28px; justify-content: center; }
-.dashboard-compact-empty p { margin: 0; }
-.dashboard-progress-panel { padding: 20px; }
-.dashboard-progress-value { align-items: flex-end; display: flex; gap: 9px; margin: 18px 0 10px; }
-.dashboard-progress-value strong { color: #5f2bd5; font-size: 1.7rem; line-height: 1; }
-.dashboard-progress-value span { color: #808698; font-size: .6rem; }
-.dashboard-progress-track { background: #edeaf5; border-radius: 999px; height: 7px; overflow: hidden; }
-.dashboard-progress-track span { background: linear-gradient(90deg, #7041df, #8b62ef); border-radius: inherit; display: block; height: 100%; }
-.dashboard-progress-meta { color: #747b8e; display: flex; font-size: .6rem; justify-content: space-between; margin-top: 12px; }
-.dashboard-progress-meta strong { color: #30364a; }
-.dashboard-progress-meta .has-overdue, .dashboard-progress-meta .has-overdue strong { color: #c4463e; }
-@media (max-width: 1180px) {
-  .dashboard-summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .dashboard-guide-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .dashboard-content-grid { grid-template-columns: 1fr; }
-  .dashboard-side-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 1100px) {
-  .dashboard-shell { grid-template-columns: 76px minmax(0, 1fr); }
-  .dashboard-sidebar { padding-inline: 10px; }
-  .dashboard-brand { justify-content: center; margin-inline: -10px; padding-inline: 10px; }
-  .dashboard-brand > span:last-child,
-  .dashboard-user-details { display: none; }
-  .dashboard-user-card { background: transparent; justify-content: center; padding-inline: 0; }
-  .dashboard-navigation button,
-  .dashboard-profile-navigation button,
-  .dashboard-logout { font-size: 0; justify-content: center; padding-inline: 10px; }
-  .dashboard-main { padding: 24px clamp(18px, 3vw, 32px); }
-}
-@media (max-width: 760px) {
-  .dashboard-shell { display: block; }
-  .dashboard-sidebar { align-items: stretch; bottom: 0; display: grid; grid-template-columns: minmax(0, 1fr) 48px auto; height: auto; left: 0; padding: 7px 10px max(7px, env(safe-area-inset-bottom)); position: fixed; right: 0; top: auto; z-index: 80; }
-  .dashboard-brand, .dashboard-user-card { display: none; }
-  .dashboard-navigation { display: grid; gap: 3px; grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .dashboard-navigation button, .dashboard-profile-navigation button, .dashboard-logout { flex-direction: column; font-size: .52rem; gap: 3px; justify-content: center; line-height: 1.05; min-width: 0; padding: 7px 2px; text-align: center; }
-  .dashboard-navigation button.active { background: rgba(108, 65, 226, .42); box-shadow: none; }
-  .dashboard-sidebar { --navigation-icon-size: 18px; }
-  .dashboard-sidebar-footer { align-items: stretch; border: 0; display: flex; gap: 4px; margin: 0; padding: 0; }
-  .dashboard-profile-navigation { margin: 0; padding: 0; }
-  .dashboard-main { padding: 22px 16px 92px; }
-  .dashboard-topbar { align-items: flex-start; padding: 24px; }
-  .dashboard-welcome { max-width: calc(100% - 64px); }
-  .dashboard-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .dashboard-side-column { grid-template-columns: 1fr; }
-}
-@media (max-width: 520px) {
-  .dashboard-topbar { align-items: flex-start; gap: 15px; padding: 22px 19px; }
-  .dashboard-topbar h1 { font-size: 1.35rem; }
-  .dashboard-topbar p { font-size: .7rem; max-width: 250px; }
-  .dashboard-welcome { max-width: 100%; }
-  .dashboard-welcome-actions { flex-wrap: wrap; }
-  .dashboard-date { font-size: 0; padding: 9px; position: absolute; right: 16px; top: 16px; }
-  .dashboard-summary-grid,
-  .dashboard-guide-grid { grid-template-columns: 1fr; }
-  .dashboard-summary-card { min-height: 100px; }
-  .dashboard-frequency-details { grid-template-columns: 1fr; justify-items: center; }
-  .dashboard-frequency-metrics { width: 100%; }
-  .dashboard-empty-hero { min-height: 370px; padding-inline: 20px; }
-  .dashboard-empty-illustration { height: auto; }
-  .dashboard-panel-header { padding-inline: 16px; }
-  .dashboard-class-list { padding-inline: 16px; }
-  .dashboard-class-list li { gap: 10px; grid-template-columns: 44px minmax(0, 1fr) 26px; padding-block: 13px; }
-  .dashboard-class-icon { height: 42px; width: 42px; }
-  .dashboard-class-time { grid-column: 2; font-size: .66rem; }
-  .dashboard-class-open { grid-column: 3; grid-row: 1 / span 2; }
-  .dashboard-compact-activity-list { padding-inline: 16px; }
-  .dashboard-compact-activity-list li { align-items: start; grid-template-columns: 36px minmax(0, 1fr); }
-  .dashboard-side-activities .dashboard-activity-info { padding-right: 0; }
-  .dashboard-compact-activity-meta { grid-column: 2; justify-self: start; }
-  .dashboard-compact-activity-list time { transform: none; }
-  .dashboard-activity-list { padding-inline: 16px; }
-  .dashboard-activity-list li { grid-template-columns: 42px minmax(0, 1fr); }
-  .dashboard-activity-list time { height: 42px; }
-  .dashboard-activity-status { grid-column: 2; justify-self: start; }
-  .dashboard-panel-empty { align-items: flex-start; flex-wrap: wrap; padding: 20px 16px; }
-  .dashboard-panel-empty button { margin-left: 54px; }
-}
-</style>

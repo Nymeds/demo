@@ -6,6 +6,7 @@ import AppTimePicker from '../../components/ui/AppTimePicker.vue'
 
 const props = defineProps({
   discipline: { type: Object, default: null },
+  saving: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['close', 'save'])
@@ -13,6 +14,7 @@ const emit = defineEmits(['close', 'save'])
 const trapRef = ref(null)
 useFocusTrap(() => true, trapRef, {
   onClose: () => emit('close'),
+  closeOnEscape: () => !props.saving,
 })
 
 const isEditing = computed(() => Boolean(props.discipline))
@@ -85,6 +87,8 @@ function removeSchedule(index) {
 }
 
 function submitForm() {
+  if (props.saving) return
+
   submitted.value = true
 
   if (schedules.value.length === 0) {
@@ -130,7 +134,7 @@ function submitForm() {
 </script>
 
 <template>
-  <div class="modal-backdrop" @mousedown.self="emit('close')">
+  <div class="modal-backdrop" @mousedown.self="!saving && emit('close')">
     <section class="discipline-modal" ref="trapRef" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="new-discipline-title">
       <header class="modal-header">
         <div class="modal-title">
@@ -141,7 +145,7 @@ function submitForm() {
           </div>
         </div>
 
-        <button class="modal-close" type="button" aria-label="Fechar modal" @click="emit('close')">×</button>
+        <button class="modal-close" type="button" aria-label="Fechar modal" :disabled="saving" @click="emit('close')">×</button>
       </header>
 
       <form @submit.prevent="submitForm">
@@ -232,8 +236,8 @@ function submitForm() {
         </fieldset>
 
         <footer class="modal-footer">
-          <button class="cancel-button" type="button" @click="emit('close')">Cancelar</button>
-          <button class="save-button" type="submit">
+          <button class="cancel-button" type="button" :disabled="saving" @click="emit('close')">Cancelar</button>
+          <button class="save-button" type="submit" :disabled="saving">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h12l2 2v14H5V4Z" /><path d="M8 4v6h8V4M9 20v-6h6v6" /></svg>
             {{ isEditing ? 'Salvar alterações' : 'Salvar disciplina' }}
           </button>
@@ -550,6 +554,12 @@ function submitForm() {
 .save-button svg {
   height: 17px;
   width: 17px;
+}
+
+.cancel-button:disabled,
+.save-button:disabled {
+  cursor: wait;
+  opacity: .6;
 }
 
 button:focus-visible {

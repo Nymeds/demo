@@ -57,9 +57,10 @@ public class CalendarEventController {
     public List<CalendarEventResponse> findUpcoming(
             @AuthenticationPrincipal UUID userId,
             @PathVariable UUID dashboardId,
-            @RequestParam(defaultValue = "5") int limit
+            @RequestParam(defaultValue = "5") int limit,
+            @RequestParam(required = false) List<CalendarEventCategory> categories
     ) {
-        return calendarEventService.findUpcoming(userId, dashboardId, limit);
+        return calendarEventService.findUpcoming(userId, dashboardId, limit, categories);
     }
 
     @GetMapping("/{eventId}")

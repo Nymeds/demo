@@ -84,7 +84,12 @@ public class CalendarEventService {
     }
 
     @Transactional(readOnly = true)
-    public List<CalendarEventResponse> findUpcoming(UUID userId, UUID dashboardId, int limit) {
+    public List<CalendarEventResponse> findUpcoming(
+            UUID userId,
+            UUID dashboardId,
+            int limit,
+            List<CalendarEventCategory> categories
+    ) {
         disciplineAccessService.findOwnedDashboard(userId, dashboardId);
 
         if (limit < 1 || limit > MAX_UPCOMING_LIMIT) {
@@ -94,13 +99,16 @@ public class CalendarEventService {
             );
         }
 
-        return calendarEventRepository
-                .findAllByDashboard_IdAndStartsAtGreaterThanEqualOrderByStartsAtAsc(
-                        dashboardId,
-                        LocalDateTime.now(clock),
-                        PageRequest.of(0, limit)
-                )
-                .stream()
+        LocalDateTime now = LocalDateTime.now(clock);
+        PageRequest page = PageRequest.of(0, limit);
+
+        List<CalendarEvent> events = categories == null || categories.isEmpty()
+                ? calendarEventRepository.findAllByDashboard_IdAndStartsAtGreaterThanEqualOrderByStartsAtAsc(
+                        dashboardId, now, page)
+                : calendarEventRepository.findAllByDashboard_IdAndCategoryInAndStartsAtGreaterThanEqualOrderByStartsAtAsc(
+                        dashboardId, categories, now, page);
+
+        return events.stream()
                 .map(CalendarEventResponse::from)
                 .toList();
     }

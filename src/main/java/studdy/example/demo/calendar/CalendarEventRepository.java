@@ -51,6 +51,13 @@ public interface CalendarEventRepository extends JpaRepository<CalendarEvent, UU
             Pageable pageable
     );
 
+    List<CalendarEvent> findAllByDashboard_IdAndCategoryInAndStartsAtGreaterThanEqualOrderByStartsAtAsc(
+            UUID dashboardId,
+            List<CalendarEventCategory> categories,
+            LocalDateTime from,
+            Pageable pageable
+    );
+
     Optional<CalendarEvent> findByIdAndDashboard_Id(UUID id, UUID dashboardId);
 
     // Usado na exclusão de conta, antes de apagar os dashboards aos quais os eventos pertencem.

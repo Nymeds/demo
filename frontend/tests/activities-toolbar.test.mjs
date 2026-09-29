@@ -15,7 +15,13 @@ test('activity toolbar switches views and clears filters while preserving the vi
   ) }))
   const source = await readFile(new URL('../src/features/activities/ActivitiesScreen.vue', import.meta.url), 'utf8')
   const { descriptor } = parse(source)
+  const cardUrl = new URL('../src/features/activities/ActivityCard.vue', import.meta.url)
+  const card = compileScript(parse(await readFile(cardUrl, 'utf8')).descriptor, { id: 'activity-card', inlineTemplate: true }).content
+    .replace(/from ['"]vue['"]/g, `from ${JSON.stringify(import.meta.resolve('vue'))}`)
+  const cardModule = `data:text/javascript;base64,${Buffer.from(rewriteRelativeImports(card, cardUrl)).toString('base64')}`
   const compiled = compileScript(descriptor, { id: 'activities', inlineTemplate: true }).content
+    .replace(/import ['"][^'"]+\.css['"]/, '')
+    .replace(/import ActivityCard from ['"][^'"]+['"]/, `import ActivityCard from ${JSON.stringify(cardModule)}`)
     .replace(/import (\w+) from ['"][^'"]+\.vue['"]/g, 'const $1 = { render: () => null }')
     .replace(/from ['"]vue['"]/g, `from ${JSON.stringify(import.meta.resolve('vue'))}`)
   const { default: component } = await import(`data:text/javascript;base64,${Buffer.from(rewriteRelativeImports(compiled, new URL('../src/features/activities/ActivitiesScreen.vue', import.meta.url))).toString('base64')}`)

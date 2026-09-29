@@ -86,7 +86,7 @@ class ClockUsageTest {
                 .thenReturn(List.of());
         CalendarEventService service = new CalendarEventService(repository, calendarAccess, BEFORE_MIDNIGHT_SP);
 
-        service.findUpcoming(userId, dashboardId, 5);
+        service.findUpcoming(userId, dashboardId, 5, null);
 
         verify(repository).findAllByDashboard_IdAndStartsAtGreaterThanEqualOrderByStartsAtAsc(
                 eq(dashboardId), eq(LocalDateTime.of(2026, 9, 28, 23, 30)), any());
