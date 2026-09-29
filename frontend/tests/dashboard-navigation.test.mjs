@@ -3,6 +3,10 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { compileScript, parse } from '@vue/compiler-sfc'
 import { createRenderer, nextTick } from 'vue'
+<<<<<<< Updated upstream
+=======
+import { rewriteRelativeImports } from './helpers/rewriteImports.mjs'
+>>>>>>> Stashed changes
 
 test('as abas Frequência e Perfil abrem páginas separadas com autenticação', async t => {
   const source = await readFile(new URL('../src/features/dashboard/DashboardScreen.vue', import.meta.url), 'utf8')
@@ -15,6 +19,7 @@ test('as abas Frequência e Perfil abrem páginas separadas com autenticação',
   // Isola as telas filhas; a navegação e os eventos usam o componente real.
   const code = compiled.content
     .replace(/import (\w+) from ['"][^'"]+\.vue['"]/g, (_, name) =>
+<<<<<<< Updated upstream
       `const ${name} = { props: ['accessToken'], render() { return testH('${name}', { token: this.accessToken }) } }`)
     .replace(
       /from ['"]\.\.\/frequency\/frequencyRules\.js['"]/g,
@@ -27,6 +32,12 @@ test('as abas Frequência e Perfil abrem páginas separadas com autenticação',
       `from ${JSON.stringify(new URL('../src/composables/useAvatar.js', import.meta.url).href)}`)
   const { default: DashboardScreen } = await import(`data:text/javascript;base64,${Buffer.from(
     `import { h as testH } from ${JSON.stringify(import.meta.resolve('vue'))};\n${code}`,
+=======
+      `const ${name} = { render() { return testH('${name}') } }`)
+    .replace(/from ['"]vue['"]/g, `from ${JSON.stringify(import.meta.resolve('vue'))}`)
+  const { default: DashboardScreen } = await import(`data:text/javascript;base64,${Buffer.from(
+    `import { h as testH } from ${JSON.stringify(import.meta.resolve('vue'))};\n${rewriteRelativeImports(code, new URL('../src/features/dashboard/DashboardScreen.vue', import.meta.url))}`,
+>>>>>>> Stashed changes
   ).toString('base64')}`)
 
   t.mock.method(globalThis, 'fetch', async input => {
@@ -53,7 +64,11 @@ test('as abas Frequência e Perfil abrem páginas separadas com autenticação',
         lossPerAbsence: 5,
         maximumAbsences: 5,
       }]
+<<<<<<< Updated upstream
     } else if (path === '/api/v1/dashboards/dashboard-1/disciplines/discipline-1/activities') {
+=======
+    } else if (path === '/api/v1/dashboards/dashboard-1/activities') {
+>>>>>>> Stashed changes
       data = [{ id: 'activity-1', title: 'Trabalho de banco', disciplineId: 'discipline-1', status: 'PENDING', dueDate: '2099-09-30' }]
     }
 
@@ -90,7 +105,11 @@ test('as abas Frequência e Perfil abrem páginas separadas com autenticação',
     },
   })
   const root = node('root')
+<<<<<<< Updated upstream
   app = renderer.createApp(DashboardScreen, { user: { name: 'Estudante' }, accessToken: 'test-token' })
+=======
+  app = renderer.createApp(DashboardScreen, { user: { name: 'Estudante' } })
+>>>>>>> Stashed changes
   app.mount(root)
   const all = item => [item, ...item.children.flatMap(all)]
   const textOf = item => item.text + item.children.map(textOf).join('')
@@ -117,7 +136,11 @@ test('as abas Frequência e Perfil abrem páginas separadas com autenticação',
   frequencyButton.props.onClick()
   await nextTick()
   assert.equal(frequencyButton.props['aria-current'], 'page')
+<<<<<<< Updated upstream
   assert.equal(all(root).find(item => item.type === 'FrequencyPage')?.props.token, 'test-token')
+=======
+  assert.ok(all(root).find(item => item.type === 'FrequencyPage'), 'FrequencyPage deve ser exibida')
+>>>>>>> Stashed changes
   assert.equal(all(root).some(item => item.props.class === 'dashboard-overview'), false)
 
   button('Dashboard').props.onClick()
@@ -127,19 +150,31 @@ test('as abas Frequência e Perfil abrem páginas separadas com autenticação',
 
   button('Notas').props.onClick()
   await nextTick()
+<<<<<<< Updated upstream
   assert.equal(all(root).find(item => item.type === 'GradesScreen')?.props.token, 'test-token')
+=======
+  assert.ok(all(root).find(item => item.type === 'GradesScreen'), 'GradesScreen deve ser exibida')
+>>>>>>> Stashed changes
 
   const userMenu = all(root).find(item => item.type === 'SidebarUserMenu')
   userMenu.props.onOpenSettings()
   await nextTick()
+<<<<<<< Updated upstream
   assert.equal(all(root).find(item => item.type === 'SettingsScreen')?.props.token, 'test-token')
+=======
+  assert.ok(all(root).find(item => item.type === 'SettingsScreen'), 'SettingsScreen deve ser exibida')
+>>>>>>> Stashed changes
 
   const profileButton = button('Perfil')
   assert.ok(profileButton, 'Perfil deve estar disponível como uma aba do menu')
   profileButton.props.onClick()
   await nextTick()
   assert.equal(profileButton.props['aria-current'], 'page')
+<<<<<<< Updated upstream
   assert.equal(all(root).find(item => item.type === 'ProfileScreen')?.props.token, 'test-token')
+=======
+  assert.ok(all(root).find(item => item.type === 'ProfileScreen'), 'ProfileScreen deve ser exibida')
+>>>>>>> Stashed changes
   assert.equal(
     all(root).some(item => item.type === 'button' && textOf(item).includes('Estudante')),
     false,

@@ -1,8 +1,16 @@
+<<<<<<< Updated upstream
 ﻿import assert from 'node:assert/strict'
+=======
+import assert from 'node:assert/strict'
+>>>>>>> Stashed changes
 import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 import { compileScript, parse } from '@vue/compiler-sfc'
 import { createRenderer, nextTick } from 'vue'
+<<<<<<< Updated upstream
+=======
+import { rewriteRelativeImports } from './helpers/rewriteImports.mjs'
+>>>>>>> Stashed changes
 
 test('activity toolbar switches views and clears filters while preserving the view', async t => {
   const rows = [
@@ -17,7 +25,11 @@ test('activity toolbar switches views and clears filters while preserving the vi
   const compiled = compileScript(descriptor, { id: 'activities', inlineTemplate: true }).content
     .replace(/import (\w+) from ['"][^'"]+\.vue['"]/g, 'const $1 = { render: () => null }')
     .replace(/from ['"]vue['"]/g, `from ${JSON.stringify(import.meta.resolve('vue'))}`)
+<<<<<<< Updated upstream
   const { default: component } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`)
+=======
+  const { default: component } = await import(`data:text/javascript;base64,${Buffer.from(rewriteRelativeImports(compiled, new URL('../src/features/activities/ActivitiesScreen.vue', import.meta.url))).toString('base64')}`)
+>>>>>>> Stashed changes
   const node = (type, text = '') => ({ type, text, props: {}, children: [], addEventListener() {}, removeEventListener() {} })
   const renderer = createRenderer({
     insertStaticContent(text, parent) { const el = node('static', text); el.parent = parent; parent.children.push(el); return [el, el] },
@@ -38,7 +50,12 @@ test('activity toolbar switches views and clears filters while preserving the vi
   const find = predicate => all().find(predicate)
   const click = async el => { el.props.onClick(); await nextTick() }
   const cards = () => all().filter(el => el.type === 'article' && el.props.class?.split(' ').includes('activity-card'))
+<<<<<<< Updated upstream
   const titles = () => all().filter(el => el.type === 'h2').map(el => el.text)
+=======
+  const textOf = el => el.text + el.children.map(textOf).join('')
+  const titles = () => all().filter(el => el.type === 'h2').map(el => textOf(el).trim())
+>>>>>>> Stashed changes
   const grid = find(el => el.props['aria-label'] === 'Visualizar em cards')
   await click(grid)
   assert.equal(grid.props['aria-pressed'], true)

@@ -205,9 +205,28 @@ Todas as rotas abaixo de `/api/v1/dashboards` exigem o cabeçalho `Authorization
 
 | Método | Rota | Finalidade |
 | --- | --- | --- |
+<<<<<<< Updated upstream
 | `POST` | `/api/v1/auth/register` | Cria um usuário com senha criptografada. |
 | `POST` | `/api/v1/auth/login` | Valida as credenciais e retorna um token JWT. |
 | `GET` | `/api/v1/users/me` | Retorna o usuário do token enviado em `Authorization: Bearer <token>`. |
+=======
+| Auth | `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout` | Cadastro, login, renovação e saída |
+| Legal | `GET /legal/versions` | Versões vigentes dos textos legais |
+| Usuário | `GET`/`PUT /users/me` | Consultar e atualizar perfil |
+| Foto | `GET`/`PUT`/`DELETE /users/me/profile-photo` | Foto de perfil (`PUT` multipart, campo `file`) |
+| Configurações | `GET /settings/profile`, `PUT /settings/password`, `DELETE /settings/account` | Perfil, troca de senha, exclusão de conta |
+| Preferências | `GET`/`PUT /settings/preferences` | Preferências do estudante |
+| Dashboards | `POST`/`GET /dashboards` | Criar e listar |
+| Disciplinas | `POST`/`GET D/disciplines`; `GET`/`PUT`/`DELETE D/disciplines/{id}`; `PATCH D/disciplines/{id}/status` | CRUD e situação |
+| Atividades | `GET D/activities` | Todas as atividades e provas do dashboard |
+| Atividades | `POST`/`GET S/activities`; `GET`/`PUT`/`DELETE S/activities/{activityId}` | CRUD por disciplina |
+| Notas | `POST`/`GET S/grades`; `GET S/grades/summary`; `GET`/`PUT`/`DELETE S/grades/{gradeId}` | CRUD e resumo |
+| Notas | `GET D/gradebook` | Visão consolidada da tela Notas |
+| Frequência | `POST`/`PUT`/`GET S/frequency` | Total de faltas e percentuais (`POST` responde `409` se já existir) |
+| Faltas | `POST`/`GET S/frequency/absences`; `DELETE S/frequency/absences/{recordId}` | Histórico de faltas |
+| Simulador | `POST S/simulator` | Nota necessária para a meta |
+| Calendário | `POST`/`GET D/calendar/events`; `GET D/calendar/events/upcoming`; `GET`/`PUT`/`DELETE D/calendar/events/{eventId}` | Eventos |
+>>>>>>> Stashed changes
 
 ### Dashboards e disciplinas
 
