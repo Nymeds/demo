@@ -1,11 +1,13 @@
 <script setup>
+import { parseLocalDate } from '../../shared/date/localDate.js'
 import { ref } from 'vue'
-import { bandInfo, formatGrade, safeColor } from './gradesPresentation'
+import { bandInfo, bandOf, formatGrade, goalMessage, safeColor } from './gradesPresentation'
 
 const props = defineProps({
   entries: { type: Array, required: true },
   viewMode: { type: String, default: 'list' },
   loadGrades: { type: Function, required: true },
+  goal: { type: Number, default: null },
 })
 
 const emit = defineEmits(['edit', 'delete', 'add', 'failed'])
@@ -20,8 +22,10 @@ function progressOf(entry) {
 
 
 function formatDate(isoDate) {
+  const date = parseLocalDate(isoDate)
+  if (!date) return '—'
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
-    .format(new Date(`${isoDate}T12:00:00`))
+    .format(date)
 }
 
 function gradesState(disciplineId) {
@@ -88,15 +92,16 @@ async function toggleGrades(entry) {
             </td>
             <td class="is-number">{{ entry.gradeCount }}</td>
             <td class="is-number">
-              <strong :class="['grades-average', `is-${bandInfo(entry.band).tone}`]">{{ formatGrade(entry.average) }}</strong>
+              <strong :class="['grades-average', `is-${bandInfo(bandOf(entry.average)).tone}`]">{{ formatGrade(entry.average) }}</strong>
+              <small v-if="goalMessage(entry.average, goal)" class="grades-goal-hint">{{ goalMessage(entry.average, goal) }}</small>
             </td>
             <td>
-              <span :class="['grades-chip', `is-${bandInfo(entry.band).tone}`]">{{ bandInfo(entry.band).label }}</span>
+              <span :class="['grades-chip', `is-${bandInfo(bandOf(entry.average)).tone}`]">{{ bandInfo(bandOf(entry.average)).label }}</span>
             </td>
             <td>
               <div class="grades-progress">
                 <span class="grades-progress-track" aria-hidden="true">
-                  <span :class="['grades-progress-bar', `is-${bandInfo(entry.band).tone}`]" :style="{ width: `${progressOf(entry)}%` }"></span>
+                  <span :class="['grades-progress-bar', `is-${bandInfo(bandOf(entry.average)).tone}`]" :style="{ width: `${progressOf(entry)}%` }"></span>
                 </span>
                 <span class="grades-progress-value">{{ entry.average === null ? '—' : `${progressOf(entry)}%` }}</span>
               </div>
@@ -159,6 +164,7 @@ async function toggleGrades(entry) {
 .grades-average.is-regular { color: #c26a12; }
 .grades-average.is-insufficient { color: #c4463e; }
 .grades-average.is-empty { color: #8a90a2; }
+.grades-goal-hint { color: #7b8192; display: block; font-size: .6rem; font-weight: 500; margin-top: 3px; white-space: normal; }
 
 .grades-chip { border-radius: 999px; display: inline-block; font-size: .62rem; font-weight: 700; padding: 4px 10px; white-space: nowrap; }
 .grades-chip.is-excellent { background: #e8f8ef; color: #1f8a4c; }

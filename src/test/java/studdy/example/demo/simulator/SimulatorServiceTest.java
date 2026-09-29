@@ -6,6 +6,7 @@ import studdy.example.demo.discipline.Discipline;
 import studdy.example.demo.discipline.DisciplineAccessService;
 import studdy.example.demo.grade.Grade;
 import studdy.example.demo.grade.GradeRepository;
+import studdy.example.demo.simulator.dto.SimulationStatus;
 import studdy.example.demo.simulator.dto.SimulatorRequest;
 import studdy.example.demo.simulator.dto.SimulatorResponse;
 import org.springframework.http.HttpStatus;
@@ -91,6 +92,8 @@ class SimulatorServiceTest {
         assertEquals(new BigDecimal("8.00"), response.targetAverage());
         assertEquals(new BigDecimal("9.00"), response.requiredGrade());
         assertTrue(response.achievable());
+        assertEquals(new BigDecimal("9.00"), response.requiredScoreRaw());
+        assertEquals(SimulationStatus.ACHIEVABLE, response.status());
     }
 
     @Test
@@ -140,6 +143,8 @@ class SimulatorServiceTest {
 
         assertEquals(new BigDecimal("10.00"), response.requiredGrade());
         assertFalse(response.achievable());
+        assertEquals(new BigDecimal("15.00"), response.requiredScoreRaw());
+        assertEquals(SimulationStatus.IMPOSSIBLE, response.status());
     }
 
     @Test
@@ -188,7 +193,9 @@ class SimulatorServiceTest {
         );
 
         assertEquals(new BigDecimal("0.00"), response.requiredGrade());
-        assertFalse(response.achievable());
+        assertTrue(response.achievable());
+        assertEquals(new BigDecimal("-3.00"), response.requiredScoreRaw());
+        assertEquals(SimulationStatus.ALREADY_REACHED, response.status());
     }
 
     @Test
@@ -230,6 +237,126 @@ class SimulatorServiceTest {
         );
 
         assertEquals(new BigDecimal("7.00"), response.requiredGrade());
+        assertTrue(response.achievable());
+        assertEquals(new BigDecimal("7.00"), response.requiredScoreRaw());
+        assertEquals(SimulationStatus.ACHIEVABLE, response.status());
+    }
+
+    @Test
+    void computesExactRequiredGradeFromRawScoresAvoidingRoundedSumPrecisionLoss() {
+        UUID userId = UUID.randomUUID();
+        UUID dashboardId = UUID.randomUUID();
+        UUID disciplineId = UUID.randomUUID();
+
+        Discipline discipline = mock(Discipline.class);
+
+        when(discipline.getPassingAverage())
+                .thenReturn(new BigDecimal("6.00"));
+
+        when(disciplineAccessService.findOwnedDiscipline(
+                userId,
+                dashboardId,
+                disciplineId
+        )).thenReturn(discipline);
+
+        /*
+         * Notas cuja soma (20.00) dividida por 3 gera uma média
+         * arredondada (6.67) que, multiplicada de volta por 3
+         * (20.01), NÃO reproduz a soma original. Reconstruir a soma a
+         * partir da média arredondada geraria um resultado diferente
+         * do cálculo feito a partir das notas brutas.
+         */
+        Grade firstGrade = new Grade(
+                null,
+                "Prova 1",
+                new BigDecimal("6.00"),
+                LocalDate.of(2026, 8, 1)
+        );
+        Grade secondGrade = new Grade(
+                null,
+                "Prova 2",
+                new BigDecimal("6.00"),
+                LocalDate.of(2026, 8, 10)
+        );
+        Grade thirdGrade = new Grade(
+                null,
+                "Prova 3",
+                new BigDecimal("8.00"),
+                LocalDate.of(2026, 8, 20)
+        );
+
+        when(gradeRepository.findAllByDiscipline_IdOrderByRecordedAtDescCreatedAtDesc(
+                disciplineId
+        )).thenReturn(List.of(firstGrade, secondGrade, thirdGrade));
+
+        SimulatorRequest request =
+                new SimulatorRequest(new BigDecimal("7.00"));
+
+        SimulatorResponse response = service.simulate(
+                userId,
+                dashboardId,
+                disciplineId,
+                request
+        );
+
+        /*
+         * Cálculo correto a partir das notas brutas:
+         * soma = 20.00, alvo = 7.00 * 4 = 28.00
+         * nota necessária = 28.00 - 20.00 = 8.00
+         *
+         * Se a soma fosse reconstruída a partir da média arredondada
+         * (6.67 * 3 = 20.01), o resultado seria 28.00 - 20.01 = 7.99,
+         * uma resposta incorreta por perda de precisão.
+         */
+        assertEquals(new BigDecimal("8.00"), response.requiredScoreRaw());
+        assertEquals(new BigDecimal("8.00"), response.requiredGrade());
+        assertEquals(SimulationStatus.ACHIEVABLE, response.status());
+        assertTrue(response.achievable());
+    }
+
+    @Test
+    void targetBelowPassingMinimumButWithinRangeIsAchievable() {
+        UUID userId = UUID.randomUUID();
+        UUID dashboardId = UUID.randomUUID();
+        UUID disciplineId = UUID.randomUUID();
+
+        Discipline discipline = mock(Discipline.class);
+
+        // Média de aprovação alta; a meta simulada é menor que ela.
+        when(discipline.getPassingAverage())
+                .thenReturn(new BigDecimal("8.00"));
+
+        when(disciplineAccessService.findOwnedDiscipline(
+                userId,
+                dashboardId,
+                disciplineId
+        )).thenReturn(discipline);
+
+        Grade grade = new Grade(
+                null,
+                "Prova 1",
+                new BigDecimal("4.00"),
+                LocalDate.of(2026, 8, 1)
+        );
+
+        when(gradeRepository.findAllByDiscipline_IdOrderByRecordedAtDescCreatedAtDesc(
+                disciplineId
+        )).thenReturn(List.of(grade));
+
+        // Meta (5.00) abaixo da média de aprovação (8.00), mas atingível.
+        SimulatorRequest request =
+                new SimulatorRequest(new BigDecimal("5.00"));
+
+        SimulatorResponse response = service.simulate(
+                userId,
+                dashboardId,
+                disciplineId,
+                request
+        );
+
+        // sum=4, target*2=10, required=6.00 -> dentro de [0,10].
+        assertEquals(new BigDecimal("6.00"), response.requiredScoreRaw());
+        assertEquals(SimulationStatus.ACHIEVABLE, response.status());
         assertTrue(response.achievable());
     }
 @Test

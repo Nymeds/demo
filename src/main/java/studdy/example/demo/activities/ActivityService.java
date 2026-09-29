@@ -10,22 +10,30 @@ import studdy.example.demo.activities.dto.CreateActivityRequest;
 import studdy.example.demo.activities.dto.UpdateActivityRequest;
 import studdy.example.demo.discipline.Discipline;
 import studdy.example.demo.discipline.DisciplineAccessService;
+import studdy.example.demo.grade.Grade;
+import studdy.example.demo.grade.GradeRepository;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class ActivityService {
 
+    private static final DateTimeFormatter BRAZILIAN_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
     private final ActivityRepository activityRepository;
     private final DisciplineAccessService disciplineAccessService;
+    private final GradeRepository gradeRepository;
 
     public ActivityService(
             ActivityRepository activityRepository,
-            DisciplineAccessService disciplineAccessService
+            DisciplineAccessService disciplineAccessService,
+            GradeRepository gradeRepository
     ) {
         this.activityRepository = activityRepository;
         this.disciplineAccessService = disciplineAccessService;
+        this.gradeRepository = gradeRepository;
     }
 
     @Transactional
@@ -47,6 +55,7 @@ public class ActivityService {
                 normalizeDescription(request.description()),
                 request.dueDate(),
                 request.status(),
+                request.type(),
                 discipline
         );
 
@@ -59,7 +68,8 @@ public class ActivityService {
     public List<ActivityResponse> findAll(
             UUID userId,
             UUID dashboardId,
-            UUID disciplineId
+            UUID disciplineId,
+            ActivityType type
     ) {
 
         disciplineAccessService.findOwnedDiscipline(
@@ -68,8 +78,33 @@ public class ActivityService {
                 disciplineId
         );
 
-        return activityRepository
-                .findAllByDiscipline_IdOrderByDueDateAsc(disciplineId)
+        List<Activity> activities = type != null
+                ? activityRepository.findAllByDiscipline_IdAndTypeOrderByDueDateAsc(disciplineId, type)
+                : activityRepository.findAllByDiscipline_IdOrderByDueDateAsc(disciplineId);
+
+        return activities
+                .stream()
+                .map(ActivityResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActivityResponse> findAllByDashboard(
+            UUID userId,
+            UUID dashboardId,
+            ActivityType type
+    ) {
+
+        disciplineAccessService.findOwnedDashboard(
+                userId,
+                dashboardId
+        );
+
+        List<Activity> activities = type != null
+                ? activityRepository.findAllByDiscipline_Dashboard_IdAndTypeOrderByDueDateAscIdAsc(dashboardId, type)
+                : activityRepository.findAllByDiscipline_Dashboard_IdOrderByDueDateAscIdAsc(dashboardId);
+
+        return activities
                 .stream()
                 .map(ActivityResponse::from)
                 .toList();
@@ -109,11 +144,23 @@ public class ActivityService {
                 activityId
         );
 
+        gradeRepository.findByActivity_IdForUpdate(activityId).ifPresent(grade -> {
+            if (request.dueDate().isAfter(grade.getRecordedAt())) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "O prazo não pode ficar depois de "
+                                + grade.getRecordedAt().format(BRAZILIAN_DATE)
+                                + ", data da nota lançada. Exclua a nota ou ajuste a data dela (até hoje) antes."
+                );
+            }
+        });
+
         activity.update(
                 request.title().trim(),
                 normalizeDescription(request.description()),
                 request.dueDate(),
-                request.status()
+                request.status(),
+                request.type()
         );
 
         return ActivityResponse.from(activity);

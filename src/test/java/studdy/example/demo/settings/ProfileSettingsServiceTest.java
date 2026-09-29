@@ -10,9 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import studdy.example.demo.auth.dto.AuthResponse;
 import studdy.example.demo.security.JwtService;
+import studdy.example.demo.security.TooManyRequestsException;
 import studdy.example.demo.settings.dto.ChangePasswordRequest;
 import studdy.example.demo.settings.dto.ProfileResponse;
-import studdy.example.demo.settings.dto.UpdateProfileRequest;
 import studdy.example.demo.user.AppUser;
 import studdy.example.demo.user.UserRepository;
 
@@ -59,67 +59,6 @@ class ProfileSettingsServiceTest {
     }
 
     @Test
-    void updatesTheNameWithoutAskingForThePassword() {
-        ProfileResponse profile = profileSettingsService.update(
-                user.getId(),
-                new UpdateProfileRequest("  Maria Souza  ", EMAIL, null)
-        );
-
-        assertEquals("Maria Souza", profile.name());
-        assertEquals(EMAIL, profile.email());
-    }
-
-    @Test
-    void doesNotTreatADifferentCaseAsANewEmail() {
-        ProfileResponse profile = profileSettingsService.update(
-                user.getId(),
-                new UpdateProfileRequest("Estudante", "  PERFIL@Example.com ", null)
-        );
-
-        assertEquals(EMAIL, profile.email());
-    }
-
-    @Test
-    void asksForThePasswordToChangeTheEmail() {
-        assertStatus(HttpStatus.BAD_REQUEST, () -> profileSettingsService.update(
-                user.getId(),
-                new UpdateProfileRequest("Estudante", "novo@example.com", null)
-        ));
-    }
-
-    @Test
-    void rejectsAWrongPasswordWhenChangingTheEmail() {
-        assertStatus(HttpStatus.BAD_REQUEST, () -> profileSettingsService.update(
-                user.getId(),
-                new UpdateProfileRequest("Estudante", "novo@example.com", "senha-errada-000")
-        ));
-
-        assertEquals(EMAIL, userRepository.findById(user.getId()).orElseThrow().getEmail());
-    }
-
-    @Test
-    void changesTheEmailWithTheCurrentPassword() {
-        ProfileResponse profile = profileSettingsService.update(
-                user.getId(),
-                new UpdateProfileRequest("Estudante", "Novo@Example.com", PASSWORD)
-        );
-
-        assertEquals("novo@example.com", profile.email());
-        assertTrue(userRepository.existsByEmail("novo@example.com"));
-        assertFalse(userRepository.existsByEmail(EMAIL));
-    }
-
-    @Test
-    void refusesAnEmailThatBelongsToAnotherAccount() {
-        userRepository.save(new AppUser("Outra pessoa", "ocupado@example.com", "hash"));
-
-        assertStatus(HttpStatus.CONFLICT, () -> profileSettingsService.update(
-                user.getId(),
-                new UpdateProfileRequest("Estudante", "ocupado@example.com", PASSWORD)
-        ));
-    }
-
-    @Test
     void changesThePasswordAndReturnsAFreshToken() {
         AuthResponse response = profileSettingsService.changePassword(
                 user.getId(),
@@ -161,6 +100,32 @@ class ProfileSettingsServiceTest {
                 user.getId(),
                 new ChangePasswordRequest(PASSWORD, PASSWORD)
         ));
+    }
+
+    @Test
+    void limitsPasswordConfirmationToFiveFailuresPerUser() {
+        for (int i = 0; i < 5; i++) {
+            assertStatus(HttpStatus.BAD_REQUEST, () -> profileSettingsService.changePassword(
+                    user.getId(),
+                    new ChangePasswordRequest("senha-errada-000", "nova-senha-456")
+            ));
+        }
+
+        TooManyRequestsException error = assertThrows(TooManyRequestsException.class,
+                () -> profileSettingsService.changePassword(user.getId(),
+                        new ChangePasswordRequest(PASSWORD, "nova-senha-456")));
+        assertEquals("Muitas tentativas de confirmação de senha. Tente novamente em 15 minutos.", error.getDetail());
+        assertTrue(error.getRetryAfterSeconds() > 0);
+    }
+
+    @Test
+    void correctConfirmationsDoNotConsumeTheLimit() {
+        for (int i = 0; i < 4; i++) {
+            assertStatus(HttpStatus.BAD_REQUEST, () -> profileSettingsService.changePassword(
+                    user.getId(), new ChangePasswordRequest("senha-errada-000", "nova-senha-456")));
+        }
+        profileSettingsService.changePassword(user.getId(), new ChangePasswordRequest(PASSWORD, "nova-senha-456"));
+        profileSettingsService.changePassword(user.getId(), new ChangePasswordRequest("nova-senha-456", "outra-senha-789"));
     }
 
     private void assertStatus(HttpStatus expected, Runnable action) {

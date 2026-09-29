@@ -24,7 +24,8 @@ class CreateActivityRequestTest {
                         "   ",
                         "Descrição",
                         LocalDate.of(2026, 9, 10),
-                        ActivityStatus.PENDING
+                        ActivityStatus.PENDING,
+                        null
                 );
 
         assertRejects(
@@ -41,7 +42,8 @@ class CreateActivityRequestTest {
                         "A".repeat(161),
                         "Descrição",
                         LocalDate.of(2026, 9, 10),
-                        ActivityStatus.PENDING
+                        ActivityStatus.PENDING,
+                        null
                 );
 
         assertRejects(
@@ -58,7 +60,8 @@ class CreateActivityRequestTest {
                         "Atividade",
                         "A".repeat(2001),
                         LocalDate.of(2026, 9, 10),
-                        ActivityStatus.PENDING
+                        ActivityStatus.PENDING,
+                        null
                 );
 
         assertRejects(
@@ -75,7 +78,8 @@ class CreateActivityRequestTest {
                         "Atividade",
                         "Descrição",
                         null,
-                        ActivityStatus.PENDING
+                        ActivityStatus.PENDING,
+                        null
                 );
 
         assertRejects(
@@ -92,6 +96,7 @@ class CreateActivityRequestTest {
                         "Atividade",
                         "Descrição",
                         LocalDate.of(2026, 9, 10),
+                        null,
                         null
                 );
 

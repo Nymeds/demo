@@ -6,9 +6,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import studdy.example.demo.auth.SessionTokens;
+import studdy.example.demo.settings.AccountCredentials;
 import studdy.example.demo.user.dto.UpdateProfileRequest;
 import studdy.example.demo.user.dto.UserResponse;
-import studdy.example.demo.avatar.UserAvatarRepository;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -17,22 +18,21 @@ import java.util.UUID;
 @Service
 public class UserProfileService {
 
-    private static final byte[] PNG_SIGNATURE = {
-            (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
-    };
-
     private final UserRepository userRepository;
     private final UserProfilePhotoRepository photoRepository;
-    private final UserAvatarRepository legacyAvatarRepository;
+    private final AccountCredentials accountCredentials;
+    private final SessionTokens sessionTokens;
 
     public UserProfileService(
             UserRepository userRepository,
             UserProfilePhotoRepository photoRepository,
-            UserAvatarRepository legacyAvatarRepository
+            AccountCredentials accountCredentials,
+            SessionTokens sessionTokens
     ) {
+        this.sessionTokens = sessionTokens;
+        this.accountCredentials = accountCredentials;
         this.userRepository = userRepository;
         this.photoRepository = photoRepository;
-        this.legacyAvatarRepository = legacyAvatarRepository;
     }
 
     @Transactional(readOnly = true)
@@ -43,9 +43,16 @@ public class UserProfileService {
 
     @Transactional
     public UserResponse update(UUID userId, UpdateProfileRequest request) {
-        AppUser user = findUser(userId);
         String email = normalizeEmail(request.email());
         String username = normalizeUsername(request.username());
+
+        // O e-mail é o login: trocá-lo exige a senha atual (mesma regra das configurações) e trava
+        // o usuário, para uma renovação de sessão simultânea esperar a troca terminar.
+        boolean emailChanged = !email.equals(findUser(userId).getEmail());
+        AppUser user = emailChanged ? accountCredentials.findUserForUpdate(userId) : findUser(userId);
+        if (emailChanged) {
+            accountCredentials.requireCurrentPassword(user, request.currentPassword());
+        }
 
         if (userRepository.existsByEmailAndIdNot(email, userId)) {
             throw conflict("Já existe um usuário com este e-mail.");
@@ -65,8 +72,15 @@ public class UserProfileService {
                 normalizeOptional(request.location())
         );
 
+        if (emailChanged) {
+            user.markCredentialsChanged();
+        }
+
         try {
-            return toResponse(userRepository.saveAndFlush(user));
+            UserResponse response = toResponse(userRepository.saveAndFlush(user));
+
+            // Todas as sessões caem (inclusive access tokens antigos); quem trocou recebe um par novo.
+            return emailChanged ? response.withSession(sessionTokens.reissueAfterCredentialChange(user)) : response;
         } catch (DataIntegrityViolationException exception) {
             throw conflict("O e-mail ou nome de usuário informado já está em uso.");
         }
@@ -75,14 +89,18 @@ public class UserProfileService {
     @Transactional
     public UserResponse updatePhoto(UUID userId, MultipartFile file) {
         AppUser user = findUser(userId);
-        byte[] content = readAndValidate(file);
-        String contentType = detectContentType(content);
+        byte[] rawContent = readAndValidate(file);
+        detectContentType(rawContent);
+        byte[] content = ProfilePhotoProcessor.process(rawContent).orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Não foi possível ler a imagem. Envie uma foto PNG ou JPG válida."
+        ));
+        String contentType = ProfilePhotoProcessor.CONTENT_TYPE;
 
         UserProfilePhoto photo = photoRepository.findByUser_Id(userId)
                 .orElseGet(() -> new UserProfilePhoto(user, content, contentType));
         photo.update(content, contentType);
         photoRepository.save(photo);
-        legacyAvatarRepository.deleteByUser_Id(userId);
         user.markProfileUpdated();
 
         return UserResponse.from(user, true);
@@ -93,8 +111,6 @@ public class UserProfileService {
         findUser(userId);
         return photoRepository.findByUser_Id(userId)
                 .map(photo -> new ProfilePhotoContent(photo.getContent(), photo.getContentType()))
-                .or(() -> legacyAvatarRepository.findByUser_Id(userId)
-                        .map(photo -> new ProfilePhotoContent(photo.getContent(), photo.getContentType())))
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Foto de perfil não cadastrada."
@@ -105,12 +121,11 @@ public class UserProfileService {
     public void deletePhoto(UUID userId) {
         AppUser user = findUser(userId);
 
-        if (!photoRepository.existsByUser_Id(userId) && !legacyAvatarRepository.existsByUser_Id(userId)) {
+        if (!photoRepository.existsByUser_Id(userId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Foto de perfil não cadastrada.");
         }
 
         photoRepository.deleteByUser_Id(userId);
-        legacyAvatarRepository.deleteByUser_Id(userId);
         user.markProfileUpdated();
     }
 
@@ -123,8 +138,7 @@ public class UserProfileService {
     }
 
     private UserResponse toResponse(AppUser user) {
-        return UserResponse.from(user, photoRepository.existsByUser_Id(user.getId())
-                || legacyAvatarRepository.existsByUser_Id(user.getId()));
+        return UserResponse.from(user, photoRepository.existsByUser_Id(user.getId()));
     }
 
     private byte[] readAndValidate(MultipartFile file) {
@@ -151,35 +165,10 @@ public class UserProfileService {
     }
 
     private String detectContentType(byte[] content) {
-        if (startsWith(content, PNG_SIGNATURE)) {
-            return "image/png";
-        }
-
-        if (content.length >= 3
-                && content[0] == (byte) 0xFF
-                && content[1] == (byte) 0xD8
-                && content[2] == (byte) 0xFF) {
-            return "image/jpeg";
-        }
-
-        throw new ResponseStatusException(
+        return ProfilePhotoFormat.detectContentType(content).orElseThrow(() -> new ResponseStatusException(
                 HttpStatus.UNSUPPORTED_MEDIA_TYPE,
                 "A foto de perfil deve estar no formato PNG ou JPG."
-        );
-    }
-
-    private boolean startsWith(byte[] content, byte[] signature) {
-        if (content.length < signature.length) {
-            return false;
-        }
-
-        for (int index = 0; index < signature.length; index++) {
-            if (content[index] != signature[index]) {
-                return false;
-            }
-        }
-
-        return true;
+        ));
     }
 
     private String normalizeEmail(String email) {

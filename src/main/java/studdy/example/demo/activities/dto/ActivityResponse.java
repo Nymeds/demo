@@ -2,6 +2,7 @@ package studdy.example.demo.activities.dto;
 
 import studdy.example.demo.activities.Activity;
 import studdy.example.demo.activities.ActivityStatus;
+import studdy.example.demo.activities.ActivityType;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -15,6 +16,7 @@ public record ActivityResponse(
         String description,
         LocalDate dueDate,
         ActivityStatus status,
+        ActivityType type,
         Instant createdAt,
         Instant updatedAt
 
@@ -29,6 +31,7 @@ public record ActivityResponse(
                 activity.getDescription(),
                 activity.getDueDate(),
                 activity.getStatus(),
+                activity.getType(),
                 activity.getCreatedAt(),
                 activity.getUpdatedAt()
         );

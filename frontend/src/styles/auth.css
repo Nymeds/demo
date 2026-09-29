@@ -95,6 +95,8 @@ button { cursor: pointer; }
 .auth-switch button:hover { text-decoration: underline; }
 .auth-switch button:focus-visible { border-radius: 4px; outline: 2px solid #7253df; }
 .auth-copyright { color: #8b879a; font-size: .7rem; margin: 22px 0 0; position: relative; text-align: center; z-index: 1; }
+.auth-legal-footer { color: #8b879a; font-size: .7rem; margin: 20px 0 0; position: relative; text-align: center; z-index: 1; padding: 0; line-height: 1.6; }
+.auth-legal-footer .auth-link-button { padding: 8px 6px; }
 
 @media (max-width: 820px) {
   .auth-page { justify-content: flex-start; padding: 20px; }
@@ -112,6 +114,7 @@ button { cursor: pointer; }
   .auth-form-panel { align-items: flex-start; padding: 34px 23px 42px; }
   .auth-form-panel form { margin-top: 25px; }
   .auth-copyright { display: none; }
+  .auth-legal-footer { font-size: .75rem; margin: 18px 0 0; padding: 12px 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

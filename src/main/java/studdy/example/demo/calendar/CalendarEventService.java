@@ -12,6 +12,7 @@ import studdy.example.demo.dashboard.Dashboard;
 import studdy.example.demo.discipline.Discipline;
 import studdy.example.demo.discipline.DisciplineAccessService;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -23,13 +24,16 @@ public class CalendarEventService {
 
     private final CalendarEventRepository calendarEventRepository;
     private final DisciplineAccessService disciplineAccessService;
+    private final Clock clock;
 
     public CalendarEventService(
             CalendarEventRepository calendarEventRepository,
-            DisciplineAccessService disciplineAccessService
+            DisciplineAccessService disciplineAccessService,
+            Clock clock
     ) {
         this.calendarEventRepository = calendarEventRepository;
         this.disciplineAccessService = disciplineAccessService;
+        this.clock = clock;
     }
 
     @Transactional
@@ -93,7 +97,7 @@ public class CalendarEventService {
         return calendarEventRepository
                 .findAllByDashboard_IdAndStartsAtGreaterThanEqualOrderByStartsAtAsc(
                         dashboardId,
-                        LocalDateTime.now(),
+                        LocalDateTime.now(clock),
                         PageRequest.of(0, limit)
                 )
                 .stream()

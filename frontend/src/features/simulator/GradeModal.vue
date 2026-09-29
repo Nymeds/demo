@@ -1,8 +1,6 @@
 <template>
   <div
     class="modal-overlay"
-    @keydown.esc="closeIfIdle"
-    @keydown.tab="trapFocus"
     @click.self="closeIfIdle"
   >
     <div
@@ -166,6 +164,7 @@
 
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useFocusTrap, getFocusableElements } from '../../shared/a11y/useFocusTrap.js'
 import AppDatePicker from '../../components/ui/AppDatePicker.vue'
 import AppSelect from '../../components/ui/AppSelect.vue'
 
@@ -330,32 +329,11 @@ function closeIfIdle() {
   if (!props.saving) emit('close')
 }
 
-function focusableElements() {
-  return [...(card.value?.querySelectorAll('input:not([disabled]), button:not([disabled]):not([tabindex="-1"])') ?? [])]
-}
-
-// Mantém o Tab dentro do diálogo enquanto ele estiver aberto.
-function trapFocus(event) {
-  const elements = focusableElements()
-  if (elements.length === 0) return
-
-  const first = elements[0]
-  const last = elements[elements.length - 1]
-
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault()
-    last.focus()
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault()
-    first.focus()
-  }
-}
-
 // Quando as avaliações aparecem, o foco vai direto para a escolha da prova.
 async function focusFirstField() {
   await nextTick()
   const activityPicker = card.value?.querySelector('#grade-modal-activity')
-  const target = activityPicker ?? focusableElements()[0]
+  const target = activityPicker ?? getFocusableElements(card.value)[0]
   target?.focus()
 }
 
@@ -386,7 +364,12 @@ watch(() => props.activitiesStatus, () => {
   if (!card.value?.contains(document.activeElement)) focusFirstField()
 })
 
-onMounted(focusFirstField)
+useFocusTrap(() => true, card, {
+  onClose: closeIfIdle,
+  initialFocus: () => card.value?.querySelector('#grade-modal-activity'),
+  closeOnEscape: () => !props.saving,
+})
+
 </script>
 
 

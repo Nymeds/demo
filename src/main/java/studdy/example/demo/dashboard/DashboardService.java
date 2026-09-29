@@ -7,7 +7,6 @@ import org.springframework.web.server.ResponseStatusException;
 import studdy.example.demo.dashboard.dto.CreateDashboardRequest;
 import studdy.example.demo.dashboard.dto.DashboardResponse;
 import studdy.example.demo.user.AppUser;
-import studdy.example.demo.user.UserRepository;
 
 import java.util.List;
 import java.util.UUID;
@@ -16,16 +15,14 @@ import java.util.UUID;
 public class DashboardService {
 
     private final DashboardRepository dashboardRepository;
-    private final UserRepository userRepository;
 
-    public DashboardService(DashboardRepository dashboardRepository, UserRepository userRepository) {
+    public DashboardService(DashboardRepository dashboardRepository) {
         this.dashboardRepository = dashboardRepository;
-        this.userRepository = userRepository;
     }
 
     @Transactional
     public DashboardResponse create(UUID userId, CreateDashboardRequest request) {
-        AppUser owner = userRepository.findById(userId)
+        AppUser owner = dashboardRepository.findOwnerForUpdate(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado."));
 
         Dashboard dashboard = new Dashboard(
@@ -34,7 +31,22 @@ public class DashboardService {
                 owner
         );
 
-        return DashboardResponse.from(dashboardRepository.save(dashboard));
+        Dashboard saved = dashboardRepository.save(dashboard);
+
+        if (saved.getStatus() == DashboardStatus.ACTIVE) {
+            deactivateOtherActiveDashboards(userId, saved.getId());
+        }
+
+        return DashboardResponse.from(saved);
+    }
+
+    private void deactivateOtherActiveDashboards(UUID ownerId, UUID keepDashboardId) {
+        List<Dashboard> otherActiveDashboards = dashboardRepository
+                .findAllByOwner_IdAndStatusAndIdNot(ownerId, DashboardStatus.ACTIVE, keepDashboardId);
+
+        otherActiveDashboards.forEach(Dashboard::deactivate);
+
+        dashboardRepository.saveAll(otherActiveDashboards);
     }
 
     @Transactional(readOnly = true)

@@ -22,7 +22,8 @@ class UpdateProfileRequestTest {
                 "(62) 99999-9999",
                 LocalDate.of(2005, 3, 18),
                 Gender.PREFER_NOT_TO_SAY,
-                "Goiânia - GO"
+                "Goiânia - GO",
+                null
         );
 
         assertTrue(validator.validate(request).isEmpty());
@@ -37,7 +38,8 @@ class UpdateProfileRequestTest {
                 "",
                 null,
                 null,
-                ""
+                "",
+                null
         );
 
         assertTrue(validator.validate(request).isEmpty());
@@ -93,7 +95,8 @@ class UpdateProfileRequestTest {
                 phone,
                 birthDate,
                 Gender.PREFER_NOT_TO_SAY,
-                "Goiânia - GO"
+                "Goiânia - GO",
+                null
         );
     }
 

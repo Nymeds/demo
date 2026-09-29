@@ -37,7 +37,11 @@ public record UpdateProfileRequest(
         Gender gender,
 
         @Size(max = 120, message = "A localização deve ter no máximo 120 caracteres.")
-        String location
+        String location,
+
+        // Só é exigida quando o e-mail muda; a regra fica no serviço.
+        @Size(max = 72, message = "A senha deve ter no máximo 72 caracteres.")
+        String currentPassword
 ) {
     public UpdateProfileRequest {
         name = trim(name);

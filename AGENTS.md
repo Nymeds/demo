@@ -20,7 +20,7 @@ O código atual é uma base Spring Boot; não presuma que funcionalidades de dom
 1. Leia os arquivos relevantes e verifique alterações locais antes de editar.
 2. Faça alterações pequenas, focadas e acompanhadas de testes quando o comportamento mudar.
 3. Execute `./mvnw.cmd test` antes de concluir alterações de código.
-4. Para iniciar localmente, execute `./mvnw.cmd spring-boot:run` no terminal integrado do VS Code.
+4. Para iniciar localmente sem PostgreSQL, use o perfil `dev` (H2 em memória, dados perdidos ao reiniciar; usuário demo `desenvolvedor@dev.com`): `./mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=dev"`. O perfil padrão exige PostgreSQL e as variáveis `DB_PASSWORD` e `JWT_SECRET` (veja o README).
 
 ## Qualidade e IHC
 

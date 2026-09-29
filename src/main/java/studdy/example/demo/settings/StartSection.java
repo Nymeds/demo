@@ -5,6 +5,9 @@ public enum StartSection {
     DASHBOARD,
     DISCIPLINES,
     ACTIVITIES,
+    EXAMS,
+    FREQUENCY,
     GRADES,
-    SIMULATOR
+    SIMULATOR,
+    CALENDAR
 }

@@ -1,16 +1,23 @@
 <script setup>
+import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
+import { ref } from 'vue'
 defineProps({
   activityTitle: { type: String, required: true },
 })
 
 const emit = defineEmits(['close', 'confirm'])
+
+const trapRef = ref(null)
+useFocusTrap(() => true, trapRef, {
+  onClose: () => emit('close'),
+})
 </script>
 
 <template>
   <div class="delete-activity-backdrop" @mousedown.self="emit('close')">
     <section
       class="delete-activity-modal"
-      role="alertdialog"
+      ref="trapRef" tabindex="-1" role="alertdialog"
       aria-modal="true"
       aria-labelledby="delete-activity-title"
       aria-describedby="delete-activity-description"

@@ -20,6 +20,10 @@ import studdy.example.demo.dashboard.DashboardStatus;
 import studdy.example.demo.discipline.Discipline;
 import studdy.example.demo.discipline.DisciplineRepository;
 
+import studdy.example.demo.grade.GradeService;
+import studdy.example.demo.grade.dto.CreateGradeRequest;
+import studdy.example.demo.grade.dto.GradeResponse;
+
 import studdy.example.demo.user.AppUser;
 import studdy.example.demo.user.UserRepository;
 
@@ -28,6 +32,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -46,6 +51,9 @@ class ActivityServiceTest {
 
     @Autowired
     private ActivityService activityService;
+
+    @Autowired
+    private GradeService gradeService;
 
     private AppUser owner;
     private AppUser intruder;
@@ -120,7 +128,8 @@ class ActivityServiceTest {
                                 "Trabalho",
                                 "Descrição",
                                 LocalDate.of(2026, 9, 10),
-                                ActivityStatus.PENDING
+                                ActivityStatus.PENDING,
+                                null
                         )
                 )
         );
@@ -156,7 +165,8 @@ class ActivityServiceTest {
                                 "Alterada",
                                 "Nova descrição",
                                 LocalDate.of(2026, 9, 20),
-                                ActivityStatus.IN_PROGRESS
+                                ActivityStatus.IN_PROGRESS,
+                                null
                         )
                 )
         );
@@ -193,7 +203,8 @@ class ActivityServiceTest {
         List<ActivityResponse> activities = activityService.findAll(
                 owner.getId(),
                 ownerDashboard.getId(),
-                ownerDiscipline.getId()
+                ownerDiscipline.getId(),
+                null
         );
 
         assertEquals(1, activities.size());
@@ -208,6 +219,44 @@ class ActivityServiceTest {
     }
 
     @Test
+    void findAllByDashboardReturnsActivitiesFromAllDisciplinesOrderedByDueDate() {
+
+        createOwnerActivity(
+                ownerDiscipline,
+                "Atividade tardia",
+                LocalDate.of(2026, 9, 20)
+        );
+
+        createOwnerActivity(
+                secondOwnerDiscipline,
+                "Atividade antecipada",
+                LocalDate.of(2026, 9, 5)
+        );
+
+        List<ActivityResponse> activities = activityService.findAllByDashboard(
+                owner.getId(),
+                ownerDashboard.getId(),
+                null
+        );
+
+        assertEquals(2, activities.size());
+        assertEquals("Atividade antecipada", activities.get(0).title());
+        assertEquals("Atividade tardia", activities.get(1).title());
+    }
+
+    @Test
+    void rejectsFindAllByDashboardForAnotherUser() {
+
+        assertNotFound(() ->
+                activityService.findAllByDashboard(
+                        owner.getId(),
+                        intruderDashboard.getId(),
+                        null
+                )
+        );
+    }
+
+    @Test
     void trimsTitleAndConvertsBlankDescriptionToNull() {
 
         ActivityResponse response = activityService.create(
@@ -218,7 +267,8 @@ class ActivityServiceTest {
                         "   Trabalho de Software   ",
                         "      ",
                         LocalDate.of(2026, 9, 15),
-                        ActivityStatus.PENDING
+                        ActivityStatus.PENDING,
+                        null
                 )
         );
 
@@ -230,9 +280,301 @@ class ActivityServiceTest {
         assertNull(response.description());
     }
 
+    @Test
+    void createWithoutTypeDefaultsToActivity() {
+
+        ActivityResponse response = activityService.create(
+                owner.getId(),
+                ownerDashboard.getId(),
+                ownerDiscipline.getId(),
+                new CreateActivityRequest(
+                        "Trabalho",
+                        "Descrição",
+                        LocalDate.of(2026, 9, 15),
+                        ActivityStatus.PENDING,
+                        null
+                )
+        );
+
+        assertEquals(ActivityType.ACTIVITY, response.type());
+    }
+
+    @Test
+    void createWithExplicitTypeKeepsIt() {
+
+        ActivityResponse response = activityService.create(
+                owner.getId(),
+                ownerDashboard.getId(),
+                ownerDiscipline.getId(),
+                new CreateActivityRequest(
+                        "Prova 1",
+                        "Descrição",
+                        LocalDate.of(2026, 9, 15),
+                        ActivityStatus.PENDING,
+                        ActivityType.EXAM
+                )
+        );
+
+        assertEquals(ActivityType.EXAM, response.type());
+    }
+
+    @Test
+    void updateWithoutTypeKeepsTheCurrentType() {
+
+        ActivityResponse created = activityService.create(
+                owner.getId(),
+                ownerDashboard.getId(),
+                ownerDiscipline.getId(),
+                new CreateActivityRequest(
+                        "Prova 1",
+                        "Descrição",
+                        LocalDate.of(2026, 9, 15),
+                        ActivityStatus.PENDING,
+                        ActivityType.EXAM
+                )
+        );
+
+        ActivityResponse updated = activityService.update(
+                owner.getId(),
+                ownerDashboard.getId(),
+                ownerDiscipline.getId(),
+                created.id(),
+                new UpdateActivityRequest(
+                        "Prova 1 revisada",
+                        "Descrição",
+                        LocalDate.of(2026, 9, 16),
+                        ActivityStatus.IN_PROGRESS,
+                        null
+                )
+        );
+
+        assertEquals(ActivityType.EXAM, updated.type());
+    }
+
+    @Test
+    void updateWithTypeChangesIt() {
+
+        ActivityResponse created = activityService.create(
+                owner.getId(),
+                ownerDashboard.getId(),
+                ownerDiscipline.getId(),
+                new CreateActivityRequest(
+                        "Trabalho",
+                        "Descrição",
+                        LocalDate.of(2026, 9, 15),
+                        ActivityStatus.PENDING,
+                        null
+                )
+        );
+
+        ActivityResponse updated = activityService.update(
+                owner.getId(),
+                ownerDashboard.getId(),
+                ownerDiscipline.getId(),
+                created.id(),
+                new UpdateActivityRequest(
+                        "Virou prova",
+                        "Descrição",
+                        LocalDate.of(2026, 9, 16),
+                        ActivityStatus.IN_PROGRESS,
+                        ActivityType.EXAM
+                )
+        );
+
+        assertEquals(ActivityType.EXAM, updated.type());
+    }
+
+    @Test
+    void findAllFiltersByType() {
+
+        activityService.create(
+                owner.getId(),
+                ownerDashboard.getId(),
+                ownerDiscipline.getId(),
+                new CreateActivityRequest(
+                        "Trabalho",
+                        "Descrição",
+                        LocalDate.of(2026, 9, 10),
+                        ActivityStatus.PENDING,
+                        ActivityType.ACTIVITY
+                )
+        );
+
+        activityService.create(
+                owner.getId(),
+                ownerDashboard.getId(),
+                ownerDiscipline.getId(),
+                new CreateActivityRequest(
+                        "Prova",
+                        "Descrição",
+                        LocalDate.of(2026, 9, 12),
+                        ActivityStatus.PENDING,
+                        ActivityType.EXAM
+                )
+        );
+
+        List<ActivityResponse> exams = activityService.findAll(
+                owner.getId(),
+                ownerDashboard.getId(),
+                ownerDiscipline.getId(),
+                ActivityType.EXAM
+        );
+
+        assertEquals(1, exams.size());
+        assertEquals("Prova", exams.getFirst().title());
+
+        List<ActivityResponse> all = activityService.findAll(
+                owner.getId(),
+                ownerDashboard.getId(),
+                ownerDiscipline.getId(),
+                null
+        );
+
+        assertEquals(2, all.size());
+    }
+
+    @Test
+    void findAllByDashboardFiltersByType() {
+
+        activityService.create(
+                owner.getId(),
+                ownerDashboard.getId(),
+                ownerDiscipline.getId(),
+                new CreateActivityRequest(
+                        "Trabalho",
+                        "Descrição",
+                        LocalDate.of(2026, 9, 10),
+                        ActivityStatus.PENDING,
+                        ActivityType.ACTIVITY
+                )
+        );
+
+        activityService.create(
+                owner.getId(),
+                ownerDashboard.getId(),
+                secondOwnerDiscipline.getId(),
+                new CreateActivityRequest(
+                        "Prova",
+                        "Descrição",
+                        LocalDate.of(2026, 9, 12),
+                        ActivityStatus.PENDING,
+                        ActivityType.EXAM
+                )
+        );
+
+        List<ActivityResponse> exams = activityService.findAllByDashboard(
+                owner.getId(),
+                ownerDashboard.getId(),
+                ActivityType.EXAM
+        );
+
+        assertEquals(1, exams.size());
+        assertEquals("Prova", exams.getFirst().title());
+
+        List<ActivityResponse> all = activityService.findAllByDashboard(
+                owner.getId(),
+                ownerDashboard.getId(),
+                null
+        );
+
+        assertEquals(2, all.size());
+    }
+
+    @Test
+    void rejectsMovingDueDateAfterLinkedGradeRecordedAt() {
+
+        ActivityResponse activity = createOwnerActivity(
+                ownerDiscipline,
+                "Prova 1",
+                LocalDate.of(2026, 9, 10)
+        );
+
+        GradeResponse grade = gradeService.create(
+                owner.getId(),
+                ownerDashboard.getId(),
+                ownerDiscipline.getId(),
+                new CreateGradeRequest(
+                        "Prova 1",
+                        new BigDecimal("8.00"),
+                        LocalDate.of(2026, 9, 12),
+                        activity.id()
+                )
+        );
+
+        ResponseStatusException error = assertThrows(
+                ResponseStatusException.class,
+                () -> activityService.update(
+                        owner.getId(),
+                        ownerDashboard.getId(),
+                        ownerDiscipline.getId(),
+                        activity.id(),
+                        new UpdateActivityRequest(
+                                "Prova 1",
+                                "Descrição",
+                                LocalDate.of(2026, 9, 13),
+                                ActivityStatus.PENDING,
+                                null
+                        )
+                )
+        );
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatusCode());
+        assertEquals(
+                "O prazo não pode ficar depois de 12/09/2026, data da nota lançada. Exclua a nota ou ajuste a data dela (até hoje) antes.",
+                error.getReason()
+        );
+        assertNotNull(grade);
+    }
+
+    @Test
+    void allowsMovingDueDateToSameOrEarlierDateThanLinkedGradeRecordedAt() {
+
+        ActivityResponse activity = createOwnerActivity(
+                ownerDiscipline,
+                "Prova 1",
+                LocalDate.of(2026, 9, 10)
+        );
+
+        gradeService.create(
+                owner.getId(),
+                ownerDashboard.getId(),
+                ownerDiscipline.getId(),
+                new CreateGradeRequest(
+                        "Prova 1",
+                        new BigDecimal("8.00"),
+                        LocalDate.of(2026, 9, 12),
+                        activity.id()
+                )
+        );
+
+        ActivityResponse updated = activityService.update(
+                owner.getId(),
+                ownerDashboard.getId(),
+                ownerDiscipline.getId(),
+                activity.id(),
+                new UpdateActivityRequest(
+                        "Prova 1",
+                        "Descrição",
+                        LocalDate.of(2026, 9, 12),
+                        ActivityStatus.PENDING,
+                        null
+                )
+        );
+
+        assertEquals(LocalDate.of(2026, 9, 12), updated.dueDate());
+    }
+
     private ActivityResponse createOwnerActivity(
             Discipline discipline,
             String title
+    ) {
+        return createOwnerActivity(discipline, title, LocalDate.of(2026, 9, 10));
+    }
+
+    private ActivityResponse createOwnerActivity(
+            Discipline discipline,
+            String title,
+            LocalDate dueDate
     ) {
 
         return activityService.create(
@@ -242,8 +584,9 @@ class ActivityServiceTest {
                 new CreateActivityRequest(
                         title,
                         "Descrição",
-                        LocalDate.of(2026, 9, 10),
-                        ActivityStatus.PENDING
+                        dueDate,
+                        ActivityStatus.PENDING,
+                        null
                 )
         );
     }
@@ -258,7 +601,8 @@ class ActivityServiceTest {
                         "Atividade privada",
                         "Atividade do outro usuário",
                         LocalDate.of(2026, 9, 10),
-                        ActivityStatus.PENDING
+                        ActivityStatus.PENDING,
+                        null
                 )
         );
     }

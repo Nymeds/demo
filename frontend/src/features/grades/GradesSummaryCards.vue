@@ -1,14 +1,17 @@
 <script setup>
 import { computed } from 'vue'
-import { bandInfo, bandOf, formatGrade } from './gradesPresentation'
+import { bandInfo, bandOf, formatGrade, goalMessage } from './gradesPresentation'
 
 const props = defineProps({
   summary: { type: Object, required: true },
   periodLabel: { type: String, required: true },
+  goal: { type: Number, default: null },
 })
 
+const emit = defineEmits(['navigate'])
 
 const generalBand = computed(() => bandInfo(bandOf(props.summary.generalAverage)))
+const generalGoalMessage = computed(() => goalMessage(props.summary.generalAverage, props.goal))
 </script>
 
 <template>
@@ -21,6 +24,10 @@ const generalBand = computed(() => bandInfo(bandOf(props.summary.generalAverage)
         <p>Média geral</p>
         <strong>{{ formatGrade(summary.generalAverage) }}</strong>
         <small>{{ generalBand.summary }}</small>
+        <small v-if="generalGoalMessage" class="grades-summary-goal">{{ generalGoalMessage }}</small>
+        <button v-else-if="goal === null" type="button" class="grades-summary-link" @click="emit('navigate', 'settings')">
+          Defina uma meta de média em Configurações
+        </button>
       </div>
     </article>
 
@@ -67,5 +74,6 @@ const generalBand = computed(() => bandInfo(bandOf(props.summary.generalAverage)
 .grades-summary-card.is-blue small { color: #2f65b8; }
 .grades-summary-link { background: none; border: 0; color: #2f65b8; cursor: pointer; font-size: .64rem; font-weight: 700; padding: 0; text-align: left; text-decoration: underline; }
 .grades-summary-link:focus-visible { outline: 2px solid rgba(105, 54, 224, .4); outline-offset: 2px; }
+.grades-summary-goal { font-weight: 700; }
 
 </style>

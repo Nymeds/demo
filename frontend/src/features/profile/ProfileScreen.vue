@@ -1,4 +1,6 @@
 <script setup>
+import { saveSession } from '../../shared/auth/session.js'
+import { apiRequest } from '../../shared/http/apiRequest.js'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import AppToast from '../../components/ui/AppToast.vue'
 import AvatarCropModal from '../settings/AvatarCropModal.vue'
@@ -13,12 +15,16 @@ const emit = defineEmits(['updated'])
 const maximumPhotoSize = 15 * 1024 * 1024
 const cropFile = ref(null)
 const choosePhotoButton = ref(null)
+const currentPasswordInput = ref(null)
 const photoInput = ref(null)
 const profile = ref({ ...props.user })
 const avatarUrl = ref('')
 const loading = ref(true)
 const saving = ref(false)
 const pendingPhoto = ref(null)
+const photoUploadFailed = ref(false)
+const currentPassword = ref('')
+const formError = ref('')
 const photoRemoved = ref(false)
 const photoPreviewUrl = ref('')
 const pageError = ref('')
@@ -35,6 +41,7 @@ const form = reactive({
 })
 
 const savedForm = ref('')
+const emailChanged = computed(() => form.email.trim().toLowerCase() !== String(profile.value.email ?? '').trim().toLowerCase())
 let toastTimer
 
 const genderOptions = [
@@ -120,30 +127,6 @@ function closeToast() {
   toast.value.message = ''
 }
 
-async function apiRequest(path, options = {}) {
-  const isFormData = options.body instanceof FormData
-  const response = await fetch(path, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${props.accessToken}`,
-      ...(!isFormData && options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...options.headers,
-    },
-  })
-
-  const data = response.status === 204
-    ? null
-    : await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    const error = new Error(data.detail || data.message || 'Não foi possível concluir a solicitação.')
-    error.fieldErrors = data.errors && typeof data.errors === 'object' ? data.errors : {}
-    throw error
-  }
-
-  return data
-}
-
 function clearAvatarUrl() {
   if (avatarUrl.value) URL.revokeObjectURL(avatarUrl.value)
   avatarUrl.value = ''
@@ -154,13 +137,8 @@ async function loadAvatar(userProfile = profile.value) {
   if (!userProfile.hasProfilePhoto || !userProfile.profilePhotoUrl) return
 
   try {
-    const response = await fetch(userProfile.profilePhotoUrl, {
-      headers: { Authorization: `Bearer ${props.accessToken}` },
-      cache: 'no-store',
-    })
-
-    if (!response.ok) throw new Error('Não foi possível carregar a foto.')
-    avatarUrl.value = URL.createObjectURL(await response.blob())
+    const photo = await apiRequest(userProfile.profilePhotoUrl, { as: 'blob', cache: 'no-store' })
+    avatarUrl.value = URL.createObjectURL(photo)
   } catch {
     showToast('A foto de perfil não pôde ser carregada.', 'error')
   }
@@ -183,51 +161,120 @@ async function loadProfile() {
   }
 }
 
+async function saveData() {
+  const payload = {
+    name: form.name,
+    username: form.username || null,
+    email: form.email,
+    phone: form.phone || null,
+    birthDate: form.birthDate || null,
+    gender: form.gender || null,
+    location: form.location || null,
+  }
+  if (emailChanged.value) payload.currentPassword = currentPassword.value
+
+  const wasEmailChange = emailChanged.value
+  const response = await apiRequest('/api/v1/users/me', { method: 'PUT', body: JSON.stringify(payload) })
+  const { session, accessToken, refreshToken, ...updatedProfile } = response ?? {}
+  // Após trocar o e-mail o servidor pode devolver tokens novos (os antigos são revogados).
+  const newTokens = session?.accessToken ? session : (accessToken ? { ...response } : null)
+  if (newTokens) saveSession(newTokens)
+  profile.value = updatedProfile
+  fillForm(updatedProfile)
+  currentPassword.value = ''
+  emit('updated', updatedProfile)
+
+  return wasEmailChange && !newTokens
+    ? 'Seu e-mail foi alterado. Entre novamente se for solicitado.'
+    : ''
+}
+
+async function savePhoto() {
+  if (pendingPhoto.value) {
+    const body = new FormData()
+    body.append('file', pendingPhoto.value)
+    const updatedProfile = await apiRequest('/api/v1/users/me/profile-photo', { method: 'PUT', body })
+    profile.value = updatedProfile
+    clearAvatarUrl()
+    avatarUrl.value = photoPreviewUrl.value
+    photoPreviewUrl.value = ''
+    clearPhotoChanges()
+    emit('updated', updatedProfile)
+  } else if (photoRemoved.value) {
+    await apiRequest('/api/v1/users/me/profile-photo', { method: 'DELETE' })
+    profile.value = { ...profile.value, hasProfilePhoto: false, profilePhotoUrl: null }
+    clearAvatarUrl()
+    clearPhotoChanges()
+    emit('updated', profile.value)
+  }
+}
+
 async function saveProfile() {
   if (saving.value || !isDirty.value) return
+  if (emailChanged.value && !currentPassword.value) {
+    const message = 'Informe sua senha atual para alterar o e-mail.'
+    fieldErrors.value = { currentPassword: message }
+    formError.value = message
+    await nextTick()
+    currentPasswordInput.value?.focus()
+    return
+  }
+
   saving.value = true
   fieldErrors.value = {}
+  formError.value = ''
+  photoUploadFailed.value = false
+  const hasDataChanges = formSnapshot() !== savedForm.value
+  const hasPhotoChanges = Boolean(pendingPhoto.value) || photoRemoved.value
+  let dataSaved = false
+  let successMessage = 'Perfil atualizado com sucesso.'
 
   try {
-    if (formSnapshot() !== savedForm.value) {
-      const updatedProfile = await apiRequest('/api/v1/users/me', {
-        method: 'PUT',
-        body: JSON.stringify({
-          name: form.name,
-          username: form.username || null,
-          email: form.email,
-          phone: form.phone || null,
-          birthDate: form.birthDate || null,
-          gender: form.gender || null,
-          location: form.location || null,
-        }),
-      })
-
-      profile.value = updatedProfile
-      fillForm(updatedProfile)
-      emit('updated', updatedProfile)
+    if (hasDataChanges) {
+      try {
+        successMessage = (await saveData()) || successMessage
+        dataSaved = true
+      } catch (error) {
+        fieldErrors.value = error.fieldErrors || {}
+        formError.value = error.message || 'Não foi possível atualizar o perfil.'
+        showToast(hasPhotoChanges
+          ? 'Os dados não foram salvos, então a foto também não foi enviada.'
+          : formError.value, 'error')
+        return
+      }
     }
 
-    if (pendingPhoto.value) {
-      const body = new FormData()
-      body.append('file', pendingPhoto.value)
-      profile.value = await apiRequest('/api/v1/users/me/profile-photo', { method: 'PUT', body })
-      clearAvatarUrl()
-      avatarUrl.value = photoPreviewUrl.value
-      photoPreviewUrl.value = ''
-      clearPhotoChanges()
-      emit('updated', profile.value)
-    } else if (photoRemoved.value) {
-      await apiRequest('/api/v1/users/me/profile-photo', { method: 'DELETE' })
-      profile.value = { ...profile.value, hasProfilePhoto: false, profilePhotoUrl: null }
-      clearAvatarUrl()
-      clearPhotoChanges()
-      emit('updated', profile.value)
+    if (hasPhotoChanges) {
+      try {
+        await savePhoto()
+      } catch (error) {
+        photoUploadFailed.value = true
+        formError.value = error.message || 'Não foi possível enviar a foto.'
+        showToast(dataSaved
+          ? 'Dados salvos, mas a foto não foi enviada. Use "Tentar enviar a foto novamente".'
+          : 'A foto não foi enviada. Use "Tentar enviar a foto novamente".', 'error')
+        return
+      }
     }
-    showToast('Perfil atualizado com sucesso.')
+
+    showToast(successMessage)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function retryPhoto() {
+  if (saving.value || !photoUploadFailed.value) return
+  saving.value = true
+  formError.value = ''
+
+  try {
+    await savePhoto()
+    photoUploadFailed.value = false
+    showToast('Foto enviada com sucesso.')
   } catch (error) {
-    fieldErrors.value = error.fieldErrors || {}
-    showToast(error.message || 'Não foi possível atualizar o perfil.', 'error')
+    formError.value = error.message || 'Não foi possível enviar a foto.'
+    showToast('A foto ainda não foi enviada. Tente novamente.', 'error')
   } finally {
     saving.value = false
   }
@@ -237,6 +284,9 @@ function cancelChanges() {
   if (saving.value) return
   fillForm(profile.value)
   clearPhotoChanges()
+  currentPassword.value = ''
+  formError.value = ''
+  photoUploadFailed.value = false
   showToast('Alterações descartadas.')
 }
 
@@ -250,7 +300,7 @@ function uploadPhoto(event) {
   if (!file || saving.value) return
 
   if (file.size > maximumPhotoSize) {
-    showToast('A foto deve ter no máximo 15 MB.', 'error')
+    showToast('A imagem original deve ter no máximo 15 MB.', 'error')
     return
   }
 
@@ -270,6 +320,8 @@ async function closeCrop() {
 
 function confirmPhotoCrop(image) {
   clearPhotoChanges()
+  photoUploadFailed.value = false
+  formError.value = ''
   pendingPhoto.value = new File([image], 'perfil.jpg', { type: 'image/jpeg' })
   photoPreviewUrl.value = URL.createObjectURL(image)
   closeCrop()
@@ -359,7 +411,7 @@ onBeforeUnmount(() => {
 
           <div class="profile-photo-copy">
             <h3 id="profile-photo-title">Foto de perfil</h3>
-            <p>PNG, JPG ou WebP de até 15 MB. Ajuste o recorte e depois clique em Salvar alterações.</p>
+            <p>Aceitamos PNG, JPG ou WebP de até 15 MB; ajustamos a foto para JPG de até 2 MB antes de enviar. Ajuste o recorte e depois clique em Salvar alterações.</p>
             <div class="profile-photo-actions">
               <input
                 ref="photoInput"
@@ -382,7 +434,11 @@ onBeforeUnmount(() => {
                 Remover
               </button>
             </div>
-            <p v-if="pendingPhoto || photoRemoved" role="status">Clique em Salvar alterações para confirmar a mudança da foto.</p>
+            <p v-if="photoUploadFailed" class="profile-field-error" role="alert">
+              A foto não foi enviada.
+              <button class="profile-retry-photo" type="button" :disabled="saving" @click="retryPhoto">Tentar enviar a foto novamente</button>
+            </p>
+            <p v-else-if="pendingPhoto || photoRemoved" role="status">Clique em Salvar alterações para confirmar a mudança da foto.</p>
           </div>
         </section>
 
@@ -428,6 +484,22 @@ onBeforeUnmount(() => {
               :aria-invalid="Boolean(fieldErrors.email)"
             >
             <small v-if="fieldErrors.email" class="profile-field-error">{{ fieldErrors.email }}</small>
+          </label>
+
+          <label v-if="emailChanged" class="profile-password-field">
+            <span>Senha atual</span>
+            <input
+              ref="currentPasswordInput"
+              v-model="currentPassword"
+              type="password"
+              autocomplete="current-password"
+              required
+              aria-describedby="profile-password-hint"
+              :aria-invalid="Boolean(fieldErrors.currentPassword) || Boolean(formError && !photoUploadFailed && !fieldErrors.email)"
+            >
+            <small id="profile-password-hint">Necessária para confirmar a alteração do e-mail.</small>
+            <small v-if="fieldErrors.currentPassword" class="profile-field-error" role="alert">{{ fieldErrors.currentPassword }}</small>
+            <small v-else-if="formError && !photoUploadFailed" class="profile-field-error" role="alert">{{ formError }}</small>
           </label>
 
           <label>
@@ -479,6 +551,8 @@ onBeforeUnmount(() => {
             <small v-if="fieldErrors.location" class="profile-field-error">{{ fieldErrors.location }}</small>
           </label>
         </div>
+
+        <p v-if="formError && !emailChanged && !photoUploadFailed" class="profile-field-error profile-form-error" role="alert">{{ formError }}</p>
 
         <footer class="profile-form-actions">
           <button class="profile-cancel-button" type="button" :disabled="saving || !isDirty" @click="cancelChanges">
@@ -550,7 +624,10 @@ onBeforeUnmount(() => {
 .profile-fields select:focus { border-color: #7544e4; box-shadow: 0 0 0 3px rgba(105, 57, 222, .11); }
 .profile-fields input[aria-invalid='true'],
 .profile-fields select[aria-invalid='true'] { border-color: #d95a50; }
-.profile-location-field { grid-column: 1 / -1; }
+.profile-location-field,
+.profile-password-field { grid-column: 1 / -1; }
+.profile-form-error { margin: 18px 0 0; }
+.profile-retry-photo { background: none; border: 0; color: #5f2dd9; cursor: pointer; font: inherit; font-weight: 750; padding: 0; text-decoration: underline; }
 .profile-field-error { color: #bd4038; font-size: .61rem; line-height: 1.3; }
 .profile-form-actions { align-items: center; border-top: 1px solid #eceef3; display: flex; gap: 11px; justify-content: flex-end; margin-top: 30px; padding-top: 23px; }
 .profile-cancel-button,
@@ -591,7 +668,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   .profile-avatar > strong { font-size: 1.8rem; }
   .profile-fields,
   .profile-side-column { grid-template-columns: 1fr; }
-  .profile-location-field { grid-column: auto; }
+  .profile-location-field,
+  .profile-password-field { grid-column: auto; }
 }
 @media (max-width: 460px) {
   .profile-photo-section { flex-direction: column; }

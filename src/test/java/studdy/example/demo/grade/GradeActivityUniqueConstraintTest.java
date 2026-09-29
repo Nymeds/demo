@@ -81,6 +81,7 @@ class GradeActivityUniqueConstraintTest {
                 null,
                 LocalDate.now().minusDays(3),
                 ActivityStatus.COMPLETED,
+                null,
                 discipline
         ));
     }

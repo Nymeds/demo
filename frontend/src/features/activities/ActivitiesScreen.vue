@@ -1,21 +1,23 @@
 <script setup>
+import { apiRequest } from '../../shared/http/apiRequest.js'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import ActivityModal from './ActivityModal.vue'
 import AppSelect from '../../components/ui/AppSelect.vue'
 import AppToast from '../../components/ui/AppToast.vue'
 import DeleteActivityModal from './DeleteActivityModal.vue'
+import { isOverdue as isDateOverdue, parseLocalDate } from '../../shared/date/localDate.js'
+import { loadActiveDashboard } from '../../shared/dashboards/useActiveDashboard.js'
 
-const props = defineProps({
-  accessToken: { type: String, required: true },
-})
 const emit = defineEmits(['navigate'])
 
 const dashboardId = ref('')
 const disciplines = ref([])
 const activities = ref([])
 const loading = ref(true)
+const loadError = ref('')
 const requestError = ref('')
 const saveFeedback = ref('')
+let activitiesRequestId = 0
 
 const searchTerm = ref('')
 const activeFilter = ref('all')
@@ -32,6 +34,7 @@ const showActivityModal = ref(false)
 const editingActivity = ref(null)
 const activityToDelete = ref(null)
 const saving = ref(false)
+const activityModalError = ref('')
 const toast = ref({ message: '', type: 'success' })
 let toastTimer
 
@@ -55,31 +58,6 @@ function closeToast() {
   toast.value.message = ''
 }
 
-async function apiRequest(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${props.accessToken}`,
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...options.headers,
-    },
-  })
-
-  const data = response.status === 204
-    ? null
-    : await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    const fieldErrors = data.errors && typeof data.errors === 'object'
-      ? Object.values(data.errors).filter(Boolean).join(' ')
-      : ''
-
-    throw new Error(fieldErrors || data.detail || data.message || 'Não foi possível concluir a solicitação.')
-  }
-
-  return data
-}
-
 function disciplineById(id) {
   return disciplines.value.find(discipline => discipline.id === id)
 }
@@ -95,12 +73,12 @@ function normalizeActivity(activity) {
 }
 
 async function loadActivities() {
+  const requestId = ++activitiesRequestId
   loading.value = true
-  requestError.value = ''
+  loadError.value = ''
 
   try {
-    const dashboards = await apiRequest('/api/v1/dashboards')
-    let dashboard = dashboards.find(item => item.status === 'ACTIVE') || dashboards[0]
+    let dashboard = await loadActiveDashboard(apiRequest)
 
     if (!dashboard) {
       dashboard = await apiRequest('/api/v1/dashboards', {
@@ -112,38 +90,32 @@ async function loadActivities() {
       })
     }
 
+    if (requestId !== activitiesRequestId) return
+
     dashboardId.value = dashboard.id
 
     disciplines.value = await apiRequest(
       `/api/v1/dashboards/${dashboard.id}/disciplines`,
     )
 
-    if (disciplines.value.length === 0) {
-      activities.value = []
-      return
-    }
+    if (requestId !== activitiesRequestId) return
 
-    const activityLists = await Promise.all(
-      disciplines.value.map(async discipline => {
-        const savedActivities = await apiRequest(
-          `/api/v1/dashboards/${dashboard.id}/disciplines/${discipline.id}/activities`,
-        )
-
-        return savedActivities.map(activity => ({
-          ...activity,
-          disciplineName: discipline.name,
-          disciplineColor: discipline.color || '#6432df',
-        }))
-      }),
+    const loadedActivities = await apiRequest(
+      `/api/v1/dashboards/${dashboard.id}/activities`,
     )
 
-    const loadedActivities = activityLists.flat()
-    activities.value = [...new Map(loadedActivities.map(activity => [activity.id, activity])).values()]
+    if (requestId !== activitiesRequestId) return
+
+    activities.value = loadedActivities.map(activity => normalizeActivity(activity))
+    loadError.value = ''
   } catch (error) {
-    requestError.value = error.message || 'Não foi possível carregar as atividades.'
-    showToast(requestError.value, 'error')
+    if (requestId !== activitiesRequestId) return
+
+    loadError.value = error.message || 'Não foi possível carregar as atividades.'
   } finally {
-    loading.value = false
+    if (requestId === activitiesRequestId) {
+      loading.value = false
+    }
   }
 }
 
@@ -156,12 +128,14 @@ function openAddModal() {
 
   saveFeedback.value = ''
   requestError.value = ''
+  activityModalError.value = ''
   editingActivity.value = null
   showActivityModal.value = true
 }
 
 function openEditModal(activity) {
   saveFeedback.value = ''
+  activityModalError.value = ''
   editingActivity.value = activity
   showActivityModal.value = true
 }
@@ -169,12 +143,14 @@ function openEditModal(activity) {
 function closeActivityModal() {
   showActivityModal.value = false
   editingActivity.value = null
+  activityModalError.value = ''
 }
 
 async function saveActivity(formData) {
   if (saving.value) return
 
   requestError.value = ''
+  activityModalError.value = ''
   saving.value = true
 
   try {
@@ -192,6 +168,7 @@ async function saveActivity(formData) {
         description: formData.description,
         dueDate: formData.dueDate,
         status: formData.status,
+        type: formData.type,
       }),
     })
 
@@ -211,8 +188,7 @@ async function saveActivity(formData) {
     showToast(saveFeedback.value)
     closeActivityModal()
   } catch (error) {
-    requestError.value = error.message || 'Não foi possível salvar a atividade.'
-    showToast(requestError.value, 'error')
+    activityModalError.value = error.message || 'Não foi possível salvar a atividade.'
   } finally {
     saving.value = false
   }
@@ -249,10 +225,24 @@ async function confirmDeleteActivity() {
   }
 }
 
+const busyActivityIds = ref(new Set())
+
+function isActivityBusy(id) {
+  return busyActivityIds.value.has(id)
+}
+
+function setActivityBusy(id, busy) {
+  const next = new Set(busyActivityIds.value)
+  if (busy) next.add(id)
+  else next.delete(id)
+  busyActivityIds.value = next
+}
+
 async function completeActivity(activity) {
-  if (activity.status === 'COMPLETED') return
+  if (activity.status === 'COMPLETED' || isActivityBusy(activity.id)) return
 
   requestError.value = ''
+  setActivityBusy(activity.id, true)
 
   try {
     const updatedActivity = await apiRequest(
@@ -279,6 +269,8 @@ async function completeActivity(activity) {
   } catch (error) {
     requestError.value = error.message || 'Não foi possível concluir a atividade.'
     showToast(requestError.value, 'error')
+  } finally {
+    setActivityBusy(activity.id, false)
   }
 }
 
@@ -344,27 +336,21 @@ function statusDetails(status) {
   return statuses[status] || statuses.PENDING
 }
 
-function formatDate(date) {
+function formatDate(value) {
+  const date = parseLocalDate(value)
   if (!date) return '—'
 
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(`${date}T12:00:00`))
+  }).format(date)
 }
 
 function isOverdue(activity) {
   if (activity.status === 'COMPLETED' || !activity.dueDate) return false
 
-  const today = new Date()
-  const todayIso = [
-    today.getFullYear(),
-    String(today.getMonth() + 1).padStart(2, '0'),
-    String(today.getDate()).padStart(2, '0'),
-  ].join('-')
-
-  return activity.dueDate < todayIso
+  return isDateOverdue(activity.dueDate)
 }
 
 onMounted(loadActivities)
@@ -405,7 +391,7 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
         <button
           class="activities-add-button"
           type="button"
-          :disabled="loading || !dashboardId || disciplines.length === 0"
+          :disabled="loading || !!loadError || !dashboardId || disciplines.length === 0"
           @click="openAddModal"
         >
           <span aria-hidden="true">＋</span>
@@ -509,6 +495,20 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
         <p>Aguarde enquanto buscamos os dados.</p>
       </div>
 
+      <div v-else-if="loadError" class="activities-state-card">
+        <span class="activities-state-icon is-error" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v5m0 3h.01" />
+          </svg>
+        </span>
+        <h2>Não foi possível carregar as atividades</h2>
+        <p>{{ loadError }}</p>
+        <button class="activities-empty-button" type="button" @click="loadActivities">
+          Tentar novamente
+        </button>
+      </div>
+
       <div v-else-if="disciplines.length === 0" class="activities-state-card">
         <span class="activities-state-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24">
@@ -566,7 +566,10 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
                     {{ activity.disciplineName }}
                   </span>
 
-                  <h2>{{ activity.title }}</h2>
+                  <h2>
+                    {{ activity.title }}
+                    <span v-if="activity.type === 'EXAM'" class="activity-type-badge">Prova</span>
+                  </h2>
                 </div>
 
               </div>
@@ -599,6 +602,7 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
                 class="activity-complete"
                 type="button"
                 title="Marcar como concluída"
+                :disabled="isActivityBusy(activity.id)"
                 @click="completeActivity(activity)"
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -650,6 +654,7 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
       :activity="editingActivity"
       :disciplines="disciplines"
       :saving="saving"
+      :server-error="activityModalError"
       @close="closeActivityModal"
       @save="saveActivity"
     />
@@ -1041,6 +1046,18 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
   color: #218950;
 }
 
+.activity-type-badge {
+  background: #eaf2ff;
+  border-radius: 999px;
+  color: #26599c;
+  display: inline-block;
+  font-size: .58rem;
+  font-weight: 750;
+  margin-left: 8px;
+  padding: 3px 9px;
+  vertical-align: middle;
+}
+
 .activity-description {
   color: #747b8e;
   font-size: .68rem;
@@ -1147,6 +1164,11 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
 .activities-state-icon.is-green {
   background: #e8f8ef;
   color: #2daf68;
+}
+
+.activities-state-icon.is-error {
+  background: #fff1f0;
+  color: #ca403c;
 }
 
 .activities-state-icon svg {

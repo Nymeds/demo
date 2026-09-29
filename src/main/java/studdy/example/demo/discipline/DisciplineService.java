@@ -45,8 +45,8 @@ public class DisciplineService {
                 request.minimumAttendancePercentage(),
                 dashboard,
                 toSchedules(request.schedules()),
-                request.semester(),
-                request.periodo()
+                request.semester().trim(),
+                request.periodo().trim()
         );
 
         return toResponse(disciplineRepository.save(discipline));
@@ -81,7 +81,9 @@ public class DisciplineService {
                 request.color(),
                 request.passingAverage(),
                 request.minimumAttendancePercentage(),
-                toSchedules(request.schedules())
+                toSchedules(request.schedules()),
+                request.semester().trim(),
+                request.periodo().trim()
         );
 
         return toResponse(discipline);
@@ -122,6 +124,9 @@ public class DisciplineService {
     }
 
     private String normalizedProfessorName(String professorName) {
-        return professorName == null ? "" : professorName.trim();
+        if (professorName == null || professorName.isBlank()) {
+            return null;
+        }
+        return professorName.trim();
     }
 }

@@ -44,4 +44,8 @@ public class Dashboard {
         this.status = status;
         this.owner = owner;
     }
+
+    public void deactivate() {
+        this.status = DashboardStatus.INACTIVE;
+    }
 }

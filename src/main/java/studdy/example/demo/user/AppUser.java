@@ -50,9 +50,19 @@ public class AppUser {
 
     private Instant updatedAt;
 
-    // Momento da última troca de senha. Tokens emitidos antes dele deixam de valer.
+    // Momento da última troca de senha ou de e-mail. Tokens emitidos antes dele deixam de valer.
     @Column(name = "credentials_updated_at")
     private Instant credentialsUpdatedAt;
+
+    // Aceite dos Termos de Uso e da Política de Privacidade. Nulos em contas anteriores ao aceite.
+    @Column(name = "terms_accepted_at")
+    private Instant termsAcceptedAt;
+
+    @Column(name = "terms_version", length = 40)
+    private String termsVersion;
+
+    @Column(name = "privacy_version", length = 40)
+    private String privacyVersion;
 
     public AppUser(String name, String email, String passwordHash) {
         this.name = name;
@@ -78,13 +88,14 @@ public class AppUser {
         this.location = location;
     }
 
-    public void markProfileUpdated() {
-        updatedAt = Instant.now();
+    public void acceptTerms(Instant acceptedAt, String termsVersion, String privacyVersion) {
+        this.termsAcceptedAt = acceptedAt;
+        this.termsVersion = termsVersion;
+        this.privacyVersion = privacyVersion;
     }
 
-    public void updateProfile(String name, String email) {
-        this.name = name;
-        this.email = email;
+    public void markProfileUpdated() {
+        updatedAt = Instant.now();
     }
 
     // O JWT guarda a emissão em segundos inteiros, então um token emitido no mesmo segundo da troca
@@ -92,6 +103,11 @@ public class AppUser {
     // token novo é emitido exatamente nesse instante: tudo o que foi emitido antes deixa de valer.
     public void changePasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+        markCredentialsChanged();
+    }
+
+    // Troca de e-mail (o login) também invalida os access tokens emitidos antes.
+    public void markCredentialsChanged() {
         this.credentialsUpdatedAt = Instant.now().truncatedTo(ChronoUnit.SECONDS).plusSeconds(1);
     }
 

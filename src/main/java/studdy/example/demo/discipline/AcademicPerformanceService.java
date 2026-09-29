@@ -2,6 +2,7 @@ package studdy.example.demo.discipline;
 
 import org.springframework.stereotype.Service;
 import studdy.example.demo.grade.Grade;
+import studdy.example.demo.grade.GradeRounding;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -24,7 +25,8 @@ public class AcademicPerformanceService {
                 RoundingMode.HALF_UP
         );
 
-        DisciplineStatus status = average.compareTo(passingAverage) >= 0
+        // Mesma média arredondada que o estudante vê (e que define a faixa de desempenho).
+        DisciplineStatus status = GradeRounding.displayAverage(average).compareTo(passingAverage) >= 0
                 ? DisciplineStatus.APPROVED
                 : DisciplineStatus.FAILED_BY_GRADE;
 

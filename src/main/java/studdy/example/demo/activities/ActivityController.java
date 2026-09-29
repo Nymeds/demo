@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -54,13 +55,15 @@ public class ActivityController {
     public List<ActivityResponse> findAll(
             @AuthenticationPrincipal UUID userId,
             @PathVariable UUID dashboardId,
-            @PathVariable UUID disciplineId
+            @PathVariable UUID disciplineId,
+            @RequestParam(required = false) ActivityType type
     ) {
 
         return activityService.findAll(
                 userId,
                 dashboardId,
-                disciplineId
+                disciplineId,
+                type
         );
     }
 

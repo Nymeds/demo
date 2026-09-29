@@ -43,8 +43,26 @@
     </header>
 
 
+    <!-- ERRO AO CARREGAR DISCIPLINAS -->
+    <section
+      v-if="simulatorLoadError"
+      class="load-error page-load-error"
+    >
+      <p role="alert">
+        Não foi possível carregar suas disciplinas.
+      </p>
+      <button
+        type="button"
+        class="retry-button"
+        @click="loadSimulator"
+      >
+        Tentar novamente
+      </button>
+    </section>
+
+
     <!-- FILTROS -->
-    <section class="filters-card">
+    <section v-else class="filters-card">
 
       <!-- DISCIPLINA -->
       <div class="filter">
@@ -92,37 +110,11 @@
       </div>
 
 
-      <!-- TIPO DE CÁLCULO -->
-      <div class="filter">
-
-        <label for="simulator-calculation">Tipo de cálculo</label>
-
-        <AppSelect
-          id="simulator-calculation"
-          v-model="calculationType"
-          :options="calculationFilterOptions"
-        >
-          <template #leading>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="5" y="3" width="14" height="18" rx="2"/>
-              <rect x="8" y="6" width="8" height="3"/>
-              <circle cx="9" cy="13" r="0.7"/>
-              <circle cx="12" cy="13" r="0.7"/>
-              <circle cx="15" cy="13" r="0.7"/>
-              <circle cx="9" cy="16.5" r="0.7"/>
-              <circle cx="12" cy="16.5" r="0.7"/>
-              <circle cx="15" cy="16.5" r="0.7"/>
-            </svg>
-          </template>
-        </AppSelect>
-
-      </div>
-
     </section>
 
 
     <!-- PRIMEIRA LINHA -->
-    <div class="main-grid">
+    <div v-if="!simulatorLoadError" class="main-grid">
 
 
       <!-- SITUAÇÃO ATUAL -->
@@ -143,7 +135,25 @@
         </div>
 
 
-        <div class="situation-body">
+        <!-- ERRO AO CARREGAR NOTAS -->
+        <div
+          v-if="gradesStatus === 'error'"
+          class="load-error"
+        >
+          <p role="alert">
+            Não foi possível carregar as notas desta disciplina.
+          </p>
+          <button
+            type="button"
+            class="retry-button"
+            @click="loadGrades"
+          >
+            Tentar novamente
+          </button>
+        </div>
+
+
+        <div v-else class="situation-body">
 
           <!-- CÍRCULO -->
           <div class="average-circle">
@@ -151,7 +161,7 @@
             <div class="circle-content">
 
               <strong>
-                {{ formatNumber(currentAverage) }}
+                {{ formatAverage(currentAverage) }}
               </strong>
 
               <span>
@@ -173,7 +183,7 @@
               </span>
 
               <strong>
-                {{ formatNumber(currentAverage) }}
+                {{ formatAverage(currentAverage) }}
               </strong>
 
             </div>
@@ -186,7 +196,7 @@
               </span>
 
               <strong>
-                {{ formatNumber(passingAverage) }}
+                {{ formatAverage(passingAverage) }}
               </strong>
 
             </div>
@@ -201,10 +211,16 @@
               <div class="target-value">
 
                 <strong>
-                  {{ formatNumber(desiredAverage) }}
+                  {{ formatAverage(desiredAverage) }}
                 </strong>
 
-                <button class="edit-button">
+                <button
+                  type="button"
+                  class="edit-button"
+                  title="Editar meta desejada"
+                  aria-label="Editar meta desejada"
+                  @click="focusDesiredAverageInput"
+                >
 
                   <svg
                     viewBox="0 0 24 24"
@@ -229,6 +245,7 @@
 
         <!-- MENSAGEM -->
         <div
+        v-if="gradesStatus !== 'error'"
         class="status-message"
         :class="{
           success:
@@ -309,7 +326,25 @@
         </p>
 
 
-        <div class="input-grid">
+        <!-- ERRO AO CARREGAR NOTAS -->
+        <div
+          v-if="gradesStatus === 'error'"
+          class="load-error"
+        >
+          <p role="alert">
+            Não foi possível carregar as notas desta disciplina.
+          </p>
+          <button
+            type="button"
+            class="retry-button"
+            @click="loadGrades"
+          >
+            Tentar novamente
+          </button>
+        </div>
+
+
+        <div v-else class="input-grid">
 
           <!-- MÉDIA DESEJADA -->
           <div class="field">
@@ -319,12 +354,12 @@
             </label>
 
             <input
+              ref="desiredAverageInput"
               v-model.number="desiredAverage"
               type="number"
               min="0"
               max="10"
               step="0.1"
-              @change="simulate"
               @keydown="blockInvalidNumberKeys"
               :aria-invalid="Boolean(desiredAverageError)"
               aria-describedby="desired-average-error"
@@ -363,28 +398,51 @@
 
         <!-- BOTÃO -->
         <button
+          v-if="gradesStatus !== 'error'"
           class="simulate-button"
-          :disabled="!selectedDiscipline"
+          :disabled="!selectedDiscipline || simulationStatus === 'loading'"
           @click="simulate"
         >
-          Simular
+          {{ simulationStatus === 'loading' ? 'Simulando...' : 'Simular' }}
         </button>
+
+
+        <!-- ERRO NA SIMULAÇÃO -->
+        <div
+          v-if="simulationStatus === 'error' && gradesStatus !== 'error'"
+          class="load-error simulation-load-error"
+        >
+          <p role="alert">
+            {{ simulationError || 'Não foi possível calcular a simulação.' }}
+          </p>
+          <button
+            type="button"
+            class="retry-button"
+            @click="simulate"
+          >
+            Tentar novamente
+          </button>
+        </div>
 
 
         <!-- RESULTADO -->
         <div
-          v-if="showResult"
+          v-if="showResult && simulationResult && simulationStatus !== 'error' && gradesStatus !== 'error'"
           class="result-box"
         >
 
           <div class="result-side">
 
             <span>
-              Você precisa tirar
+              {{ simulationResult.status === 'ALREADY_REACHED' ? 'Situação' : 'Você precisa tirar' }}
             </span>
 
             <strong>
-              {{ formatNumber(displayedRequiredGrade) }}
+              {{
+                simulationResult.status === 'ALREADY_REACHED'
+                  ? 'Meta já alcançada'
+                  : formatScore(simulationResult.requiredScoreRaw)
+              }}
             </strong>
 
           </div>
@@ -400,7 +458,7 @@
             </span>
 
             <strong>
-              {{ formatNumber(desiredAverage) }}
+              {{ formatAverage(simulationResult.targetAverage) }}
             </strong>
 
           </div>
@@ -410,31 +468,48 @@
 
         <!-- MENSAGEM RESULTADO -->
         <p
-          v-if="showResult"
+          v-if="showResult && simulationResult && simulationStatus !== 'error' && gradesStatus !== 'error'"
           class="result-message"
         >
 
-          <template v-if="requiredGrade > maxGrade">
+          <template v-if="simulationResult.status === 'ALREADY_REACHED'">
 
-            A nota necessária ultrapassa a nota máxima.
+            Você já alcançou sua média desejada.
 
           </template>
 
-          <template v-else-if="requiredGrade <= 0">
+          <template v-else-if="simulationResult.status === 'IMPOSSIBLE'">
 
-            Você já alcançou sua média desejada.
+            Você precisaria de {{ formatScore(simulationResult.requiredScoreRaw) }} —
+            acima da nota máxima {{ formatScore(maxGrade) }}.
 
           </template>
 
           <template v-else>
 
             Se tirar
-            {{ formatNumber(requiredGrade) }}
+            {{ formatScore(simulationResult.requiredScoreRaw) }}
             na próxima avaliação, você alcançará sua meta.
 
           </template>
 
         </p>
+
+        <p
+          v-if="gradesStatus !== 'error'"
+          class="simulation-local-note"
+        >
+          A simulação é salva apenas neste dispositivo.
+        </p>
+
+        <button
+          v-if="gradesStatus !== 'error' && hasSavedSimulation"
+          type="button"
+          class="clear-simulation-button"
+          @click="clearSimulation"
+        >
+          Limpar simulação
+        </button>
 
       </section>
 
@@ -442,7 +517,7 @@
 
 
     <!-- SEGUNDA LINHA -->
-    <div class="bottom-grid">
+    <div v-if="!simulatorLoadError" class="bottom-grid">
 
 
       <!-- NOTAS LANÇADAS -->
@@ -457,7 +532,25 @@
         </div>
 
 
-        <div class="grades-table">
+        <!-- ERRO AO CARREGAR NOTAS -->
+        <div
+          v-if="gradesStatus === 'error'"
+          class="load-error"
+        >
+          <p role="alert">
+            Não foi possível carregar as notas desta disciplina.
+          </p>
+          <button
+            type="button"
+            class="retry-button"
+            @click="loadGrades"
+          >
+            Tentar novamente
+          </button>
+        </div>
+
+
+        <div v-else class="grades-table">
 
           <div class="grades-header">
 
@@ -513,17 +606,23 @@
 
 
             <strong>
-              {{ formatNumber(note.value) }}
+              {{ formatScore(note.value) }}
             </strong>
 
 
            <span>
-             {{ formatNumber(maxGrade) }}
+             {{ formatScore(maxGrade) }}
           </span>
 
 
-            <button class="more-button">
-              ⋮
+            <button
+              type="button"
+              class="more-button"
+              title="Editar em Notas"
+              aria-label="Editar esta nota na tela Notas"
+              @click="emit('navigate', 'grades')"
+            >
+              Editar em Notas
             </button>
 
           </div>
@@ -547,7 +646,7 @@
             </strong>
 
             <strong>
-              {{ formatNumber(currentAverage) }}
+              {{ formatAverage(currentAverage) }}
             </strong>
 
             <span></span>
@@ -589,11 +688,30 @@
         </h2>
 
         <p class="description">
-          Veja como diferentes notas impactam sua média.
+          Cenários hipotéticos calculados localmente — não substituem o
+          resultado da simulação acima.
         </p>
 
 
-        <div class="scenario-table">
+        <!-- ERRO AO CARREGAR NOTAS -->
+        <div
+          v-if="gradesStatus === 'error'"
+          class="load-error"
+        >
+          <p role="alert">
+            Não foi possível carregar as notas desta disciplina.
+          </p>
+          <button
+            type="button"
+            class="retry-button"
+            @click="loadGrades"
+          >
+            Tentar novamente
+          </button>
+        </div>
+
+
+        <div v-else class="scenario-table">
 
           <div class="scenario-header">
 
@@ -615,7 +733,7 @@
           >
 
             <span>
-              {{ formatNumber(scenario) }}
+              {{ formatScore(scenario) }}
             </span>
 
             <strong
@@ -625,7 +743,7 @@
               }"
             >
 
-              {{ formatNumber(projectedAverage(scenario)) }}
+              {{ formatAverage(projectedAverage(scenario)) }}
 
             </strong>
 
@@ -659,10 +777,14 @@
 
 
 <script setup>
+import { formatAverage, formatScore } from '../../shared/format/grade.js'
+import { apiRequest } from '../../shared/http/apiRequest.js'
 import AppSelect from '../../components/ui/AppSelect.vue'
 import GradeModal from './GradeModal.vue'
 import SimulatorHelpModal from './SimulatorHelpModal.vue'
+import { parseSavedScenario, projectedAverage as projectedAverageOf } from './simulatorRules.js'
 import { periodKeyOf } from '../grades/gradesPresentation'
+import { loadActiveDashboard } from '../../shared/dashboards/useActiveDashboard.js'
 import {
   computed,
   nextTick,
@@ -687,13 +809,6 @@ const disciplines = ref([])
 const notes = ref([])
 const selectedPeriod = ref('')
 
-
-const props = defineProps({
-  accessToken: {
-    type: String,
-    required: true
-  }
-})
 
 const emit = defineEmits(['navigate'])
 // periodos
@@ -733,11 +848,7 @@ const availablePeriods = computed(() => {
     return b.semester - a.semester
   })
 })
-const calculationType = ref('Média Normal')
-
 // Opções das listas de filtro no formato do AppSelect (lista no visual do site).
-const calculationFilterOptions = [{ value: 'Média Normal', label: 'Média Normal' }]
-
 const disciplineFilterOptions = computed(() =>
   filteredDisciplines.value.map(discipline => ({
     value: discipline.id,
@@ -763,45 +874,6 @@ const filteredDisciplines = computed(() => {
     return period?.value === selectedPeriod.value
   })
 })
-
-async function apiRequest(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-
-    headers: {
-      Authorization: `Bearer ${props.accessToken}`,
-
-      ...(options.body
-        ? { 'Content-Type': 'application/json' }
-        : {}),
-
-      ...options.headers
-    }
-  })
-
-  const data =
-    response.status === 204
-      ? null
-      : await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    const fieldErrors =
-      data.errors && typeof data.errors === 'object'
-        ? Object.values(data.errors)
-            .filter(Boolean)
-            .join(' ')
-        : ''
-
-    throw new Error(
-      fieldErrors ||
-      data.detail ||
-      data.message ||
-      'Não foi possível concluir a solicitação.'
-    )
-  }
-
-  return data
-}
 
 
 /* =========================
@@ -955,11 +1027,10 @@ async function saveGrade(formData) {
 }
 
 const gradeError = ref('')
-//dados mockados
+
 const passingAverage = ref(6)
 const desiredAverage = ref(6)
 
-const requiredGrade = ref(0)
 const showResult = ref(false)
 
 const maxGrade = ref(10)
@@ -996,14 +1067,14 @@ function selectLatestPeriod() {
    NOTAS
 ========================= */
 
+const simulatorLoadError = ref('')
+
 async function loadSimulator() {
+  simulatorLoadError.value = ''
+
   try {
 
-    const dashboards =
-      await apiRequest('/api/v1/dashboards')
-    let dashboard =
-      dashboards.find(item => item.status === 'ACTIVE')
-      || dashboards[0]
+    let dashboard = await loadActiveDashboard(apiRequest)
 
     if (!dashboard) {
       return
@@ -1018,10 +1089,8 @@ async function loadSimulator() {
     selectLatestPeriod()
   } catch (error) {
 
-    console.error(
-      'Erro ao carregar simulador:',
-      error
-    )
+    simulatorLoadError.value =
+      error.message || 'Não foi possível carregar as disciplinas.'
 
   }
 }
@@ -1033,19 +1102,42 @@ async function loadSimulator() {
 
 // adendo , ta uma bosta é melhor colcoar em uma factoryzinha legal
 
+// Status por carregamento de notas: evita que uma resposta atrasada de uma
+// disciplina antiga sobrescreva as notas da disciplina selecionada agora.
+const gradesStatus = ref('idle')
+const gradesError = ref('')
+let gradesRequestSeq = 0
+
 async function loadGrades() {
+  const disciplineId = selectedDiscipline.value
+  const requestSeq = ++gradesRequestSeq
+
   if (
     !dashboardId.value ||
-    !selectedDiscipline.value
+    !disciplineId
   ) {
     notes.value = []
+    gradesStatus.value = 'idle'
+    gradesError.value = ''
     return
   }
 
+  gradesStatus.value = 'loading'
+  gradesError.value = ''
+
   try {
     const grades = await apiRequest(
-      `/api/v1/dashboards/${dashboardId.value}/disciplines/${selectedDiscipline.value}/grades`
+      `/api/v1/dashboards/${dashboardId.value}/disciplines/${disciplineId}/grades`
     )
+
+    // Descarta a resposta se não for mais a requisição mais recente ou se a
+    // disciplina selecionada mudou enquanto a requisição estava em andamento.
+    if (
+      requestSeq !== gradesRequestSeq ||
+      disciplineId !== selectedDiscipline.value
+    ) {
+      return
+    }
 
     notes.value = grades
       .map(grade => ({
@@ -1063,13 +1155,20 @@ async function loadGrades() {
         )
       })
 
-  } catch (error) {
-    notes.value = []
+    gradesStatus.value = 'ready'
 
-    console.error(
-      'Erro ao carregar notas:',
-      error
-    )
+  } catch (error) {
+    if (
+      requestSeq !== gradesRequestSeq ||
+      disciplineId !== selectedDiscipline.value
+    ) {
+      return
+    }
+
+    notes.value = []
+    gradesStatus.value = 'error'
+    gradesError.value =
+      error.message || 'Não foi possível carregar as notas desta disciplina.'
   }
 }
 
@@ -1096,32 +1195,10 @@ const currentAverage = computed(() => {
 
 
 /* =========================
-   FORMATAR NÚMERO
-========================= */
-
-function formatNumber(value) {
-  const number = Number(value)
-
-  if (Number.isNaN(number)) {
-    return '0,0'
-  }
-
-  return number
-    .toFixed(1)
-    .replace('.', ',')
-}
-
-
-/* =========================
    SIMULAR
 ========================= */
 
 const desiredAverageError = ref('')
-
-// Com a meta já alcançada a conta dá negativo; na tela isso aparece como 0,0.
-const displayedRequiredGrade = computed(() =>
-  Math.max(0, requiredGrade.value)
-)
 
 // Notas e médias são positivas: "-", "+" e "e" (notação científica) não são digitáveis.
 function blockInvalidNumberKeys(event) {
@@ -1146,8 +1223,29 @@ function validateDesiredAverage(value) {
   return ''
 }
 
-function simulate() {
-  if (!selectedDiscipline.value) {
+const desiredAverageInput = ref(null)
+
+function focusDesiredAverageInput() {
+  desiredAverageInput.value?.focus()
+}
+
+/* =========================
+   SIMULAÇÃO VIA API
+========================= */
+
+// O resultado exibido vem sempre da API (POST .../simulator), nunca de conta
+// feita no navegador. status/requiredScoreRaw chegam prontos do backend.
+const simulationStatus = ref('idle')
+const simulationError = ref('')
+const simulationResult = ref(null)
+let simulationRequestSeq = 0
+
+async function simulate() {
+  if (!selectedDiscipline.value || gradesStatus.value === 'error') {
+    return
+  }
+
+  if (simulationStatus.value === 'loading') {
     return
   }
 
@@ -1158,27 +1256,121 @@ function simulate() {
     return
   }
 
+  const disciplineId = selectedDiscipline.value
   const target = Number(desiredAverage.value)
+  const requestSeq = ++simulationRequestSeq
 
-  const numberOfNotes = notes.value.length
+  simulationStatus.value = 'loading'
+  simulationError.value = ''
 
-  if (numberOfNotes === 0) {
-    requiredGrade.value = target
+  try {
+    const result = await apiRequest(
+      `/api/v1/dashboards/${dashboardId.value}/disciplines/${disciplineId}/simulator`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ targetAverage: target })
+      }
+    )
+
+    // Ignora respostas atrasadas de uma simulação anterior ou de uma
+    // disciplina que já não é mais a selecionada.
+    if (
+      requestSeq !== simulationRequestSeq ||
+      disciplineId !== selectedDiscipline.value
+    ) {
+      return
+    }
+
+    simulationResult.value = result
+    simulationStatus.value = 'ready'
     showResult.value = true
+
+    saveSimulationScenario(disciplineId, target)
+  } catch (error) {
+    if (
+      requestSeq !== simulationRequestSeq ||
+      disciplineId !== selectedDiscipline.value
+    ) {
+      return
+    }
+
+    simulationResult.value = null
+    simulationStatus.value = 'error'
+    simulationError.value =
+      error.message || 'Não foi possível calcular a simulação.'
+    showResult.value = false
+  }
+}
+
+/* =========================
+   PERSISTÊNCIA LOCAL (por usuário/disciplina)
+========================= */
+
+function simulationStorageKey(disciplineId) {
+  return `studdy:simulator:${dashboardId.value}:${disciplineId}`
+}
+
+function saveSimulationScenario(disciplineId, target) {
+  if (!dashboardId.value || !disciplineId) {
     return
   }
 
-  const totalCurrentGrades =
-    notes.value.reduce(
-      (sum, note) => sum + Number(note.value),
-      0
+  try {
+    window.localStorage.setItem(
+      simulationStorageKey(disciplineId),
+      JSON.stringify({ desiredAverage: target })
     )
+    hasSavedSimulation.value = true
+  } catch {
+    // Armazenamento indisponível (modo privado, quota etc.): a simulação
+    // continua funcionando, só não é lembrada da próxima vez.
+  }
+}
 
-  requiredGrade.value =
-    target * (numberOfNotes + 1)
-    - totalCurrentGrades
+function loadSimulationScenario(disciplineId) {
+  if (!dashboardId.value || !disciplineId) {
+    return null
+  }
 
-  showResult.value = true
+  try {
+    const key = simulationStorageKey(disciplineId)
+    const raw = window.localStorage.getItem(key)
+    const scenario = parseSavedScenario(raw)
+    if (raw && !scenario) window.localStorage.removeItem(key)
+    return scenario
+  } catch {
+    return null
+  }
+}
+
+function removeSimulationScenario(disciplineId) {
+  if (!dashboardId.value || !disciplineId) {
+    return
+  }
+
+  try {
+    window.localStorage.removeItem(simulationStorageKey(disciplineId))
+  } catch {
+    // Nada a fazer se o armazenamento não estiver disponível.
+  }
+}
+
+const hasSavedSimulation = ref(false)
+
+function clearSimulation() {
+  const disciplineId = selectedDiscipline.value
+
+  removeSimulationScenario(disciplineId)
+  hasSavedSimulation.value = false
+
+  const discipline = disciplines.value.find(item => item.id === disciplineId)
+
+  desiredAverage.value = Number(discipline?.passingAverage ?? 6)
+  desiredAverageError.value = ''
+  simulationResult.value = null
+  simulationStatus.value = 'idle'
+  simulationError.value = ''
+  showResult.value = false
 }
 
 
@@ -1187,25 +1379,7 @@ function simulate() {
 ========================= */
 
 function projectedAverage(nextGrade) {
-  const grade = Number(nextGrade)
-
-  const numberOfNotes = notes.value.length
-
-  if (numberOfNotes === 0) {
-    return grade
-  }
-
-  const totalCurrentGrades =
-    notes.value.reduce(
-      (sum, note) => sum + Number(note.value),
-      0
-    )
-
-  return (
-    totalCurrentGrades + grade
-  ) / (
-    numberOfNotes + 1
-  )
+  return projectedAverageOf(notes.value.map(note => note.value), nextGrade)
 }
 
 // Pra montar essa bomba
@@ -1218,7 +1392,8 @@ watch(selectedPeriod, () => {
   selectedDiscipline.value = ''
   notes.value = []
   showResult.value = false
-  requiredGrade.value = 0
+  simulationResult.value = null
+  simulationStatus.value = 'idle'
 })
 
 // toda vez que mudar a disciplina, recarrega as notas
@@ -1228,13 +1403,26 @@ watch(selectedDiscipline, async () => {
   activities.value = []
   activitiesStatus.value = 'idle'
 
+  // Limpa imediatamente as notas antigas para que a disciplina nova nunca
+  // mostre, mesmo que por um instante, as notas da disciplina anterior.
+  notes.value = []
+  gradesStatus.value = 'idle'
+  gradesError.value = ''
+
+  simulationResult.value = null
+  simulationStatus.value = 'idle'
+  simulationError.value = ''
+  desiredAverageError.value = ''
+  hasSavedSimulation.value = false
+
   if (!selectedDiscipline.value) {
-    notes.value = []
     return
   }
 
+  const disciplineId = selectedDiscipline.value
+
   const discipline = disciplines.value.find(
-    item => item.id === selectedDiscipline.value
+    item => item.id === disciplineId
   )
 
   if (discipline) {
@@ -1245,7 +1433,20 @@ watch(selectedDiscipline, async () => {
       Number(discipline.passingAverage ?? 6)
   }
 
+  // Restaura a última simulação salva neste dispositivo para esta
+  // disciplina, se existir, e recalcula via API para mostrar um valor atual.
+  const saved = loadSimulationScenario(disciplineId)
+
+  if (saved && typeof saved.desiredAverage === 'number') {
+    desiredAverage.value = saved.desiredAverage
+    hasSavedSimulation.value = true
+  }
+
   await Promise.all([loadGrades(), loadActivities()])
+
+  if (saved && disciplineId === selectedDiscipline.value) {
+    await simulate()
+  }
 })
 
 </script>
@@ -1258,6 +1459,44 @@ watch(selectedDiscipline, async () => {
   font-size: 12px;
   font-weight: 600;
   margin: 6px 0 0;
+}
+
+.load-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #f3d3ce;
+  border-radius: 9px;
+  background: #fdf1ef;
+}
+
+.load-error p {
+  margin: 0;
+  color: #a3392f !important;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.retry-button {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid #c4463e;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #a3392f !important;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.retry-button:hover {
+  background: #fbe6e3;
+}
+
+.page-load-error {
+  margin-bottom: 20px;
 }
 
 
@@ -1423,7 +1662,7 @@ watch(selectedDiscipline, async () => {
 
   display: grid;
 
-  grid-template-columns: 1.3fr 1fr 1fr;
+  grid-template-columns: 1.3fr 1fr;
 
   margin-bottom: 20px;
 
@@ -2036,6 +2275,60 @@ watch(selectedDiscipline, async () => {
   font-size: 11px;
 
   text-align: center;
+
+}
+
+
+.simulation-load-error {
+
+  margin-top: 17px;
+
+}
+
+
+.simulation-local-note {
+
+  margin: 10px 0 0;
+
+  color: #9997a8 !important;
+
+  font-size: 11px;
+
+  text-align: center;
+
+}
+
+
+.clear-simulation-button {
+
+  width: 100%;
+
+  height: 34px;
+
+  margin-top: 8px;
+
+  border: 1px solid #dedce8;
+
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  color: #686579 !important;
+
+  font-size: 12px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+}
+
+
+.clear-simulation-button:hover {
+
+  border-color: #6330e0;
+
+  color: #6330e0 !important;
 
 }
 

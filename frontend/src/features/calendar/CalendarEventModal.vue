@@ -1,13 +1,25 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { normalizeLocalDateTime } from '../../shared/date/localDate.js'
+import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
 
 const props = defineProps({
   event: { type: Object, default: null },
   disciplines: { type: Array, default: () => [] },
   defaultDate: { type: String, default: '' },
+  saving: { type: Boolean, default: false },
+  serverError: { type: String, default: '' },
 })
 
 const emit = defineEmits(['close', 'save', 'delete'])
+
+const modalRef = ref(null)
+const titleInputRef = ref(null)
+useFocusTrap(() => true, modalRef, {
+  onClose: () => emit('close'),
+  initialFocus: () => titleInputRef.value,
+  closeOnEscape: () => !props.saving,
+})
 
 const categories = [
   { value: 'CLASS', label: 'Aula' },
@@ -18,6 +30,7 @@ const categories = [
 ]
 
 const isEditing = computed(() => Boolean(props.event))
+const isExamCategory = computed(() => category.value === 'EXAM')
 
 // O input datetime-local trabalha com "AAAA-MM-DDTHH:mm", que é exatamente o
 // formato que o LocalDateTime da API entende — nada de fuso horário pelo meio.
@@ -37,6 +50,8 @@ const formError = ref('')
 const disciplineWasDeleted = computed(() => Boolean(props.event?.disciplineDeleted))
 
 function submitForm() {
+  if (props.saving) return
+
   if (!startsAt.value) {
     formError.value = 'A data e hora de início são obrigatórias.'
     return
@@ -47,22 +62,34 @@ function submitForm() {
     return
   }
 
+  if (isExamCategory.value && !disciplineId.value) {
+    formError.value = 'Selecione a disciplina desta prova.'
+    return
+  }
+
   formError.value = ''
 
   emit('save', {
     title: title.value.trim(),
     description: description.value.trim() || null,
     category: category.value,
-    startsAt: `${startsAt.value}:00`,
-    endsAt: endsAt.value ? `${endsAt.value}:00` : null,
+    startsAt: normalizeLocalDateTime(startsAt.value),
+    endsAt: endsAt.value ? normalizeLocalDateTime(endsAt.value) : null,
     disciplineId: disciplineId.value || null,
   })
 }
 </script>
 
 <template>
-  <div class="modal-backdrop" @mousedown.self="emit('close')">
-    <section class="event-modal" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">
+  <div class="modal-backdrop" @mousedown.self="!saving && emit('close')">
+    <section
+      ref="modalRef"
+      class="event-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="event-modal-title"
+      tabindex="-1"
+    >
       <header class="modal-header">
         <div class="modal-title">
           <span aria-hidden="true">＋</span>
@@ -72,13 +99,15 @@ function submitForm() {
           </div>
         </div>
 
-        <button class="modal-close" type="button" aria-label="Fechar modal" @click="emit('close')">×</button>
+        <button class="modal-close" type="button" aria-label="Fechar modal" :disabled="saving" @click="emit('close')">×</button>
       </header>
 
       <form @submit.prevent="submitForm">
+        <p v-if="serverError" class="form-error" role="alert">{{ serverError }}</p>
+
         <label class="form-field">
           <span>Título <strong>*</strong></span>
-          <input v-model.trim="title" type="text" maxlength="120" placeholder="Ex.: Prova 1 - Estruturas" required autofocus>
+          <input ref="titleInputRef" v-model.trim="title" type="text" maxlength="120" placeholder="Ex.: Prova 1 - Estruturas" required :disabled="saving">
         </label>
 
         <fieldset class="form-field">
@@ -90,7 +119,7 @@ function submitForm() {
               class="category-option"
               :class="[`is-${option.value.toLowerCase()}`, { selected: category === option.value }]"
             >
-              <input v-model="category" type="radio" name="category" :value="option.value">
+              <input v-model="category" type="radio" name="category" :value="option.value" :disabled="saving">
               <span aria-hidden="true" class="category-dot"></span>
               {{ option.label }}
             </label>
@@ -98,9 +127,10 @@ function submitForm() {
         </fieldset>
 
         <label class="form-field">
-          <span>Disciplina <small>(opcional)</small></span>
-          <select v-model="disciplineId">
-            <option value="">Sem disciplina</option>
+          <span v-if="isExamCategory">Disciplina <strong>*</strong></span>
+          <span v-else>Disciplina <small>(opcional)</small></span>
+          <select v-model="disciplineId" :disabled="saving">
+            <option value="">{{ isExamCategory ? 'Selecione a disciplina' : 'Sem disciplina' }}</option>
             <option v-for="discipline in disciplines" :key="discipline.id" :value="discipline.id">
               {{ discipline.name }}
             </option>
@@ -108,17 +138,20 @@ function submitForm() {
           <small v-if="disciplineWasDeleted" class="field-warning">
             Essa disciplina não existe mais. Se você salvar assim, o evento fica sem disciplina.
           </small>
+          <small v-if="isExamCategory && !isEditing" class="form-hint">
+            Provas precisam de uma disciplina e também aparecem na tela Provas.
+          </small>
         </label>
 
         <div class="form-row">
           <label class="form-field">
             <span>Início <strong>*</strong></span>
-            <input v-model="startsAt" type="datetime-local" required>
+            <input v-model="startsAt" type="datetime-local" required :disabled="saving">
           </label>
 
           <label class="form-field">
             <span>Término <small>(opcional)</small></span>
-            <input v-model="endsAt" type="datetime-local">
+            <input v-model="endsAt" type="datetime-local" :disabled="saving">
           </label>
         </div>
 
@@ -126,13 +159,13 @@ function submitForm() {
 
         <label class="form-field">
           <span>Descrição <small>(opcional)</small></span>
-          <textarea v-model.trim="description" maxlength="500" rows="3" placeholder="Ex.: Conteúdo das aulas 1 a 6."></textarea>
+          <textarea v-model.trim="description" maxlength="500" rows="3" placeholder="Ex.: Conteúdo das aulas 1 a 6." :disabled="saving"></textarea>
         </label>
 
         <p v-if="formError" class="form-error" role="alert">{{ formError }}</p>
 
         <footer class="modal-actions">
-          <button v-if="isEditing" class="delete-event" type="button" @click="emit('delete')">
+          <button v-if="isEditing" class="delete-event" type="button" :disabled="saving" @click="emit('delete')">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" />
             </svg>
@@ -141,8 +174,10 @@ function submitForm() {
 
           <span class="modal-actions-spacer"></span>
 
-          <button class="cancel-action" type="button" @click="emit('close')">Cancelar</button>
-          <button class="save-action" type="submit">{{ isEditing ? 'Salvar alterações' : 'Criar evento' }}</button>
+          <button class="cancel-action" type="button" :disabled="saving" @click="emit('close')">Cancelar</button>
+          <button class="save-action" type="submit" :disabled="saving">
+            {{ saving ? 'Salvando…' : (isEditing ? 'Salvar alterações' : 'Criar evento') }}
+          </button>
         </footer>
       </form>
     </section>
@@ -159,6 +194,10 @@ function submitForm() {
   padding: 20px;
   position: fixed;
   z-index: 110;
+}
+
+.event-modal:focus {
+  outline: none;
 }
 
 .event-modal {

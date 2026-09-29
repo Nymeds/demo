@@ -160,6 +160,7 @@ class DisciplineCascadeDeleteTest {
                 "Entrega em dupla",
                 LocalDate.of(2026, 9, 1),
                 ActivityStatus.PENDING,
+                null,
                 discipline
         );
     }

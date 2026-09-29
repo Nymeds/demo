@@ -1,19 +1,34 @@
 <script setup>
-defineProps({
+import { ref } from 'vue'
+import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
+
+const props = defineProps({
   eventTitle: { type: String, required: true },
+  deleting: { type: Boolean, default: false },
+  serverError: { type: String, default: '' },
 })
 
 const emit = defineEmits(['close', 'confirm'])
+
+const modalRef = ref(null)
+const cancelButtonRef = ref(null)
+useFocusTrap(() => true, modalRef, {
+  onClose: () => emit('close'),
+  initialFocus: () => cancelButtonRef.value,
+  closeOnEscape: () => !props.deleting,
+})
 </script>
 
 <template>
-  <div class="delete-backdrop" @mousedown.self="emit('close')">
+  <div class="delete-backdrop" @mousedown.self="!deleting && emit('close')">
     <section
+      ref="modalRef"
       class="delete-modal"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="delete-event-title"
       aria-describedby="delete-event-description"
+      tabindex="-1"
     >
       <span class="delete-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24">
@@ -26,13 +41,15 @@ const emit = defineEmits(['close', 'confirm'])
         O evento <span class="event-title">“{{ eventTitle }}”</span> será excluído do seu calendário. Esta ação não pode ser desfeita.
       </p>
 
+      <p v-if="serverError" class="delete-error" role="alert">{{ serverError }}</p>
+
       <div class="delete-modal-actions">
-        <button class="cancel-delete" type="button" autofocus @click="emit('close')">Cancelar</button>
-        <button class="confirm-delete" type="button" @click="emit('confirm')">
+        <button ref="cancelButtonRef" class="cancel-delete" type="button" :disabled="deleting" @click="emit('close')">Cancelar</button>
+        <button class="confirm-delete" type="button" :disabled="deleting" @click="emit('confirm')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" />
           </svg>
-          Excluir evento
+          {{ deleting ? 'Excluindo…' : 'Excluir evento' }}
         </button>
       </div>
     </section>
@@ -49,6 +66,21 @@ const emit = defineEmits(['close', 'confirm'])
   padding: 20px;
   position: fixed;
   z-index: 120;
+}
+
+.delete-modal:focus {
+  outline: none;
+}
+
+.delete-error {
+  background: #fff0f3;
+  border-radius: 7px;
+  color: #c2415f;
+  font-size: .72rem;
+  font-weight: 600;
+  margin-top: 14px;
+  padding: 10px 12px;
+  width: 100%;
 }
 
 .delete-modal {

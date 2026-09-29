@@ -46,6 +46,9 @@ class FrequencyServiceTest {
     private EntityManager entityManager;
 
     @Autowired
+    private FrequencyRepository frequencyRepository;
+
+    @Autowired
     private DisciplineService disciplineService;
 
     private AppUser owner;
@@ -90,16 +93,24 @@ class FrequencyServiceTest {
     }
 
     @Test
-    void ignoresLegacyClassTotalsAndSharesAttendanceWithTheDisciplineScreen() {
+    void sharesAttendanceWithTheDisciplineScreen() {
         create(discipline, 6);
         entityManager.flush();
-        entityManager.createNativeQuery("update frequency set total_classes = 60 where discipline_id = :id")
-                .setParameter("id", discipline.getId()).executeUpdate();
         entityManager.clear();
         assertEquals(new BigDecimal("70.00"), frequencyService.findByDiscipline(
                 owner.getId(), dashboard.getId(), discipline.getId()).attendancePercentage());
         assertEquals(new BigDecimal("70.00"), disciplineService.findById(
                 owner.getId(), dashboard.getId(), discipline.getId()).attendancePercentage());
+    }
+
+    @Test
+    void databaseRejectsASecondFrequencyRowForTheSameDiscipline() {
+        frequencyRepository.saveAndFlush(new Frequency(discipline, 1));
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                org.springframework.dao.DataIntegrityViolationException.class,
+                () -> frequencyRepository.saveAndFlush(new Frequency(discipline, 2))
+        );
     }
 
     @Test

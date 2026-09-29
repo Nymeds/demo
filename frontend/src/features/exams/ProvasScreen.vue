@@ -1,11 +1,25 @@
 <script setup>
-import { computed, ref } from 'vue'
-
-const props = defineProps({
-  accessToken: { type: String, required: true },
-})
+import { apiRequest } from '../../shared/http/apiRequest.js'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { loadActiveDashboard } from '../../shared/dashboards/useActiveDashboard.js'
+import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
+import { isOverdue as isDateOverdue, parseLocalDate, startOfDay } from '../../shared/date/localDate.js'
+import { NEXT_DAYS_WINDOW, filterExams, isInMonthOf, isWithinNextDays } from './examFilters.js'
 
 const emit = defineEmits(['navigate'])
+
+const CLOCK_INTERVAL_MS = 60000
+const COLOR_PALETTE = ['purple', 'green', 'orange', 'blue']
+
+const dashboardId = ref('')
+const disciplines = ref([])
+const exams = ref([])
+const loading = ref(true)
+const requestError = ref('')
+const loadFailed = ref(false)
+const saving = ref(false)
+const toast = ref({ message: '', type: 'success' })
+let toastTimer
 
 const search = ref('')
 const selectedDiscipline = ref('all')
@@ -17,169 +31,170 @@ const showModal = ref(false)
 const selectedExam = ref(null)
 const openActionMenu = ref(null)
 const showDetailsModal = ref(false)
+const examToDelete = ref(null)
+const deleting = ref(false)
+const monthOffset = ref(0)
+const editingExam = ref(null)
+const formError = ref('')
 
-const disciplines = [
-  'Estruturas de Dados',
-  'Banco de Dados',
-  'Engenharia de Software',
-  'Redes de Computadores',
-  'Matemática Discreta',
+const examModalRef = ref(null)
+const detailsModalRef = ref(null)
+const deleteModalRef = ref(null)
+const busyExamIds = ref(new Set())
+let loadRequestId = 0
+
+function isExamBusy(id) {
+  return busyExamIds.value.has(id)
+}
+
+function setExamBusy(id, busy) {
+  const next = new Set(busyExamIds.value)
+  if (busy) next.add(id)
+  else next.delete(id)
+  busyExamIds.value = next
+}
+
+const STATUS_OPTIONS = [
+  { value: 'PENDING', label: 'Agendada' },
+  { value: 'IN_PROGRESS', label: 'Em andamento' },
+  { value: 'COMPLETED', label: 'Concluída' },
 ]
 
-/*
- * A API de provas ainda não está fechada no backend.
- * Enquanto ela é revisada, esta tela usa dados locais para validar o layout
- * e os comportamentos. Depois, basta substituir exams pelo retorno da API.
- */
-const exams = ref([
-  {
-    id: 1,
-    name: 'Prova 1 - Estruturas',
-    type: 'Avaliação teórica',
-    discipline: 'Estruturas de Dados',
-    code: 'CC601',
-    date: '2025-05-20',
-    time: '09:00',
-    content: 'Arrays, Listas, Pilhas, Filas, Recursão',
-    status: 'scheduled',
-    color: 'purple',
-  },
-  {
-    id: 2,
-    name: 'Prova Bimestral',
-    type: 'Avaliação teórica',
-    discipline: 'Banco de Dados',
-    code: 'CC602',
-    date: '2025-05-23',
-    time: '14:00',
-    content: 'Modelagem, SQL, Normalização',
-    status: 'scheduled',
-    color: 'green',
-  },
-  {
-    id: 3,
-    name: 'Prova Prática',
-    type: 'Avaliação prática',
-    discipline: 'Engenharia de Software',
-    code: 'CC603',
-    date: '2025-05-28',
-    time: '08:00',
-    content: 'UML, Casos de uso, Diagramas',
-    status: 'scheduled',
-    color: 'orange',
-  },
-  {
-    id: 4,
-    name: 'Prova de Redes',
-    type: 'Avaliação teórica',
-    discipline: 'Redes de Computadores',
-    code: 'CC604',
-    date: '2025-06-02',
-    time: '10:00',
-    content: 'TCP/IP, Camadas, Endereçamento',
-    status: 'scheduled',
-    color: 'blue',
-  },
-  {
-    id: 5,
-    name: 'Prova 1 - BD',
-    type: 'Avaliação teórica',
-    discipline: 'Banco de Dados',
-    code: 'CC602',
-    date: '2025-05-12',
-    time: '08:00',
-    content: 'Modelagem, MER, SQL Básico',
-    status: 'completed',
-    color: 'green',
-  },
-  {
-    id: 6,
-    name: 'Prova 1 - Lógica',
-    type: 'Avaliação teórica',
-    discipline: 'Matemática Discreta',
-    code: 'CC605',
-    date: '2025-05-05',
-    time: '08:00',
-    content: 'Lógica proposicional, Conjuntos',
-    status: 'completed',
-    color: 'purple',
-  },
-  {
-    id: 7,
-    name: 'Prova Final - Redes',
-    type: 'Avaliação teórica',
-    discipline: 'Redes de Computadores',
-    code: 'CC604',
-    date: '2025-06-18',
-    time: '14:00',
-    content: 'Roteamento, Segurança e protocolos',
-    status: 'scheduled',
-    color: 'blue',
-  },
-  {
-    id: 8,
-    name: 'Avaliação de Projeto',
-    type: 'Avaliação prática',
-    discipline: 'Engenharia de Software',
-    code: 'CC603',
-    date: '2025-06-24',
-    time: '19:00',
-    content: 'Projeto, documentação e apresentação',
-    status: 'scheduled',
-    color: 'orange',
-  },
-])
-
 const form = ref({
-  name: '',
-  discipline: '',
+  title: '',
+  disciplineId: '',
   date: '',
-  time: '',
   content: '',
+  status: 'PENDING',
 })
 
-const today = new Date('2025-05-12T12:00:00')
+const now = ref(new Date())
+let clockTimer
+
+function showToast(message, type = 'success') {
+  toast.value = { message, type }
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => {
+    toast.value.message = ''
+  }, 4500)
+}
+
+function closeToast() {
+  clearTimeout(toastTimer)
+  toast.value.message = ''
+}
+
+function colorForDiscipline(disciplineId) {
+  const index = disciplines.value.findIndex(discipline => discipline.id === disciplineId)
+  if (index < 0) return 'purple'
+  return COLOR_PALETTE[index % COLOR_PALETTE.length]
+}
+
+function disciplineById(id) {
+  return disciplines.value.find(discipline => discipline.id === id)
+}
+
+function disciplineLabel(discipline) {
+  if (!discipline) return 'Disciplina'
+
+  const hasHomonym = disciplines.value.some(other => (
+    other.id !== discipline.id && other.name === discipline.name
+  ))
+
+  if (!hasHomonym) return discipline.name
+
+  const distinguisher = discipline.professorName || discipline.periodo || discipline.semester
+  return distinguisher ? `${discipline.name} (${distinguisher})` : discipline.name
+}
+
+function normalizeExam(exam) {
+  const discipline = disciplineById(exam.disciplineId)
+
+  return {
+    ...exam,
+    disciplineName: disciplineLabel(discipline),
+    color: colorForDiscipline(exam.disciplineId),
+  }
+}
+
+async function loadExams() {
+  const requestId = ++loadRequestId
+  const isStale = () => requestId !== loadRequestId
+  loading.value = true
+  requestError.value = ''
+  loadFailed.value = false
+
+  try {
+    let dashboard = await loadActiveDashboard(apiRequest)
+
+    if (!dashboard) {
+      dashboard = await apiRequest('/api/v1/dashboards', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'Organização acadêmica',
+          status: 'ACTIVE',
+        }),
+      })
+    }
+
+    if (isStale()) return
+    dashboardId.value = dashboard.id
+
+    const loadedDisciplines = await apiRequest(`/api/v1/dashboards/${dashboard.id}/disciplines`)
+    if (isStale()) return
+    disciplines.value = loadedDisciplines
+
+    if (disciplines.value.length === 0) {
+      exams.value = []
+      return
+    }
+
+    const loadedExams = await apiRequest(`/api/v1/dashboards/${dashboard.id}/activities?type=EXAM`)
+    if (isStale()) return
+    exams.value = loadedExams.map(normalizeExam)
+  } catch (error) {
+    if (isStale()) return
+    requestError.value = error.message || 'Não foi possível carregar as provas.'
+    loadFailed.value = true
+    showToast(requestError.value, 'error')
+  } finally {
+    if (!isStale()) loading.value = false
+  }
+}
+
+const today = computed(() => startOfDay(now.value))
 
 const monthLabel = computed(() => new Intl.DateTimeFormat('pt-BR', {
   month: 'long',
   year: 'numeric',
-}).format(today).replace(/^./, value => value.toUpperCase()))
+}).format(viewedMonthDate.value).replace(/^./, value => value.toUpperCase()))
+
+const viewedMonthDate = computed(() => new Date(
+  today.value.getFullYear(),
+  today.value.getMonth() + monthOffset.value,
+  1,
+))
+
+const isViewingCurrentMonth = computed(() => monthOffset.value === 0)
 
 const totalExams = computed(() => exams.value.length)
-const completedExams = computed(() => exams.value.filter(exam => exam.status === 'completed').length)
-const scheduledExams = computed(() => exams.value.filter(exam => exam.status === 'scheduled'))
+const completedExams = computed(() => exams.value.filter(exam => exam.status === 'COMPLETED').length)
+const scheduledExams = computed(() => exams.value.filter(exam => exam.status !== 'COMPLETED'))
 
 const upcomingExams = computed(() => [...scheduledExams.value]
-  .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+  .filter(exam => isWithinNextDays(exam.dueDate, NEXT_DAYS_WINDOW, today.value))
+  .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
   .slice(0, 3))
 
-const thisMonthExams = computed(() => exams.value.filter(exam => {
-  const date = new Date(`${exam.date}T12:00:00`)
-  return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear()
-}).length)
+const thisMonthExams = computed(() => exams.value.filter(exam => isInMonthOf(exam.dueDate, today.value)).length)
 
-const filteredExams = computed(() => {
-  const term = search.value.trim().toLowerCase()
-
-  return exams.value.filter(exam => {
-    const matchesSearch = !term
-      || exam.name.toLowerCase().includes(term)
-      || exam.discipline.toLowerCase().includes(term)
-      || exam.content.toLowerCase().includes(term)
-
-    const matchesDiscipline = selectedDiscipline.value === 'all'
-      || exam.discipline === selectedDiscipline.value
-
-    const matchesStatus = selectedStatus.value === 'all'
-      || exam.status === selectedStatus.value
-
-    const matchesPeriod = selectedPeriod.value === 'all'
-      || (selectedPeriod.value === 'month' && new Date(`${exam.date}T12:00:00`).getMonth() === today.getMonth())
-      || (selectedPeriod.value === 'next7' && isWithinNextDays(exam.date, 7))
-
-    return matchesSearch && matchesDiscipline && matchesStatus && matchesPeriod
-  }).sort((a, b) => a.date.localeCompare(b.date))
-})
+const filteredExams = computed(() => filterExams(exams.value, {
+  search: search.value,
+  discipline: selectedDiscipline.value,
+  status: selectedStatus.value,
+  period: selectedPeriod.value,
+  today: today.value,
+}))
 
 const pageCount = computed(() => Math.max(1, Math.ceil(filteredExams.value.length / pageSize)))
 
@@ -188,32 +203,49 @@ const visibleExams = computed(() => filteredExams.value.slice(
   page.value * pageSize,
 ))
 
-function isWithinNextDays(dateString, days) {
-  const date = new Date(`${dateString}T12:00:00`)
-  const diff = Math.round((date - today) / 86400000)
-  return diff >= 0 && diff <= days
-}
-
 function formatDate(dateString) {
+  const date = parseLocalDate(dateString)
+  if (!date) return '—'
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-  }).format(new Date(`${dateString}T12:00:00`))
+  }).format(date)
+}
+
+function formatShortDate(dateString) {
+  const date = parseLocalDate(dateString)
+  if (!date) return '—'
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(date)
 }
 
 function formatWeekday(dateString) {
-  return new Intl.DateTimeFormat('pt-BR', {
-    weekday: 'long',
-  }).format(new Date(`${dateString}T12:00:00`))
+  const date = parseLocalDate(dateString)
+  if (!date) return '—'
+  return new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(date)
 }
 
-function statusLabel(status) {
-  return status === 'completed' ? 'Concluída' : 'Agendada'
+function isOverdue(exam) {
+  if (exam.status === 'COMPLETED') return false
+  return isDateOverdue(exam.dueDate, now.value)
 }
 
-function statusClass(status) {
-  return status === 'completed' ? 'is-completed' : 'is-scheduled'
+function examState(exam) {
+  if (exam.status === 'COMPLETED') return 'completed'
+  if (isOverdue(exam)) return 'overdue'
+  return 'scheduled'
+}
+
+function statusLabel(exam) {
+  const state = examState(exam)
+  if (state === 'completed') return 'Concluída'
+  if (state === 'overdue') return 'Atrasada'
+  return 'Agendada'
+}
+
+function statusClass(exam) {
+  const state = examState(exam)
+  return state === 'completed' ? 'is-completed' : state === 'overdue' ? 'is-overdue' : 'is-scheduled'
 }
 
 function resetPage() {
@@ -228,27 +260,51 @@ function nextPage() {
   if (page.value < pageCount.value) page.value += 1
 }
 
-function resetFilters() {
-  search.value = ''
-  selectedDiscipline.value = 'all'
-  selectedStatus.value = 'all'
-  selectedPeriod.value = 'all'
-  resetPage()
+function previousMonth() {
+  monthOffset.value -= 1
+}
+
+function nextMonth() {
+  monthOffset.value += 1
 }
 
 function openNewExam() {
+  if (disciplines.value.length === 0) {
+    requestError.value = 'Cadastre uma disciplina antes de criar uma prova.'
+    showToast(requestError.value, 'error')
+    return
+  }
+
+  editingExam.value = null
+  formError.value = ''
   form.value = {
-    name: '',
-    discipline: '',
+    title: '',
+    disciplineId: '',
     date: '',
-    time: '',
     content: '',
+    status: 'PENDING',
+  }
+  showModal.value = true
+}
+
+function openEditExam(exam) {
+  openActionMenu.value = null
+  editingExam.value = exam
+  formError.value = ''
+  form.value = {
+    title: exam.title,
+    disciplineId: exam.disciplineId,
+    date: exam.dueDate,
+    content: exam.description || '',
+    status: exam.status,
   }
   showModal.value = true
 }
 
 function closeModal() {
   showModal.value = false
+  editingExam.value = null
+  formError.value = ''
 }
 
 function toggleActionMenu(examId) {
@@ -266,48 +322,143 @@ function closeDetailsModal() {
   selectedExam.value = null
 }
 
-function toggleExamStatus(exam) {
-  exam.status = exam.status === 'completed' ? 'scheduled' : 'completed'
+async function toggleExamStatus(exam) {
   openActionMenu.value = null
-}
+  if (isExamBusy(exam.id)) return
+  requestError.value = ''
+  setExamBusy(exam.id, true)
 
-function deleteExam(examId) {
-  exams.value = exams.value.filter(exam => exam.id !== examId)
-  openActionMenu.value = null
-  if (page.value > pageCount.value) page.value = pageCount.value
-}
+  const nextStatus = exam.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED'
 
-function saveExam() {
-  if (!form.value.name || !form.value.discipline || !form.value.date || !form.value.time) return
+  try {
+    const updated = await apiRequest(
+      `/api/v1/dashboards/${dashboardId.value}/disciplines/${exam.disciplineId}/activities/${exam.id}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({
+          title: exam.title,
+          description: exam.description,
+          dueDate: exam.dueDate,
+          status: nextStatus,
+        }),
+      },
+    )
 
-  const colorMap = {
-    'Estruturas de Dados': 'purple',
-    'Banco de Dados': 'green',
-    'Engenharia de Software': 'orange',
-    'Redes de Computadores': 'blue',
-    'Matemática Discreta': 'purple',
+    const index = exams.value.findIndex(item => item.id === exam.id)
+    if (index >= 0) {
+      exams.value[index] = normalizeExam(updated)
+    }
+
+    showToast(nextStatus === 'COMPLETED' ? 'Prova marcada como concluída.' : 'Prova marcada como agendada novamente.')
+  } catch (error) {
+    requestError.value = error.message || 'Não foi possível atualizar a prova.'
+    showToast(requestError.value, 'error')
+  } finally {
+    setExamBusy(exam.id, false)
   }
+}
 
-  exams.value.push({
-    id: Date.now(),
-    name: form.value.name,
-    type: 'Avaliação teórica',
-    discipline: form.value.discipline,
-    code: '—',
-    date: form.value.date,
-    time: form.value.time,
-    content: form.value.content || 'Conteúdo não informado',
-    status: 'scheduled',
-    color: colorMap[form.value.discipline] || 'purple',
-  })
+function askToDeleteExam(exam) {
+  openActionMenu.value = null
+  requestError.value = ''
+  examToDelete.value = exam
+}
 
-  showModal.value = false
-  resetPage()
+function closeDeleteModal() {
+  examToDelete.value = null
+}
+
+async function confirmDeleteExam() {
+  if (!examToDelete.value || deleting.value) return
+
+  requestError.value = ''
+  deleting.value = true
+
+  try {
+    const exam = examToDelete.value
+
+    await apiRequest(
+      `/api/v1/dashboards/${dashboardId.value}/disciplines/${exam.disciplineId}/activities/${exam.id}`,
+      { method: 'DELETE' },
+    )
+
+    exams.value = exams.value.filter(item => item.id !== exam.id)
+    if (page.value > pageCount.value) page.value = pageCount.value
+    examToDelete.value = null
+    showToast('Prova excluída com sucesso.')
+  } catch (error) {
+    requestError.value = error.message || 'Não foi possível excluir a prova.'
+    showToast(requestError.value, 'error')
+  } finally {
+    deleting.value = false
+  }
+}
+
+async function saveExam() {
+  if (saving.value) return
+  if (!form.value.title || !form.value.disciplineId || !form.value.date) return
+
+  formError.value = ''
+  saving.value = true
+
+  try {
+    let saved
+
+    if (editingExam.value) {
+      saved = await apiRequest(
+        `/api/v1/dashboards/${dashboardId.value}/disciplines/${editingExam.value.disciplineId}/activities/${editingExam.value.id}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            title: form.value.title,
+            description: form.value.content,
+            dueDate: form.value.date,
+            status: form.value.status,
+            type: 'EXAM',
+          }),
+        },
+      )
+
+      const index = exams.value.findIndex(item => item.id === editingExam.value.id)
+      if (index >= 0) exams.value[index] = normalizeExam(saved)
+      showToast('Prova atualizada com sucesso.')
+    } else {
+      saved = await apiRequest(
+        `/api/v1/dashboards/${dashboardId.value}/disciplines/${form.value.disciplineId}/activities`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            title: form.value.title,
+            description: form.value.content,
+            dueDate: form.value.date,
+            status: 'PENDING',
+            type: 'EXAM',
+          }),
+        },
+      )
+
+      const created = normalizeExam(saved)
+      exams.value.push(created)
+      resetPage()
+      if (filteredExams.value.some(item => item.id === created.id)) {
+        showToast('Prova cadastrada com sucesso.')
+      } else {
+        showToast('Prova criada — ajuste os filtros para vê-la.')
+      }
+    }
+
+    showModal.value = false
+    editingExam.value = null
+  } catch (error) {
+    formError.value = error.message || 'Não foi possível salvar a prova.'
+  } finally {
+    saving.value = false
+  }
 }
 
 const calendarDays = computed(() => {
-  const year = today.getFullYear()
-  const month = today.getMonth()
+  const year = viewedMonthDate.value.getFullYear()
+  const month = viewedMonthDate.value.getMonth()
   const firstDay = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
 
@@ -318,11 +469,40 @@ const calendarDays = computed(() => {
 
     const number = index - firstDay + 1
     const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(number).padStart(2, '0')}`
-    const exam = exams.value.find(item => item.date === iso)
-    const state = number === 12 ? 'today' : exam?.status === 'scheduled' ? 'upcoming' : exam ? 'important' : ''
+    const dayExams = exams.value.filter(item => item.dueDate === iso)
+    const isToday = isViewingCurrentMonth.value && number === today.value.getDate()
+    const hasOverdue = dayExams.some(item => isOverdue(item))
+    const hasScheduled = dayExams.some(item => item.status !== 'COMPLETED' && !isOverdue(item))
+    const hasCompleted = dayExams.some(item => item.status === 'COMPLETED')
+
+    const state = isToday
+      ? 'today'
+      : hasOverdue
+        ? 'overdue'
+        : hasScheduled
+          ? 'upcoming'
+          : hasCompleted
+            ? 'completed'
+            : ''
 
     return { number, key: iso, state }
   })
+})
+
+useFocusTrap(showModal, examModalRef, { onClose: closeModal, closeOnEscape: () => !saving.value })
+useFocusTrap(showDetailsModal, detailsModalRef, { onClose: closeDetailsModal })
+useFocusTrap(() => !!examToDelete.value, deleteModalRef, { onClose: closeDeleteModal, closeOnEscape: () => !deleting.value })
+
+onMounted(() => {
+  loadExams()
+  clockTimer = setInterval(() => {
+    now.value = new Date()
+  }, CLOCK_INTERVAL_MS)
+})
+
+onBeforeUnmount(() => {
+  clearTimeout(toastTimer)
+  clearInterval(clockTimer)
 })
 </script>
 
@@ -343,16 +523,21 @@ const calendarDays = computed(() => {
       </div>
 
       <div class="exams-header-actions">
-        <button class="exams-icon-button" type="button" aria-label="Notificações">
-          <svg viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
-          <span class="notification-badge">3</span>
-        </button>
-        <button class="exams-button is-primary" type="button" @click="openNewExam">
+        <button
+          class="exams-button is-primary"
+          type="button"
+          :disabled="loading || !dashboardId || disciplines.length === 0"
+          @click="openNewExam"
+        >
           <span aria-hidden="true">＋</span>
           Nova prova
         </button>
       </div>
     </header>
+
+    <p v-if="requestError" class="exams-request-error" role="alert">
+      {{ requestError }}
+    </p>
 
     <div class="exams-summary-grid">
       <article class="exams-summary-card is-purple">
@@ -414,7 +599,7 @@ const calendarDays = computed(() => {
               <span>Disciplinas</span>
               <select v-model="selectedDiscipline" @change="resetPage">
                 <option value="all">Todas</option>
-                <option v-for="discipline in disciplines" :key="discipline" :value="discipline">{{ discipline }}</option>
+                <option v-for="discipline in disciplines" :key="discipline.id" :value="discipline.id">{{ discipline.name }}</option>
               </select>
             </label>
 
@@ -437,92 +622,127 @@ const calendarDays = computed(() => {
             </label>
           </div>
 
-          <div class="exams-table-wrap">
-            <table class="exams-table">
-              <thead>
-                <tr>
-                  <th>Prova</th>
-                  <th>Disciplina</th>
-                  <th>Data</th>
-                  <th>Conteúdo</th>
-                  <th>Status</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="exam in visibleExams" :key="exam.id">
-                  <td>
-                    <div class="exam-name">
-                      <span class="exam-row-icon" :class="`is-${exam.color}`" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 3v3h6V3M8 11h8M8 15h5" /></svg>
-                      </span>
-                      <div>
-                        <strong>{{ exam.name }}</strong>
-                        <small>{{ exam.type }}</small>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <strong class="discipline-name">{{ exam.discipline }}</strong>
-                    <small>{{ exam.code }}</small>
-                  </td>
-                  <td>
-                    <strong>{{ formatDate(exam.date) }}</strong>
-                    <small>{{ formatWeekday(exam.date) }}</small>
-                  </td>
-                  <td class="content-cell">{{ exam.content }}</td>
-                  <td>
-                    <span class="status-pill" :class="statusClass(exam.status)">
-                      <svg v-if="exam.status === 'scheduled'" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 10v5" /><circle cx="12" cy="7.2" r=".7" fill="currentColor" stroke="none" /></svg>
-                      <svg v-else viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="m8.5 12 2.3 2.4 4.8-5" /></svg>
-                      {{ statusLabel(exam.status) }}
-                    </span>
-                  </td>
-                  <td>
-                    <div class="row-actions">
-                      <button type="button" aria-label="Visualizar prova" title="Visualizar prova" @click="viewExam(exam)">
-                        <svg viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></svg>
-                      </button>
-                      <div class="row-action-menu-wrap">
-                        <button
-                          type="button"
-                          aria-label="Mais opções"
-                          title="Mais opções"
-                          :aria-expanded="openActionMenu === exam.id"
-                          @click="toggleActionMenu(exam.id)"
-                        >
-                          <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></svg>
-                        </button>
-                        <div v-if="openActionMenu === exam.id" class="row-action-menu">
-                          <button type="button" @click="viewExam(exam)">Visualizar</button>
-                          <button type="button" @click="toggleExamStatus(exam)">
-                            {{ exam.status === 'completed' ? 'Marcar como agendada' : 'Marcar como concluída' }}
-                          </button>
-                          <button type="button" class="is-danger" @click="deleteExam(exam.id)">Excluir</button>
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-                <tr v-if="visibleExams.length === 0">
-                  <td colspan="7" class="empty-row">
-                    <span aria-hidden="true">🔎</span>
-                    <strong>Nenhuma prova encontrada</strong>
-                    <small>Tente ajustar os filtros ou cadastrar uma nova prova.</small>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div v-if="loading" class="exams-state-card">
+            <span class="exams-loader" aria-hidden="true"></span>
+            <h2>Carregando provas...</h2>
+            <p>Aguarde enquanto buscamos os dados.</p>
           </div>
 
-          <footer class="exams-table-footer">
-            <p>Mostrando {{ visibleExams.length }} de {{ filteredExams.length }} provas</p>
-            <nav aria-label="Paginação">
-              <button type="button" :disabled="page === 1" @click="previousPage">‹</button>
-              <button v-for="number in pageCount" :key="number" type="button" :class="{ active: page === number }" @click="page = number">{{ number }}</button>
-              <button type="button" :disabled="page === pageCount" @click="nextPage">›</button>
-            </nav>
-          </footer>
+          <div v-else-if="loadFailed" class="exams-state-card">
+            <span aria-hidden="true">⚠️</span>
+            <h2>Não foi possível carregar as provas</h2>
+            <p>{{ requestError || 'Ocorreu um erro ao buscar os dados. Tente novamente.' }}</p>
+            <button class="exams-button is-primary" type="button" @click="loadExams">Tentar novamente</button>
+          </div>
+
+          <div v-else-if="disciplines.length === 0" class="exams-state-card">
+            <span aria-hidden="true">📚</span>
+            <h2>Cadastre uma disciplina primeiro</h2>
+            <p>As provas precisam estar vinculadas a uma disciplina.</p>
+            <button class="exams-button is-primary" type="button" @click="emit('navigate', 'disciplines')">
+              <span aria-hidden="true">＋</span>
+              Cadastrar disciplina
+            </button>
+          </div>
+
+          <div v-else-if="exams.length === 0" class="exams-state-card">
+            <span aria-hidden="true">📝</span>
+            <h2>Nenhuma prova cadastrada</h2>
+            <p>Cadastre sua primeira prova para começar a organizar seus estudos.</p>
+            <button class="exams-button is-primary" type="button" @click="openNewExam">
+              <span aria-hidden="true">＋</span>
+              Nova prova
+            </button>
+          </div>
+
+          <template v-else>
+            <div class="exams-table-wrap">
+              <table class="exams-table">
+                <thead>
+                  <tr>
+                    <th>Prova</th>
+                    <th>Disciplina</th>
+                    <th>Data</th>
+                    <th>Conteúdo</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="exam in visibleExams" :key="exam.id">
+                    <td>
+                      <div class="exam-name">
+                        <span class="exam-row-icon" :class="`is-${exam.color}`" aria-hidden="true">
+                          <svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 3v3h6V3M8 11h8M8 15h5" /></svg>
+                        </span>
+                        <div>
+                          <strong>{{ exam.title }}</strong>
+                          <small>Avaliação</small>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <strong class="discipline-name">{{ exam.disciplineName }}</strong>
+                    </td>
+                    <td>
+                      <strong>{{ formatDate(exam.dueDate) }}</strong>
+                      <small>{{ formatWeekday(exam.dueDate) }}</small>
+                    </td>
+                    <td class="content-cell">{{ exam.description || 'Conteúdo não informado' }}</td>
+                    <td>
+                      <span class="status-pill" :class="statusClass(exam)">
+                        <svg v-if="exam.status !== 'COMPLETED'" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 10v5" /><circle cx="12" cy="7.2" r=".7" fill="currentColor" stroke="none" /></svg>
+                        <svg v-else viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="m8.5 12 2.3 2.4 4.8-5" /></svg>
+                        {{ statusLabel(exam) }}
+                      </span>
+                    </td>
+                    <td>
+                      <div class="row-actions">
+                        <button type="button" aria-label="Visualizar prova" title="Visualizar prova" @click="viewExam(exam)">
+                          <svg viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></svg>
+                        </button>
+                        <div class="row-action-menu-wrap">
+                          <button
+                            type="button"
+                            aria-label="Mais opções"
+                            title="Mais opções"
+                            :aria-expanded="openActionMenu === exam.id"
+                            @click="toggleActionMenu(exam.id)"
+                          >
+                            <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></svg>
+                          </button>
+                          <div v-if="openActionMenu === exam.id" class="row-action-menu">
+                            <button type="button" @click="viewExam(exam)">Visualizar</button>
+                            <button type="button" @click="openEditExam(exam)">Editar</button>
+                            <button type="button" :disabled="isExamBusy(exam.id)" @click="toggleExamStatus(exam)">
+                              {{ exam.status === 'COMPLETED' ? 'Marcar como agendada' : 'Marcar como concluída' }}
+                            </button>
+                            <button type="button" class="is-danger" @click="askToDeleteExam(exam)">Excluir</button>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr v-if="visibleExams.length === 0">
+                    <td colspan="6" class="empty-row">
+                      <span aria-hidden="true">🔎</span>
+                      <strong>Nenhuma prova encontrada</strong>
+                      <small>Tente ajustar os filtros ou cadastrar uma nova prova.</small>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <footer class="exams-table-footer">
+              <p>Mostrando {{ visibleExams.length }} de {{ filteredExams.length }} provas</p>
+              <nav aria-label="Paginação">
+                <button type="button" :disabled="page === 1" @click="previousPage">‹</button>
+                <button v-for="number in pageCount" :key="number" type="button" :class="{ active: page === number }" @click="page = number">{{ number }}</button>
+                <button type="button" :disabled="page === pageCount" @click="nextPage">›</button>
+              </nav>
+            </footer>
+          </template>
         </section>
 
         <aside class="exams-tip">
@@ -542,24 +762,25 @@ const calendarDays = computed(() => {
             <button type="button" @click="selectedStatus = 'scheduled'; resetPage()">Ver todas</button>
           </header>
 
-          <button v-for="(exam, index) in upcomingExams" :key="exam.id" class="upcoming-item" type="button">
+          <p v-if="upcomingExams.length === 0" class="upcoming-empty">Nenhuma prova nos próximos {{ NEXT_DAYS_WINDOW }} dias.</p>
+
+          <button v-for="(exam, index) in upcomingExams" :key="exam.id" class="upcoming-item" type="button" @click="viewExam(exam)">
             <span class="upcoming-number" :class="`is-${exam.color}`">{{ index + 1 }}</span>
             <span class="upcoming-details">
-              <strong>{{ exam.name }}</strong>
-              <small>{{ exam.discipline }}</small>
+              <strong>{{ exam.title }}</strong>
+              <small>{{ exam.disciplineName }}</small>
             </span>
             <span class="upcoming-date">
-              <strong>{{ new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(new Date(`${exam.date}T12:00:00`)) }}</strong>
-              <small>{{ exam.time }}</small>
+              <strong>{{ formatShortDate(exam.dueDate) }}</strong>
             </span>
           </button>
         </section>
 
         <section class="mini-calendar">
           <header>
-            <button type="button" aria-label="Mês anterior">‹</button>
+            <button type="button" aria-label="Mês anterior" @click="previousMonth">‹</button>
             <strong>{{ monthLabel }}</strong>
-            <button type="button" aria-label="Próximo mês">›</button>
+            <button type="button" aria-label="Próximo mês" @click="nextMonth">›</button>
           </header>
 
           <div class="calendar-weekdays">
@@ -576,19 +797,20 @@ const calendarDays = computed(() => {
 
           <div class="calendar-legend">
             <span><i class="legend-dot is-today"></i>Hoje</span>
-            <span><i class="legend-dot is-upcoming"></i>Próximas provas</span>
-            <span><i class="legend-dot is-important"></i>Provas importantes</span>
+            <span><i class="legend-dot is-upcoming"></i>Agendada</span>
+            <span><i class="legend-dot is-overdue"></i>Atrasada</span>
+            <span><i class="legend-dot is-completed"></i>Concluída</span>
           </div>
         </section>
       </aside>
     </div>
 
     <div v-if="showDetailsModal && selectedExam" class="exam-modal-overlay" @click.self="closeDetailsModal">
-      <section class="exam-modal exam-details-modal" role="dialog" aria-modal="true" aria-labelledby="exam-details-title">
+      <section ref="detailsModalRef" class="exam-modal exam-details-modal" role="dialog" aria-modal="true" aria-labelledby="exam-details-title" tabindex="-1">
         <header>
           <div>
             <span class="modal-kicker">Detalhes da prova</span>
-            <h2 id="exam-details-title">{{ selectedExam.name }}</h2>
+            <h2 id="exam-details-title">{{ selectedExam.title }}</h2>
           </div>
           <button type="button" aria-label="Fechar" @click="closeDetailsModal">×</button>
         </header>
@@ -596,38 +818,35 @@ const calendarDays = computed(() => {
         <div class="exam-details-grid">
           <div>
             <span>Disciplina</span>
-            <strong>{{ selectedExam.discipline }}</strong>
+            <strong>{{ selectedExam.disciplineName }}</strong>
           </div>
           <div>
             <span>Data</span>
-            <strong>{{ formatDate(selectedExam.date) }}</strong>
-          </div>
-          <div>
-            <span>Horário</span>
-            <strong>{{ selectedExam.time }}</strong>
+            <strong>{{ formatDate(selectedExam.dueDate) }}</strong>
           </div>
           <div>
             <span>Status</span>
-            <strong>{{ statusLabel(selectedExam.status) }}</strong>
+            <strong>{{ statusLabel(selectedExam) }}</strong>
           </div>
           <div class="exam-details-full">
             <span>Conteúdo</span>
-            <strong>{{ selectedExam.content }}</strong>
+            <strong>{{ selectedExam.description || 'Conteúdo não informado' }}</strong>
           </div>
         </div>
 
         <footer>
-          <button class="exams-button is-secondary" type="button" @click="closeDetailsModal">Fechar</button>
+          <button class="exams-button is-secondary" type="button" @click="openEditExam(selectedExam); closeDetailsModal()">Editar</button>
+          <button class="exams-button is-primary" type="button" @click="closeDetailsModal">Fechar</button>
         </footer>
       </section>
     </div>
 
     <div v-if="showModal" class="exam-modal-overlay" @click.self="closeModal">
-      <section class="exam-modal" role="dialog" aria-modal="true" aria-labelledby="new-exam-title">
+      <section ref="examModalRef" class="exam-modal" role="dialog" aria-modal="true" aria-labelledby="new-exam-title" tabindex="-1">
         <header>
           <div>
-            <span class="modal-kicker">Nova avaliação</span>
-            <h2 id="new-exam-title">Cadastrar prova</h2>
+            <span class="modal-kicker">{{ editingExam ? 'Editar avaliação' : 'Nova avaliação' }}</span>
+            <h2 id="new-exam-title">{{ editingExam ? 'Editar prova' : 'Cadastrar prova' }}</h2>
           </div>
           <button type="button" aria-label="Fechar" @click="closeModal">×</button>
         </header>
@@ -635,38 +854,76 @@ const calendarDays = computed(() => {
         <form @submit.prevent="saveExam">
           <label>
             Nome da prova
-            <input v-model.trim="form.name" required placeholder="Ex.: Prova 2 - Estruturas">
+            <input v-model.trim="form.title" required placeholder="Ex.: Prova 2 - Estruturas" :disabled="saving">
           </label>
 
           <div class="modal-grid">
             <label>
               Disciplina
-              <select v-model="form.discipline" required>
+              <select v-model="form.disciplineId" required :disabled="saving || !!editingExam">
                 <option value="" disabled>Selecione</option>
-                <option v-for="discipline in disciplines" :key="discipline" :value="discipline">{{ discipline }}</option>
+                <option v-for="discipline in disciplines" :key="discipline.id" :value="discipline.id">{{ disciplineLabel(discipline) }}</option>
               </select>
+              <small v-if="editingExam" class="field-hint">A disciplina não pode ser alterada após a criação.</small>
             </label>
             <label>
               Data
-              <input v-model="form.date" type="date" required>
-            </label>
-            <label>
-              Horário
-              <input v-model="form.time" type="time" required>
+              <input v-model="form.date" type="date" required :disabled="saving">
             </label>
           </div>
 
-          <label>
-            Conteúdo
-            <textarea v-model.trim="form.content" rows="3" placeholder="Conteúdos que serão cobrados"></textarea>
+          <label v-if="editingExam">
+            Status
+            <select v-model="form.status" :disabled="saving">
+              <option v-for="option in STATUS_OPTIONS" :key="option.value" :value="option.value">{{ option.label }}</option>
+            </select>
           </label>
 
+          <label>
+            Conteúdo
+            <textarea v-model.trim="form.content" rows="3" placeholder="Conteúdos que serão cobrados" :disabled="saving"></textarea>
+          </label>
+
+          <p v-if="formError" class="exams-request-error" role="alert">{{ formError }}</p>
+
           <footer>
-            <button class="exams-button is-secondary" type="button" @click="closeModal">Cancelar</button>
-            <button class="exams-button is-primary" type="submit">Salvar prova</button>
+            <button class="exams-button is-secondary" type="button" :disabled="saving" @click="closeModal">Cancelar</button>
+            <button class="exams-button is-primary" type="submit" :disabled="saving">
+              {{ saving ? 'Salvando...' : editingExam ? 'Salvar alterações' : 'Salvar prova' }}
+            </button>
           </footer>
         </form>
       </section>
+    </div>
+
+    <div v-if="examToDelete" class="exam-modal-overlay" @click.self="closeDeleteModal">
+      <section ref="deleteModalRef" class="exam-modal exam-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-exam-title" tabindex="-1">
+        <header>
+          <div>
+            <span class="modal-kicker">Excluir prova</span>
+            <h2 id="delete-exam-title">Confirmar exclusão</h2>
+          </div>
+          <button type="button" aria-label="Fechar" :disabled="deleting" @click="closeDeleteModal">×</button>
+        </header>
+
+        <p class="exam-delete-text">
+          Tem certeza que deseja excluir a prova <strong>{{ examToDelete.title }}</strong>? Esta ação não pode ser desfeita.
+        </p>
+
+        <p v-if="requestError" class="exams-request-error" role="alert">{{ requestError }}</p>
+
+        <footer>
+          <button class="exams-button is-secondary" type="button" :disabled="deleting" @click="closeDeleteModal">Cancelar</button>
+          <button class="exams-button is-danger" type="button" :disabled="deleting" @click="confirmDeleteExam">
+            {{ deleting ? 'Excluindo...' : 'Excluir' }}
+          </button>
+        </footer>
+      </section>
+    </div>
+
+    <div v-if="toast.message" class="exams-toast" :class="`is-${toast.type}`" role="status">
+      <span>{{ toast.message }}</span>
+      <button type="button" aria-label="Fechar aviso" @click="closeToast">×</button>
     </div>
   </section>
 </template>
@@ -712,34 +969,6 @@ const calendarDays = computed(() => {
 .exams-heading p { color: #687086; font-size: .78rem; margin: 0; }
 
 .exams-header-actions { gap: 12px; }
-.exams-icon-button {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  color: #657087;
-  display: flex;
-  height: 40px;
-  justify-content: center;
-  position: relative;
-  width: 40px;
-}
-.exams-icon-button svg { fill: none; height: 22px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; width: 22px; }
-.notification-badge {
-  align-items: center;
-  background: #6330e0;
-  border: 2px solid #f5f6fb;
-  border-radius: 50%;
-  color: white;
-  display: flex;
-  font-size: .58rem;
-  font-weight: 800;
-  height: 17px;
-  justify-content: center;
-  position: absolute;
-  right: 1px;
-  top: 1px;
-  width: 17px;
-}
 
 .exams-button {
   align-items: center;
@@ -755,7 +984,20 @@ const calendarDays = computed(() => {
 }
 .exams-button.is-primary { background: linear-gradient(100deg, #5c20de, #741dff); box-shadow: 0 8px 19px rgba(102, 36, 225, .2); color: #fff; }
 .exams-button.is-primary:hover { box-shadow: 0 11px 24px rgba(102, 36, 225, .28); transform: translateY(-1px); }
+.exams-button.is-primary:disabled { cursor: not-allowed; opacity: .55; transform: none; box-shadow: none; }
 .exams-button.is-secondary { background: #f3f1f8; color: #4c4560; }
+.exams-button.is-danger { background: #e0433c; color: #fff; }
+.exams-button.is-danger:hover { background: #c7362f; }
+
+.exams-request-error {
+  background: #fff1f0;
+  border: 1px solid #f1d3d0;
+  border-radius: 8px;
+  color: #ad3834;
+  font-size: .68rem;
+  margin: 0;
+  padding: 11px 14px;
+}
 
 .exams-summary-grid { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .exams-summary-card {
@@ -847,6 +1089,29 @@ const calendarDays = computed(() => {
 .exams-filters select:focus,
 .exams-search input:focus { border-color: #8b6cf1; box-shadow: 0 0 0 3px rgba(99, 48, 224, .08); }
 
+.exams-state-card {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+  min-height: 280px;
+  padding: 35px;
+  text-align: center;
+}
+.exams-state-card span { font-size: 2rem; }
+.exams-state-card h2 { color: #202538; font-size: 1rem; font-weight: 800; margin: 10px 0 4px; }
+.exams-state-card p { color: #777e91; font-size: .7rem; line-height: 1.5; margin: 0 0 14px; max-width: 380px; }
+.exams-loader {
+  animation: exams-spin .8s linear infinite;
+  border: 3px solid #e7e0fb;
+  border-radius: 50%;
+  border-top-color: #6b37df;
+  height: 34px;
+  width: 34px;
+}
+@keyframes exams-spin { to { transform: rotate(360deg); } }
+
 .exams-table-wrap { overflow-x: auto; overflow-y: visible; }
 .exams-table { border-collapse: collapse; min-width: 870px; width: 100%; }
 .exams-table th {
@@ -893,6 +1158,7 @@ const calendarDays = computed(() => {
 }
 .status-pill { background: #f1edff; color: #6330e0; }
 .status-pill.is-completed { background: #e8f8ef; color: #20945a; }
+.status-pill.is-overdue { background: #fdeceb; color: #c0392b; }
 .status-pill svg { fill: none; height: 13px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 13px; }
 .row-actions { align-items: center; display: flex; gap: 3px; }
 .row-actions button { background: transparent; border: 0; color: #7d8394; height: 30px; padding: 5px; width: 30px; }
@@ -948,6 +1214,7 @@ const calendarDays = computed(() => {
 .upcoming-card header { margin-bottom: 12px; }
 .upcoming-card header strong { color: #202538; font-size: .75rem; }
 .upcoming-card header button { background: none; border: 0; color: #6330e0; font-size: .61rem; font-weight: 750; }
+.upcoming-empty { color: #858b9e; font-size: .63rem; padding: 10px 0; }
 .upcoming-item { align-items: center; background: transparent; border: 0; border-top: 1px solid #f0eff4; display: grid; gap: 9px; grid-template-columns: 31px 1fr auto; padding: 11px 0; text-align: left; width: 100%; }
 .upcoming-number { align-items: center; border-radius: 7px; display: flex; font-size: .66rem; font-weight: 800; height: 30px; justify-content: center; width: 30px; }
 .upcoming-number.is-purple { background: #f0ebff; color: #6330e0; }
@@ -970,13 +1237,15 @@ const calendarDays = computed(() => {
 .calendar-day { align-items: center; border-radius: 50%; color: #52586c; display: flex; font-size: .58rem; height: 27px; justify-content: center; margin: auto; width: 27px; }
 .calendar-day.today { background: #6330e0; color: #fff; font-weight: 800; }
 .calendar-day.upcoming { background: #e8f8ef; color: #20945a; font-weight: 750; }
-.calendar-day.important { background: #fff0e2; color: #d87412; font-weight: 750; }
+.calendar-day.overdue { background: #fdeceb; color: #c0392b; font-weight: 750; }
+.calendar-day.completed { background: #eaf2ff; color: #347bd8; font-weight: 750; }
 .calendar-legend { border-top: 1px solid #f0eff4; display: grid; gap: 7px; margin-top: 14px; padding-top: 13px; }
 .calendar-legend span { align-items: center; color: #777d90; display: flex; font-size: .54rem; gap: 6px; }
 .legend-dot { border-radius: 50%; display: inline-block; height: 6px; width: 6px; }
 .legend-dot.is-today { background: #6330e0; }
 .legend-dot.is-upcoming { background: #2daf68; }
-.legend-dot.is-important { background: #ee831e; }
+.legend-dot.is-overdue { background: #c0392b; }
+.legend-dot.is-completed { background: #347bd8; }
 
 .exams-tip { align-items: center; background: #f2efff; border-radius: 9px; display: flex; gap: 12px; margin-top: 15px; padding: 12px 16px; }
 .tip-icon { align-items: center; background: #e5dcff; border-radius: 50%; display: flex; flex: 0 0 34px; height: 34px; justify-content: center; }
@@ -997,6 +1266,10 @@ const calendarDays = computed(() => {
 .exam-modal select,
 .exam-modal textarea { border: 1px solid #dedfe7; border-radius: 7px; color: #272c40; font: inherit; font-size: .72rem; outline: none; padding: 10px 11px; }
 .exam-modal textarea { resize: vertical; }
+.exam-modal input:disabled,
+.exam-modal select:disabled,
+.exam-modal textarea:disabled { background: #f6f5f9; color: #8e93a4; cursor: not-allowed; }
+.field-hint { color: #858b9e; font-size: .58rem; font-weight: 500; margin-top: -1px; }
 .exam-modal input:focus,
 .exam-modal select:focus,
 .exam-modal textarea:focus { border-color: #8b6cf1; box-shadow: 0 0 0 3px rgba(99, 48, 224, .08); }
@@ -1026,9 +1299,33 @@ const calendarDays = computed(() => {
   line-height: 1.35;
 }
 .exam-details-full { grid-column: 1 / -1; }
+.exam-delete-text { color: #454b60; font-size: .72rem; line-height: 1.55; margin: 0; }
 
+.exams-toast {
+  align-items: center;
+  background: #202538;
+  border-radius: 9px;
+  bottom: 22px;
+  box-shadow: 0 16px 34px rgba(10, 15, 35, .25);
+  color: #fff;
+  display: flex;
+  font-size: .68rem;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 12px 16px;
+  position: fixed;
+  right: 22px;
+  z-index: 200;
+}
+.exams-toast.is-error { background: #c0392b; }
+.exams-toast button { background: transparent; border: 0; color: inherit; font-size: 1rem; }
 
 .sr-only { height: 1px; margin: -1px; overflow: hidden; position: absolute; width: 1px; clip: rect(0,0,0,0); }
+.exams-page button:focus-visible,
+.exams-page a:focus-visible,
+.exams-page input:focus-visible,
+.exams-page select:focus-visible,
+.exams-page textarea:focus-visible { outline: 2px solid #6330e0; outline-offset: 2px; }
 @media (max-width: 1050px) {
   .exams-layout { grid-template-columns: 1fr; }
   .exams-side-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }

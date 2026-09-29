@@ -1,19 +1,16 @@
 package studdy.example.demo.settings;
 
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import studdy.example.demo.auth.SessionTokens;
 import studdy.example.demo.auth.dto.AuthResponse;
-import studdy.example.demo.security.JwtService;
 import studdy.example.demo.settings.dto.ChangePasswordRequest;
 import studdy.example.demo.settings.dto.ProfileResponse;
-import studdy.example.demo.settings.dto.UpdateProfileRequest;
 import studdy.example.demo.user.AppUser;
 import studdy.example.demo.user.UserRepository;
 
-import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -21,16 +18,16 @@ public class ProfileSettingsService {
 
     private final UserRepository userRepository;
     private final AccountCredentials accountCredentials;
-    private final JwtService jwtService;
+    private final SessionTokens sessionTokens;
 
     public ProfileSettingsService(
             UserRepository userRepository,
             AccountCredentials accountCredentials,
-            JwtService jwtService
+            SessionTokens sessionTokens
     ) {
         this.userRepository = userRepository;
         this.accountCredentials = accountCredentials;
-        this.jwtService = jwtService;
+        this.sessionTokens = sessionTokens;
     }
 
     @Transactional(readOnly = true)
@@ -39,32 +36,9 @@ public class ProfileSettingsService {
     }
 
     @Transactional
-    public ProfileResponse update(UUID userId, UpdateProfileRequest request) {
-        AppUser user = accountCredentials.findUser(userId);
-        String email = request.email().trim().toLowerCase(Locale.ROOT);
-
-        // O e-mail é o login: trocá-lo exige a senha, para que um token vazado não sequestre a conta.
-        if (!email.equals(user.getEmail())) {
-            accountCredentials.requireCurrentPassword(user, request.currentPassword());
-
-            if (userRepository.existsByEmail(email)) {
-                throw emailInUse();
-            }
-        }
-
-        user.updateProfile(request.name().trim(), email);
-
-        try {
-            return ProfileResponse.from(userRepository.saveAndFlush(user));
-        } catch (DataIntegrityViolationException exception) {
-            // Outra conta pegou o mesmo e-mail entre a checagem e a gravação.
-            throw emailInUse();
-        }
-    }
-
-    @Transactional
     public AuthResponse changePassword(UUID userId, ChangePasswordRequest request) {
-        AppUser user = accountCredentials.findUser(userId);
+        // Trava o usuário: uma renovação de sessão simultânea espera esta troca terminar.
+        AppUser user = accountCredentials.findUserForUpdate(userId);
         accountCredentials.requireCurrentPassword(user, request.currentPassword());
 
         // A senha atual já foi conferida acima, então comparar o texto evita um segundo BCrypt.
@@ -75,16 +49,8 @@ public class ProfileSettingsService {
         user.changePasswordHash(accountCredentials.encode(request.newPassword()));
         userRepository.save(user);
 
-        // Emitido no instante registrado da troca: os tokens anteriores são recusados e este mantém
-        // a sessão atual aberta.
-        return new AuthResponse(
-                jwtService.generateToken(user.getId(), user.getCredentialsUpdatedAt()),
-                "Bearer",
-                jwtService.getExpirationInSeconds()
-        );
-    }
-
-    private ResponseStatusException emailInUse() {
-        return new ResponseStatusException(HttpStatus.CONFLICT, "Já existe um usuário com este e-mail.");
+        // Access tokens anteriores são recusados (credentialsUpdatedAt); todas as sessões caem e a
+        // atual recebe um par novo.
+        return sessionTokens.reissueAfterCredentialChange(user);
     }
 }

@@ -25,6 +25,8 @@
 .grades-panel { background: #fff; border: 1px solid #e7e8f0; border-radius: 14px; box-shadow: 0 8px 24px rgba(30, 36, 65, .04); min-width: 0; padding: 20px; }
 .grades-panel h2 { color: #171c30; font-size: .95rem; font-weight: 800; letter-spacing: -.02em; margin: 0 0 14px; }
 .grades-list { padding: 0; }
+.grades-charts { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
+.grades-chart-card { overflow: visible; }
 .grades-side { display: grid; gap: 16px; }
 .grades-info p { color: #6c7287; font-size: .72rem; line-height: 1.6; margin: 0; }
 

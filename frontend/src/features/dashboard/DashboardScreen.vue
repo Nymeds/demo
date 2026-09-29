@@ -1,4 +1,5 @@
 <script setup>
+import { apiRequest as sharedApiRequest } from '../../shared/http/apiRequest.js'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ActivitiesScreen from '../activities/ActivitiesScreen.vue'
 import ProvasScreen from '../exams/ProvasScreen.vue'
@@ -10,23 +11,41 @@ import { frequencySituation } from '../frequency/frequencyRules.js'
 import CalendarScreen from '../calendar/CalendarScreen.vue'
 import GradesScreen from '../grades/GradesScreen.vue'
 import SettingsScreen from '../settings/SettingsScreen.vue'
-import { createSettingsApi, sectionFromPreference } from '../settings/settingsApi'
+import { sectionFromPreference } from '../settings/settingsApi'
 import SidebarUserMenu from './SidebarUserMenu.vue'
+import { loadActiveDashboard } from '../../shared/dashboards/useActiveDashboard.js'
+import {
+  ATTENTION_MARGIN,
+  DEFAULT_DEADLINE_ALERT_DAYS,
+  DEFAULT_START_SECTION,
+  loadPreferences,
+  normalizePreferences,
+} from '../../shared/settings/preferences.js'
 
-const { user, accessToken } = defineProps({
+const REMINDER_LIMIT = 8
+const REMINDER_OVERDUE_SHARE = 4
+
+const { user } = defineProps({
   user: { type: Object, required: true },
-  accessToken: { type: String, required: true },
 })
 
-const emit = defineEmits(['logout', 'user-updated', 'token-refreshed'])
+const emit = defineEmits(['logout', 'user-updated'])
 const activeSection = ref('dashboard')
 const sidebarAvatarUrl = ref('')
 const dashboardLoading = ref(true)
 const dashboardError = ref('')
+const activitiesError = ref('')
+const currentDashboardId = ref('')
 const disciplines = ref([])
 const activities = ref([])
 const selectedFrequencyDisciplineId = ref('')
 const currentDateTime = ref(new Date())
+const attendanceAlertMargin = ref(ATTENTION_MARGIN)
+const deadlineAlertDays = ref(DEFAULT_DEADLINE_ALERT_DAYS)
+const startSection = ref(DEFAULT_START_SECTION)
+let hasLoadedDashboard = false
+let dashboardRequestSeq = 0
+let activitiesRequestSeq = 0
 
 const weekDayNumbers = {
   SUNDAY: 0,
@@ -56,55 +75,88 @@ const firstName = computed(() => {
   return firstPart.charAt(0).toUpperCase() + firstPart.slice(1)
 })
 const userInitial = computed(() => firstName.value.charAt(0).toUpperCase())
-const today = new Date()
-const todayIso = [
-  today.getFullYear(),
-  String(today.getMonth() + 1).padStart(2, '0'),
-  String(today.getDate()).padStart(2, '0'),
-].join('-')
-const todayLabel = new Intl.DateTimeFormat('pt-BR', {
+const todayIso = computed(() => [
+  currentDateTime.value.getFullYear(),
+  String(currentDateTime.value.getMonth() + 1).padStart(2, '0'),
+  String(currentDateTime.value.getDate()).padStart(2, '0'),
+].join('-'))
+const todayLabel = computed(() => new Intl.DateTimeFormat('pt-BR', {
   day: 'numeric',
   month: 'long',
-}).format(today)
+}).format(currentDateTime.value))
 
-async function apiRequest(path) {
-  const response = await fetch(path, { headers: { Authorization: `Bearer ${accessToken}` } })
-  const data = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    throw new Error(data.detail || data.message || 'Não foi possível carregar o dashboard.')
-  }
-
-  return data
+function apiRequest(path) {
+  return sharedApiRequest(path, { fallbackMessage: 'Não foi possível carregar o dashboard.' })
 }
 
-async function loadDashboard() {
-  dashboardLoading.value = true
-  dashboardError.value = ''
+async function loadActivitiesForDashboard(dashboardId) {
+  const requestId = ++activitiesRequestSeq
+  activitiesError.value = ''
 
   try {
-    const dashboards = await apiRequest('/api/v1/dashboards')
-    const dashboard = dashboards.find(item => item.status === 'ACTIVE') || dashboards[0]
+    const loaded = await apiRequest(`/api/v1/dashboards/${dashboardId}/activities`)
+    if (requestId !== activitiesRequestSeq) return
+    activities.value = loaded
+  } catch (error) {
+    if (requestId !== activitiesRequestSeq) return
+    // Falha nas atividades não deve esconder as disciplinas já carregadas;
+    // mostramos um erro específico da seção, sem misturar dados antigos.
+    activities.value = []
+    activitiesError.value = error.message || 'Não foi possível carregar as atividades.'
+  }
+}
+
+async function retryActivities() {
+  if (!currentDashboardId.value) return
+  await loadActivitiesForDashboard(currentDashboardId.value)
+}
+
+// Só a primeira carga mostra o esqueleto; recargas mantêm os dados atuais visíveis.
+// Respostas de uma carga superada por outra mais nova são descartadas.
+async function loadDashboard() {
+  const requestId = ++dashboardRequestSeq
+  const isStale = () => requestId !== dashboardRequestSeq
+
+  if (!hasLoadedDashboard) dashboardLoading.value = true
+  dashboardError.value = ''
+  activitiesError.value = ''
+
+  try {
+    const dashboard = await loadActiveDashboard(apiRequest)
+    if (isStale()) return
 
     if (!dashboard) {
       disciplines.value = []
       activities.value = []
       selectedFrequencyDisciplineId.value = ''
+      currentDashboardId.value = ''
+      hasLoadedDashboard = true
       return
     }
 
-    disciplines.value = await apiRequest(`/api/v1/dashboards/${dashboard.id}/disciplines`)
+    currentDashboardId.value = dashboard.id
+
+    const loadedDisciplines = await apiRequest(`/api/v1/dashboards/${dashboard.id}/disciplines`)
+    if (isStale()) return
+
+    disciplines.value = loadedDisciplines
     if (!disciplines.value.some(discipline => discipline.id === selectedFrequencyDisciplineId.value)) {
       selectedFrequencyDisciplineId.value = disciplines.value[0]?.id || ''
     }
-    const activityLists = await Promise.all(disciplines.value.map(discipline =>
-      apiRequest(`/api/v1/dashboards/${dashboard.id}/disciplines/${discipline.id}/activities`),
-    ))
-    activities.value = activityLists.flat()
+
+    await loadActivitiesForDashboard(dashboard.id)
+    if (isStale()) return
+    hasLoadedDashboard = true
   } catch (error) {
-    dashboardError.value = error.message || 'Não foi possível carregar o dashboard.'
+    if (isStale()) return
+    // Em recarga, os dados já exibidos continuam valendo; o erro só aparece na primeira carga.
+    if (!hasLoadedDashboard) {
+      disciplines.value = []
+      activities.value = []
+      dashboardError.value = error.message || 'Não foi possível carregar o dashboard.'
+    }
   } finally {
-    dashboardLoading.value = false
+    if (!isStale()) dashboardLoading.value = false
   }
 }
 
@@ -118,12 +170,8 @@ async function loadSidebarAvatar() {
   if (!user.hasProfilePhoto || !user.profilePhotoUrl) return
 
   try {
-    const response = await fetch(user.profilePhotoUrl, {
-      cache: 'no-store',
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-    if (!response.ok) return
-    sidebarAvatarUrl.value = URL.createObjectURL(await response.blob())
+    const photo = await sharedApiRequest(user.profilePhotoUrl, { as: 'blob', cache: 'no-store' })
+    sidebarAvatarUrl.value = URL.createObjectURL(photo)
   } catch {
     // O avatar com as iniciais permanece como alternativa quando a imagem falhar.
   }
@@ -139,16 +187,63 @@ const averageAttendance = computed(() => {
   return values.length ? values.reduce((total, value) => total + value, 0) / values.length : null
 })
 const completedActivities = computed(() => activities.value.filter(activity => activity.status === 'COMPLETED').length)
-const overdueActivities = computed(() => pendingActivities.value.filter(activity => activity.dueDate < todayIso).length)
+// Atividades sem prazo não são atrasadas e vão para o fim das listas ordenadas por data.
+function dueDateOf(activity) {
+  return typeof activity?.dueDate === 'string' ? activity.dueDate : ''
+}
+
+function compareByDueDate(first, second) {
+  const firstDate = dueDateOf(first)
+  const secondDate = dueDateOf(second)
+  if (!firstDate || !secondDate) return Number(!firstDate) - Number(!secondDate)
+  return firstDate.localeCompare(secondDate)
+}
+
+function isOverdue(activity) {
+  const dueDate = dueDateOf(activity)
+  return Boolean(dueDate) && dueDate < todayIso.value
+}
+
+const overdueActivities = computed(() => pendingActivities.value.filter(isOverdue).length)
 const completionPercentage = computed(() => activities.value.length
   ? Math.round((completedActivities.value / activities.value.length) * 100)
   : 0)
 const dashboardActivities = computed(() => [...activities.value]
   .filter(activity => activity.status !== 'COMPLETED')
-  .sort((first, second) => {
-    return first.dueDate.localeCompare(second.dueDate)
-  })
+  .sort(compareByDueDate)
   .slice(0, 3))
+// Avisos: provas e atividades pendentes cujo prazo entra na antecedência configurada em Preferências.
+const reminderLimitIso = computed(() => {
+  const limit = new Date(currentDateTime.value)
+  limit.setDate(limit.getDate() + deadlineAlertDays.value)
+  const year = limit.getFullYear()
+  const month = String(limit.getMonth() + 1).padStart(2, '0')
+  const day = String(limit.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+})
+const upcomingReminders = computed(() => activities.value
+  .filter(activity => activity.status !== 'COMPLETED'
+    && dueDateOf(activity)
+    && !isOverdue(activity)
+    && dueDateOf(activity) <= reminderLimitIso.value)
+  .sort(compareByDueDate))
+const overdueReminders = computed(() => activities.value
+  .filter(activity => activity.status !== 'COMPLETED' && isOverdue(activity))
+  .sort(compareByDueDate))
+const visibleReminderGroups = computed(() => {
+  const overdueCount = upcomingReminders.value.length
+    ? Math.min(overdueReminders.value.length, REMINDER_OVERDUE_SHARE)
+    : Math.min(overdueReminders.value.length, REMINDER_LIMIT)
+  const upcomingCount = Math.min(upcomingReminders.value.length, REMINDER_LIMIT - overdueCount)
+
+  return [
+    { key: 'overdue', label: 'Atrasadas', items: overdueReminders.value.slice(0, overdueCount) },
+    { key: 'upcoming', label: 'Próximos prazos', items: upcomingReminders.value.slice(0, upcomingCount) },
+  ].filter(group => group.items.length > 0)
+})
+const totalReminders = computed(() => overdueReminders.value.length + upcomingReminders.value.length)
+const hiddenReminderCount = computed(() => totalReminders.value
+  - visibleReminderGroups.value.reduce((sum, group) => sum + group.items.length, 0))
 const nextClass = computed(() => disciplines.value
   .flatMap(discipline => (discipline.schedules || []).map((schedule, scheduleIndex) => {
     const dayNumber = weekDayNumbers[schedule.dayOfWeek]
@@ -184,6 +279,7 @@ function formatDate(date) {
 }
 
 function formatCompactDate(date) {
+  if (!date) return '—'
   return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' })
     .format(new Date(`${date}T12:00:00`))
 }
@@ -196,9 +292,17 @@ function disciplineColor(disciplineId) {
   return disciplines.value.find(discipline => discipline.id === disciplineId)?.color || '#6631db'
 }
 
+function reminderSectionFor(activity) {
+  return activity.type === 'EXAM' ? 'exams' : 'activities'
+}
+
+function reminderKindLabel(activity) {
+  return activity.type === 'EXAM' ? 'Prova' : 'Atividade'
+}
+
 function activityStatus(activity) {
   if (activity.status === 'COMPLETED') return { label: 'Concluída', className: 'is-completed' }
-  if (activity.dueDate < todayIso) return { label: 'Atrasada', className: 'is-overdue' }
+  if (isOverdue(activity)) return { label: 'Atrasada', className: 'is-overdue' }
   if (activity.status === 'IN_PROGRESS') return { label: 'Em andamento', className: 'is-progress' }
   return { label: 'Pendente', className: 'is-pending' }
 }
@@ -229,23 +333,28 @@ function classDateTime(upcomingClass) {
   return `${year}-${month}-${day}T${String(upcomingClass.schedule.startTime).slice(0, 5)}`
 }
 
-// Abre a tela inicial escolhida em Configurações, a menos que o estudante já tenha navegado.
-async function applyStartSection() {
-  try {
-    const preferences = await apiRequest('/api/v1/settings/preferences')
+function applyPreferences(raw) {
+  const preferences = normalizePreferences(raw)
+  attendanceAlertMargin.value = preferences.attendanceAlertMargin
+  deadlineAlertDays.value = preferences.deadlineAlertDays
+  startSection.value = preferences.startSection
+}
 
-    if (activeSection.value === 'dashboard') {
-      activeSection.value = sectionFromPreference(preferences.startSection)
-    }
-  } catch (error) {
-    // A preferência é só conveniência: sem ela o dashboard continua sendo a tela inicial.
-    console.warn('Não foi possível aplicar a tela inicial preferida.', error.message)
+// Carrega as preferências uma única vez e abre a tela inicial escolhida em Configurações,
+// a menos que o estudante já tenha navegado. Sem preferências, o dashboard segue como início.
+async function initializePreferences() {
+  const preferences = await loadPreferences(apiRequest)
+  if (!preferences.loaded) return
+
+  applyPreferences(preferences)
+  if (activeSection.value === 'dashboard') {
+    activeSection.value = sectionFromPreference(preferences.startSection)
   }
 }
 
 onMounted(() => {
   loadDashboard()
-  applyStartSection()
+  initializePreferences()
   loadSidebarAvatar()
   clockTimer = window.setInterval(() => {
     currentDateTime.value = new Date()
@@ -258,7 +367,7 @@ const selectedFrequencyDetails = computed(() => {
   const discipline = selectedFrequencyDiscipline.value
   if (!discipline) return null
 
-  const attendance = Math.max(0, Math.min(100, Number(discipline.attendancePercentage ?? 100)))
+  const hasAttendance = typeof discipline.attendancePercentage === 'number'
   const absences = Math.max(0, Number(discipline.absences ?? 0))
   const lossPerAbsence = Number(discipline.lossPerAbsence ?? 5)
   const minimum = Number(discipline.minimumAttendancePercentage ?? 75)
@@ -266,7 +375,24 @@ const selectedFrequencyDetails = computed(() => {
     discipline.maximumAbsences ?? Math.floor((100 - minimum) / lossPerAbsence),
   ))
   const remainingAbsences = Math.max(0, maximumAbsences - absences)
-  const situation = frequencySituation(attendance, minimum, maximumAbsences - absences)
+
+  if (!hasAttendance) {
+    return {
+      discipline,
+      attendance: null,
+      absences,
+      lossPerAbsence,
+      minimum,
+      maximumAbsences,
+      remainingAbsences,
+      message: 'Sem frequência cadastrada para esta disciplina.',
+      messageClass: 'is-neutral',
+      ringColor: '#c7cbd8',
+    }
+  }
+
+  const attendance = Math.max(0, Math.min(100, Number(discipline.attendancePercentage)))
+  const situation = frequencySituation(attendance, minimum, maximumAbsences - absences, attendanceAlertMargin.value)
 
   if (situation === 'bad') {
     return {
@@ -616,7 +742,18 @@ onBeforeUnmount(() => {
                 <button type="button" @click="activeSection = 'activities'">Ver todas <span aria-hidden="true">→</span></button>
               </header>
 
-              <div v-if="dashboardActivities.length === 0" class="dashboard-compact-empty">
+              <div v-if="activitiesError" class="dashboard-panel-empty dashboard-activities-error">
+                <span aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 8v5m0 3v.01" /></svg>
+                </span>
+                <div>
+                  <strong>Não foi possível carregar as atividades</strong>
+                  <p>{{ activitiesError }}</p>
+                </div>
+                <button type="button" @click="retryActivities">Tentar novamente</button>
+              </div>
+
+              <div v-else-if="dashboardActivities.length === 0" class="dashboard-compact-empty">
                 <span aria-hidden="true">✓</span>
                 <p>Você não possui atividades pendentes.</p>
               </div>
@@ -635,7 +772,7 @@ onBeforeUnmount(() => {
                     <small>{{ disciplineName(activity.disciplineId) }}</small>
                   </div>
                   <div class="dashboard-compact-activity-meta">
-                    <time :datetime="activity.dueDate">{{ formatCompactDate(activity.dueDate) }}</time>
+                    <time :datetime="activity.dueDate || undefined">{{ formatCompactDate(activity.dueDate) }}</time>
                     <span :class="['dashboard-activity-status', activityStatus(activity).className]">{{ activityStatus(activity).label }}</span>
                   </div>
                 </li>
@@ -644,6 +781,60 @@ onBeforeUnmount(() => {
           </div>
 
           <aside class="dashboard-side-column">
+            <section class="dashboard-panel dashboard-reminders-panel" aria-labelledby="dashboard-reminders-title">
+              <header class="dashboard-panel-header">
+                <div>
+                  <span class="dashboard-eyebrow">Avisos</span>
+                  <h2 id="dashboard-reminders-title">Prazos se aproximando</h2>
+                </div>
+              </header>
+
+              <div v-if="visibleReminderGroups.length === 0" class="dashboard-compact-empty">
+                <span aria-hidden="true">✓</span>
+                <p>Nenhuma prova ou atividade dentro da antecedência configurada.</p>
+              </div>
+
+              <template v-else>
+              <template v-for="group in visibleReminderGroups" :key="group.key">
+              <h3 class="dashboard-reminder-group">{{ group.label }}</h3>
+              <ul class="dashboard-compact-activity-list">
+                <li v-for="reminder in group.items" :key="reminder.id">
+                  <span
+                    class="dashboard-compact-activity-icon"
+                    :style="{ '--discipline-color': disciplineColor(reminder.disciplineId) }"
+                    aria-hidden="true"
+                  >
+                    <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9" /><path d="M12 7v5l3 2" /></svg>
+                  </span>
+                  <div class="dashboard-activity-info">
+                    <strong>{{ reminder.title }}</strong>
+                    <small>{{ reminderKindLabel(reminder) }} · {{ disciplineName(reminder.disciplineId) }}</small>
+                  </div>
+                  <div class="dashboard-compact-activity-meta">
+                    <time :datetime="reminder.dueDate || undefined">{{ formatCompactDate(reminder.dueDate) }}</time>
+                    <button
+                      type="button"
+                      class="dashboard-reminder-link"
+                      :aria-label="`Ver ${reminderKindLabel(reminder).toLowerCase()} ${reminder.title}`"
+                      @click="activeSection = reminderSectionFor(reminder)"
+                    >
+                      Ver <span aria-hidden="true">→</span>
+                    </button>
+                  </div>
+                </li>
+              </ul>
+              </template>
+              </template>
+              <button
+                v-if="hiddenReminderCount > 0"
+                type="button"
+                class="dashboard-reminder-more"
+                @click="activeSection = 'activities'"
+              >
+                Ver todas em Atividades (+{{ hiddenReminderCount }}) <span aria-hidden="true">→</span>
+              </button>
+            </section>
+
             <section
               v-if="selectedFrequencyDetails"
               class="dashboard-panel dashboard-frequency-panel"
@@ -673,14 +864,17 @@ onBeforeUnmount(() => {
                   <div
                     class="dashboard-frequency-ring"
                     :style="{
-                      '--frequency-angle': `${selectedFrequencyDetails.attendance * 3.6}deg`,
+                      '--frequency-angle': `${(selectedFrequencyDetails.attendance ?? 0) * 3.6}deg`,
                       '--frequency-color': selectedFrequencyDetails.ringColor,
                     }"
                     role="img"
-                    :aria-label="`Frequência atual de ${Math.round(selectedFrequencyDetails.attendance)}%`"
+                    :aria-label="selectedFrequencyDetails.attendance === null
+                      ? 'Sem frequência cadastrada'
+                      : `Frequência atual de ${Math.round(selectedFrequencyDetails.attendance)}%`"
                   >
                     <div>
-                      <strong>{{ Math.round(selectedFrequencyDetails.attendance) }}%</strong>
+                      <strong v-if="selectedFrequencyDetails.attendance === null" class="dashboard-frequency-empty">—</strong>
+                      <strong v-else>{{ Math.round(selectedFrequencyDetails.attendance) }}%</strong>
                       <span>Frequência</span>
                     </div>
                   </div>
@@ -740,13 +934,13 @@ onBeforeUnmount(() => {
             <span class="dashboard-guide-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18m5 4h4" /></svg>
             </span>
-            <div><h3>Agende suas provas</h3><p>As datas das avaliações ficarão reunidas aqui.</p><span class="dashboard-planned-action">Em breve</span></div>
+            <div><h3>Agende suas provas</h3><p>Organize as datas das suas avaliações.</p><button type="button" @click="activeSection = 'exams'">Ver provas <span aria-hidden="true">→</span></button></div>
           </article>
           <article class="dashboard-guide-card is-violet">
             <span class="dashboard-guide-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M4 19v-5m5 5V9m5 10v-7m5 7V5" /><path d="m4 10 5-4 5 3 6-6" /></svg>
             </span>
-            <div><h3>Acompanhe seu progresso</h3><p>Gráficos e estatísticas aparecerão com seus dados.</p><span class="dashboard-planned-action">Em breve</span></div>
+            <div><h3>Acompanhe seu progresso</h3><p>Veja gráficos e estatísticas das suas notas.</p><button type="button" @click="activeSection = 'grades'">Ver notas <span aria-hidden="true">→</span></button></div>
           </article>
         </div>
         <p v-if="disciplines.length === 0" class="dashboard-tip">
@@ -757,54 +951,69 @@ onBeforeUnmount(() => {
 
       <DisciplinesEmpty
         v-if="activeSection === 'disciplines'"
-        :access-token="accessToken"
       />
 
       <ActivitiesScreen
         v-if="activeSection === 'activities'"
-        :access-token="accessToken"
         @navigate="activeSection = $event"
       />
       <ProvasScreen
         v-if="activeSection === 'exams'"
-        :access-token="accessToken"
       />
       <FrequencyPage
         v-if="activeSection === 'frequency'"
-        :access-token="accessToken"
       />
       <GradesScreen
         v-if="activeSection === 'grades'"
-        :access-token="accessToken"
         @navigate="activeSection = $event"
         @session-expired="emit('logout', 'session-expired')"
       />
       <SimulatorNotes
         v-if="activeSection === 'simulator'"
-        :access-token="accessToken"
         @navigate="activeSection = $event"
       />
       <ProfileScreen
         v-if="activeSection === 'profile'"
-        :access-token="accessToken"
         :user="user"
         @updated="emit('user-updated', $event)"
       />
       <SettingsScreen
         v-if="activeSection === 'settings'"
-        :access-token="accessToken"
-        @token-refreshed="emit('token-refreshed', $event)"
+        @preferences-updated="applyPreferences"
         @account-deleted="emit('logout', 'account-deleted')"
-        @session-expired="emit('logout', 'session-expired')"
       />
       <CalendarScreen
         v-if="activeSection === 'calendar'"
-        :access-token="accessToken"
       />
     </main>
   </div>
 </template>
 <style scoped>
+.dashboard-reminder-group {
+  color: #5f6478;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 12px 0 6px;
+  text-transform: uppercase;
+}
+
+.dashboard-reminder-more {
+  background: none;
+  border: 0;
+  color: #6631db;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  margin-top: 10px;
+  padding: 4px 0;
+}
+
+.dashboard-reminder-more:focus-visible {
+  outline: 3px solid #b9a7f5;
+  outline-offset: 2px;
+}
+
 .dashboard-shell {
   background: #f5f6fb;
   color: #151a2d;
@@ -912,7 +1121,6 @@ onBeforeUnmount(() => {
 .dashboard-guide-card p { color: #7a8194; font-size: .64rem; line-height: 1.55; }
 .dashboard-guide-card button { align-self: flex-start; background: none; border: 0; color: #6429db; font-size: .64rem; font-weight: 750; margin-top: auto; padding: 4px 0; }
 .dashboard-guide-card button:hover { text-decoration: underline; }
-.dashboard-planned-action { color: #8b819d; font-size: .63rem; font-weight: 700; margin-top: auto; }
 .dashboard-guide-card.is-green .dashboard-guide-icon { background: #e8f8ef; color: #2daf68; }
 .dashboard-guide-card.is-orange .dashboard-guide-icon { background: #fff0e2; color: #ee831e; }
 .dashboard-guide-card.is-violet .dashboard-guide-icon { background: #f1edff; color: #6330e0; }
@@ -953,12 +1161,16 @@ onBeforeUnmount(() => {
 .dashboard-activity-status.is-overdue { background: #fff0ef; color: #c4463e; }
 .dashboard-activity-status.is-progress { background: #eaf2ff; color: #3471c7; }
 .dashboard-activity-status.is-pending { background: #fff2e5; color: #b76315; }
+.dashboard-reminder-link { background: #f1ecff; border: 0; border-radius: 999px; box-sizing: border-box; color: #5f2bd5; cursor: pointer; font-size: .61rem; font-weight: 800; justify-self: stretch; padding: 6px 10px; text-align: center; white-space: nowrap; width: 100%; }
+.dashboard-reminder-link:hover, .dashboard-reminder-link:focus-visible { background: #e2d6ff; }
 .dashboard-panel-empty { align-items: center; display: flex; gap: 12px; min-height: 180px; padding: 24px; }
 .dashboard-panel-empty > span { align-items: center; background: #e9f8ef; border-radius: 50%; color: #249255; display: flex; flex: 0 0 42px; height: 42px; justify-content: center; }
 .dashboard-panel-empty div { flex: 1; }
 .dashboard-panel-empty strong { color: #252a3d; font-size: .75rem; }
 .dashboard-panel-empty p { color: #7b8192; font-size: .63rem; margin-top: 3px; }
 .dashboard-panel-empty button { background: #6832df; border: 0; border-radius: 8px; color: #fff; cursor: pointer; font-size: .62rem; font-weight: 750; padding: 9px 11px; }
+.dashboard-activities-error > span { background: #fff0ef; color: #c4463e; }
+.dashboard-activities-error > span svg { fill: none; height: 20px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 20px; }
 .dashboard-main-column, .dashboard-side-column { display: grid; gap: 17px; min-width: 0; }
 .dashboard-frequency-panel { overflow: hidden; }
 .dashboard-frequency-content { display: grid; gap: 15px; padding: 17px 18px 18px; }
@@ -984,6 +1196,8 @@ onBeforeUnmount(() => {
 .dashboard-frequency-message.is-success { background: #edf8f0; color: #27824c; }
 .dashboard-frequency-message.is-warning { background: #fff5e5; color: #a76717; }
 .dashboard-frequency-message.is-danger { background: #fff0ef; color: #bd443b; }
+.dashboard-frequency-message.is-neutral { background: #f1f2f6; color: #626a80; }
+.dashboard-frequency-empty { color: #8a90a2; font-size: 1.05rem; }
 .dashboard-side-activities .dashboard-panel-header { padding: 16px 18px 13px; }
 .dashboard-side-activities .dashboard-panel-header h2 { color: #6933db; font-size: .66rem; letter-spacing: .07em; margin: 0; text-transform: uppercase; }
 .dashboard-compact-activity-list { list-style: none; margin: 0; padding: 0 18px; }

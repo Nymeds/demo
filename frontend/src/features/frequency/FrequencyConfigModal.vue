@@ -1,4 +1,5 @@
 <script setup>
+import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
 import { computed, ref, watch } from 'vue'
 import { LOSS_PER_ABSENCE, attendanceAfterAbsences, maximumAbsencesFor } from './frequencyRules.js'
 
@@ -10,6 +11,11 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'save'])
+
+const trapRef = ref(null)
+useFocusTrap(() => true, trapRef, {
+  onClose: () => emit('close'),
+})
 
 const DEFAULT_MINIMUM = 75
 
@@ -67,7 +73,7 @@ function submitForm() {
 
 <template>
   <div class="modal-backdrop" @mousedown.self="emit('close')">
-    <section class="frequency-modal" role="dialog" aria-modal="true" aria-labelledby="config-frequency-title">
+    <section class="frequency-modal" ref="trapRef" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="config-frequency-title">
       <header class="modal-header">
         <div class="modal-title">
           <span aria-hidden="true">
