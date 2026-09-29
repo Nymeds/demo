@@ -1,11 +1,10 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { apiRequest } from '../../shared/http/apiRequest.js'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import CalendarEventModal from './CalendarEventModal.vue'
 import DeleteCalendarEventModal from './DeleteCalendarEventModal.vue'
-
-const props = defineProps({
-  accessToken: { type: String, required: true },
-})
+import { parseLocalDateTime, startOfDay, toLocalDateTimeIso as toLocalIso } from '../../shared/date/localDate.js'
+import { loadActiveDashboard } from '../../shared/dashboards/useActiveDashboard.js'
 
 const categories = [
   { value: 'CLASS', label: 'Aulas' },
@@ -15,20 +14,40 @@ const categories = [
   { value: 'OTHER', label: 'Outros' },
 ]
 
-// Quantos eventos cabem na célula da visão Mês antes de virar "mais N".
-const MONTH_EVENTS_PER_DAY = 3
-
 const weekDayLabels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 const miniWeekDayLabels = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 
 const dashboardId = ref('')
 const disciplines = ref([])
 const events = ref([])
+const examActivities = ref([])
 const upcomingEvents = ref([])
-const upcomingLimit = ref(5)
+const UPCOMING_FETCH_LIMIT = 100
+const upcomingShowAll = ref(false)
 const loading = ref(true)
 const requestError = ref('')
 const feedback = ref('')
+
+// Cada seção carregada de forma independente (eventos, próximos eventos, provas) tem seu
+// próprio erro e sua própria marca de "dados desatualizados", para que uma falha em uma
+// não esconda nem misture com o estado das outras.
+const eventsError = ref('')
+const eventsStale = ref(false)
+const upcomingError = ref('')
+const upcomingStale = ref(false)
+const examError = ref('')
+const examStale = ref(false)
+
+// Contadores de sequência: evitam que uma resposta antiga (de uma navegação ou filtro
+// já abandonado) sobrescreva o resultado de uma requisição mais recente.
+let eventsRequestSeq = 0
+let upcomingRequestSeq = 0
+let examRequestSeq = 0
+
+const savingEvent = ref(false)
+const deletingEvent = ref(false)
+const modalServerError = ref('')
+const deleteServerError = ref('')
 
 const viewMode = ref('month')
 const referenceDate = ref(startOfDay(new Date()))
@@ -39,16 +58,25 @@ const editingEvent = ref(null)
 const modalDefaultDate = ref('')
 const eventToDelete = ref(null)
 
-const today = startOfDay(new Date())
+// "Hoje" precisa se mover sozinho depois da meia-noite, então é derivado de um relógio
+// que avança em segundo plano em vez de uma data fixa calculada uma vez só.
+const now = ref(Date.now())
+let clockTimer = null
+
+onMounted(() => {
+  clockTimer = setInterval(() => {
+    now.value = Date.now()
+  }, 30000)
+})
+
+onUnmounted(() => {
+  if (clockTimer) clearInterval(clockTimer)
+})
+
+const today = computed(() => startOfDay(new Date(now.value)))
 
 function pad(value) {
   return String(value).padStart(2, '0')
-}
-
-function startOfDay(date) {
-  const copy = new Date(date)
-  copy.setHours(0, 0, 0, 0)
-  return copy
 }
 
 function endOfDay(date) {
@@ -72,13 +100,6 @@ function startOfWeek(date) {
   return addDays(startOfDay(date), -date.getDay())
 }
 
-// A API trabalha com LocalDateTime, então a data vai sem fuso horário nenhum.
-// Usar toISOString() aqui converteria para UTC e jogaria os eventos para o dia errado.
-function toLocalIso(date) {
-  const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-  return `${day}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
-}
-
 function isSameDay(first, second) {
   return first.getFullYear() === second.getFullYear()
     && first.getMonth() === second.getMonth()
@@ -87,6 +108,16 @@ function isSameDay(first, second) {
 
 function capitalize(text) {
   return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+function dayCreateLabel(date) {
+  const formatted = new Intl.DateTimeFormat('pt-BR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(date)
+
+  return `Criar evento em ${formatted}`
 }
 
 function formatTime(value) {
@@ -163,37 +194,109 @@ const miniMonthLabel = computed(() => capitalize(new Intl.DateTimeFormat('pt-BR'
   year: 'numeric',
 }).format(referenceDate.value)))
 
+function disciplineName(id) {
+  return disciplines.value.find(discipline => discipline.id === id)?.name || ''
+}
+
+// Provas viram Atividades (tipo EXAM) e passam a ser compartilhadas com a tela Provas.
+// Aqui elas entram como itens somente leitura, no dia da entrega (dueDate), a partir
+// das 8h — hora fixa só para posicionar o item no dia certo, sem hora real de prova.
+function examActivityToEvent(activity) {
+  return {
+    id: `activity-exam-${activity.id}`,
+    title: activity.title,
+    description: activity.description || '',
+    category: 'EXAM',
+    startsAt: `${activity.dueDate}T08:00:00`,
+    endsAt: null,
+    disciplineId: activity.disciplineId,
+    disciplineName: disciplineName(activity.disciplineId),
+    disciplineDeleted: false,
+    isExamActivity: true,
+  }
+}
+
+// Eventos EXAM antigos (criados antes desta mudança, quando prova era só um CalendarEvent)
+// que já correspondem a uma Atividade de prova não devem aparecer duplicados.
+function isDuplicateExamEvent(event, activity) {
+  return event.category === 'EXAM'
+    && event.disciplineId === activity.disciplineId
+    && event.title === activity.title
+    && event.startsAt.slice(0, 10) === activity.dueDate
+}
+
+const displayedEvents = computed(() => {
+  const duplicateIds = new Set()
+
+  examActivities.value.forEach(activity => {
+    events.value.forEach(event => {
+      if (isDuplicateExamEvent(event, activity)) duplicateIds.add(event.id)
+    })
+  })
+
+  return [
+    ...events.value.filter(event => !duplicateIds.has(event.id)),
+    ...examActivities.value.map(examActivityToEvent),
+  ]
+})
+
+// "Próximos eventos" também respeita o filtro de categorias e inclui as provas
+// (Atividades do tipo EXAM), que antes só apareciam no grid do calendário.
+const UPCOMING_DISPLAY_LIMIT = 5
+
+const upcomingCombined = computed(() => {
+  const duplicateIds = new Set()
+
+  examActivities.value.forEach(activity => {
+    upcomingEvents.value.forEach(event => {
+      if (isDuplicateExamEvent(event, activity)) duplicateIds.add(event.id)
+    })
+  })
+
+  const todayIso = toLocalIso(today.value).slice(0, 10)
+
+  const examAsUpcoming = examActivities.value
+    .filter(activity => activity.dueDate >= todayIso)
+    .map(examActivityToEvent)
+
+  return [
+    ...upcomingEvents.value.filter(event => !duplicateIds.has(event.id)),
+    ...examAsUpcoming,
+  ]
+    .filter(event => selectedCategories.value.includes(event.category))
+    .sort((first, second) => first.startsAt.localeCompare(second.startsAt))
+})
+
+const upcomingDisplayed = computed(() => (
+  upcomingShowAll.value
+    ? upcomingCombined.value
+    : upcomingCombined.value.slice(0, UPCOMING_DISPLAY_LIMIT)
+))
+
 function eventsOfDay(day) {
   const dayStart = startOfDay(day)
   const dayEnd = endOfDay(day)
 
   // Mesma regra de sobreposição da API: o evento aparece no dia enquanto não terminou.
-  return events.value
+  return displayedEvents.value
     .filter(event => {
-      const start = new Date(event.startsAt)
-      const end = event.endsAt ? new Date(event.endsAt) : start
+      const start = parseLocalDateTime(event.startsAt)
+      if (!start) return false
+      const end = (event.endsAt && parseLocalDateTime(event.endsAt)) || start
       return start <= dayEnd && end >= dayStart
     })
     .sort((first, second) => first.startsAt.localeCompare(second.startsAt))
 }
 
 function buildDay(day) {
-  const dayEvents = eventsOfDay(day)
-
-  // A célula da visão Mês é baixa: mostrar tudo faria a semana que tem um dia cheio ficar
-  // muito mais alta que as outras. O que passa do limite vira o "mais N", que abre a visão
-  // Dia daquele dia. A visão Semana tem célula alta, então lá cabem todos.
-  const limit = viewMode.value === 'month' ? MONTH_EVENTS_PER_DAY : dayEvents.length
-
   return {
     date: day,
     key: toLocalIso(day),
     number: day.getDate(),
-    isToday: isSameDay(day, today),
+    isToday: isSameDay(day, today.value),
     isCurrentMonth: day.getMonth() === referenceDate.value.getMonth(),
     isSelected: isSameDay(day, referenceDate.value),
-    events: dayEvents.slice(0, limit),
-    hiddenCount: Math.max(dayEvents.length - limit, 0),
+    events: eventsOfDay(day),
   }
 }
 
@@ -207,7 +310,7 @@ const miniCalendarDays = computed(() => monthGrid.value.map(day => {
     date: day,
     key: toLocalIso(day),
     number: day.getDate(),
-    isToday: isSameDay(day, today),
+    isToday: isSameDay(day, today.value),
     isCurrentMonth: day.getMonth() === referenceDate.value.getMonth(),
     isSelected: isSameDay(day, referenceDate.value),
     dots,
@@ -217,44 +320,17 @@ const miniCalendarDays = computed(() => monthGrid.value.map(day => {
 const dayViewEvents = computed(() => eventsOfDay(referenceDate.value))
 
 function upcomingDayLabel(value) {
-  const date = startOfDay(new Date(value))
+  const date = startOfDay(parseLocalDateTime(value) ?? new Date())
 
-  if (isSameDay(date, today)) {
+  if (isSameDay(date, today.value)) {
     return 'Hoje'
   }
 
-  if (isSameDay(date, addDays(today, 1))) {
+  if (isSameDay(date, addDays(today.value, 1))) {
     return 'Amanhã'
   }
 
   return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}`
-}
-
-async function apiRequest(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${props.accessToken}`,
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...options.headers,
-    },
-  })
-
-  const data = response.status === 204
-    ? null
-    : await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    // O ValidationExceptionHandler manda a mensagem de cada campo dentro de `errors` e deixa em
-    // `detail` só o texto genérico; sem ler `errors` a tela esconderia o motivo real da recusa.
-    const fieldErrors = data.errors && typeof data.errors === 'object'
-      ? Object.values(data.errors).filter(Boolean).join(' ')
-      : ''
-
-    throw new Error(fieldErrors || data.detail || data.message || 'Não foi possível concluir a solicitação.')
-  }
-
-  return data
 }
 
 function eventsPath(suffix = '') {
@@ -264,10 +340,14 @@ function eventsPath(suffix = '') {
 async function loadEvents() {
   if (!dashboardId.value) return
 
+  const requestId = ++eventsRequestSeq
+
   // Nenhuma categoria marcada: a tela fica vazia sem precisar perguntar nada à API,
   // porque o parâmetro vazio significa "sem filtro" do lado do servidor.
   if (selectedCategories.value.length === 0) {
     events.value = []
+    eventsError.value = ''
+    eventsStale.value = false
     return
   }
 
@@ -280,19 +360,64 @@ async function loadEvents() {
   }
 
   try {
-    events.value = await apiRequest(`${eventsPath()}?${params}`)
+    const result = await apiRequest(`${eventsPath()}?${params}`)
+
+    // Uma resposta antiga (de um mês ou filtro já abandonados) nunca deve sobrescrever
+    // o resultado mais recente.
+    if (requestId !== eventsRequestSeq) return
+
+    events.value = result
+    eventsError.value = ''
+    eventsStale.value = false
   } catch (error) {
-    requestError.value = error.message || 'Não foi possível carregar os eventos do calendário.'
+    if (requestId !== eventsRequestSeq) return
+
+    // Mantém os eventos antigos visíveis, mas marcados como possivelmente desatualizados,
+    // em vez de esvaziar a tela e parecer que não há nenhum evento.
+    eventsError.value = error.message || 'Não foi possível carregar os eventos do calendário.'
+    eventsStale.value = events.value.length > 0
   }
 }
 
 async function loadUpcoming() {
   if (!dashboardId.value) return
 
+  const requestId = ++upcomingRequestSeq
+
   try {
-    upcomingEvents.value = await apiRequest(eventsPath(`/upcoming?limit=${upcomingLimit.value}`))
+    const result = await apiRequest(eventsPath(`/upcoming?limit=${UPCOMING_FETCH_LIMIT}`))
+    if (requestId !== upcomingRequestSeq) return
+
+    upcomingEvents.value = result
+    upcomingError.value = ''
+    upcomingStale.value = false
   } catch (error) {
-    requestError.value = error.message || 'Não foi possível carregar os próximos eventos.'
+    if (requestId !== upcomingRequestSeq) return
+
+    upcomingError.value = error.message || 'Não foi possível carregar os próximos eventos.'
+    upcomingStale.value = upcomingEvents.value.length > 0
+  }
+}
+
+// Provas ficam compartilhadas com a tela Provas: aqui elas são carregadas como Atividades
+// do tipo EXAM e exibidas no calendário, sem duplicar o que já existe como CalendarEvent.
+async function loadExamActivities() {
+  if (!dashboardId.value) return
+
+  const requestId = ++examRequestSeq
+
+  try {
+    const result = await apiRequest(`/api/v1/dashboards/${dashboardId.value}/activities?type=EXAM`)
+    if (requestId !== examRequestSeq) return
+
+    examActivities.value = result
+    examError.value = ''
+    examStale.value = false
+  } catch (error) {
+    if (requestId !== examRequestSeq) return
+
+    examError.value = error.message || 'Não foi possível carregar as provas.'
+    examStale.value = examActivities.value.length > 0
   }
 }
 
@@ -301,8 +426,7 @@ async function loadCalendar() {
   requestError.value = ''
 
   try {
-    const dashboards = await apiRequest('/api/v1/dashboards')
-    let dashboard = dashboards.find(item => item.status === 'ACTIVE') || dashboards[0]
+    let dashboard = await loadActiveDashboard(apiRequest)
 
     // Conta nova que abre o Calendário antes de Disciplinas ainda não tem dashboard.
     // Mesmo caminho usado na tela de disciplinas.
@@ -315,7 +439,7 @@ async function loadCalendar() {
 
     dashboardId.value = dashboard.id
     disciplines.value = await apiRequest(`/api/v1/dashboards/${dashboard.id}/disciplines`)
-    await Promise.all([loadEvents(), loadUpcoming()])
+    await Promise.all([loadEvents(), loadUpcoming(), loadExamActivities()])
   } catch (error) {
     requestError.value = error.message || 'Não foi possível carregar o calendário.'
   } finally {
@@ -326,7 +450,6 @@ async function loadCalendar() {
 onMounted(loadCalendar)
 
 watch([queryKey, selectedCategories], loadEvents)
-watch(upcomingLimit, loadUpcoming)
 
 function goToToday() {
   referenceDate.value = startOfDay(new Date())
@@ -354,12 +477,6 @@ function selectDay(date) {
   referenceDate.value = startOfDay(date)
 }
 
-// O "mais N" da célula cheia: abre aquele dia na visão Dia, onde a lista não tem limite.
-function openDayView(date) {
-  referenceDate.value = startOfDay(date)
-  viewMode.value = 'day'
-}
-
 function toggleCategory(value) {
   selectedCategories.value = selectedCategories.value.includes(value)
     ? selectedCategories.value.filter(category => category !== value)
@@ -367,7 +484,7 @@ function toggleCategory(value) {
 }
 
 function toggleUpcomingLimit() {
-  upcomingLimit.value = upcomingLimit.value === 5 ? 20 : 5
+  upcomingShowAll.value = !upcomingShowAll.value
 }
 
 function openNewEventModal(date = referenceDate.value) {
@@ -375,6 +492,7 @@ function openNewEventModal(date = referenceDate.value) {
   start.setHours(8, 0, 0, 0)
 
   feedback.value = ''
+  modalServerError.value = ''
   editingEvent.value = null
   modalDefaultDate.value = toLocalIso(start).slice(0, 16)
   showEventModal.value = true
@@ -382,6 +500,7 @@ function openNewEventModal(date = referenceDate.value) {
 
 function openEditEventModal(event) {
   feedback.value = ''
+  modalServerError.value = ''
   editingEvent.value = event
   modalDefaultDate.value = ''
   showEventModal.value = true
@@ -390,14 +509,47 @@ function openEditEventModal(event) {
 function closeEventModal() {
   showEventModal.value = false
   editingEvent.value = null
+  modalServerError.value = ''
 }
 
+// Prova nova (sem edição em andamento) vira Atividade do tipo EXAM, não um CalendarEvent —
+// assim ela passa a ser a mesma prova mostrada na tela Provas. Editar/excluir eventos EXAM
+// já existentes continua no fluxo antigo, pois esses registros continuam sendo CalendarEvents.
 async function saveEvent(formData) {
-  requestError.value = ''
+  if (savingEvent.value) return
+
+  modalServerError.value = ''
+  savingEvent.value = true
+
+  const eventId = editingEvent.value?.id
+
+  if (!eventId && formData.category === 'EXAM') {
+    try {
+      await apiRequest(`/api/v1/dashboards/${dashboardId.value}/disciplines/${formData.disciplineId}/activities`, {
+        method: 'POST',
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          dueDate: formData.startsAt.slice(0, 10),
+          status: 'PENDING',
+          type: 'EXAM',
+        }),
+      })
+
+      feedback.value = 'Prova criada com sucesso.'
+      closeEventModal()
+      await loadExamActivities()
+    } catch (error) {
+      // Erro fica visível dentro do modal (perto do formulário) e o modal continua aberto.
+      modalServerError.value = error.message || 'Não foi possível criar a prova.'
+    } finally {
+      savingEvent.value = false
+    }
+
+    return
+  }
 
   try {
-    const eventId = editingEvent.value?.id
-
     await apiRequest(eventId ? eventsPath(`/${eventId}`) : eventsPath(), {
       method: eventId ? 'PUT' : 'POST',
       body: JSON.stringify(formData),
@@ -407,24 +559,29 @@ async function saveEvent(formData) {
     closeEventModal()
     await Promise.all([loadEvents(), loadUpcoming()])
   } catch (error) {
-    requestError.value = error.message || 'Não foi possível salvar o evento.'
+    modalServerError.value = error.message || 'Não foi possível salvar o evento.'
+  } finally {
+    savingEvent.value = false
   }
 }
 
 function askToDeleteEvent() {
   eventToDelete.value = editingEvent.value
+  deleteServerError.value = ''
   showEventModal.value = false
 }
 
 function closeDeleteModal() {
   eventToDelete.value = null
   editingEvent.value = null
+  deleteServerError.value = ''
 }
 
 async function confirmDeleteEvent() {
-  if (!eventToDelete.value) return
+  if (!eventToDelete.value || deletingEvent.value) return
 
-  requestError.value = ''
+  deleteServerError.value = ''
+  deletingEvent.value = true
 
   try {
     await apiRequest(eventsPath(`/${eventToDelete.value.id}`), { method: 'DELETE' })
@@ -432,7 +589,10 @@ async function confirmDeleteEvent() {
     closeDeleteModal()
     await Promise.all([loadEvents(), loadUpcoming()])
   } catch (error) {
-    requestError.value = error.message || 'Não foi possível excluir o evento.'
+    // Fica visível dentro do próprio modal de confirmação, que continua aberto.
+    deleteServerError.value = error.message || 'Não foi possível excluir o evento.'
+  } finally {
+    deletingEvent.value = false
   }
 }
 </script>
@@ -459,8 +619,16 @@ async function confirmDeleteEvent() {
       </button>
     </header>
 
-    <p v-if="requestError" class="calendar-alert" role="alert">{{ requestError }}</p>
+    <div v-if="requestError" class="calendar-alert" role="alert">
+      <span>{{ requestError }}</span>
+      <button type="button" class="retry-button" @click="loadCalendar">Tentar novamente</button>
+    </div>
     <p v-if="feedback" class="calendar-feedback" role="status">{{ feedback }}</p>
+
+    <div v-if="examError" class="calendar-alert" role="alert">
+      <span>{{ examError }}<template v-if="examStale"> As provas exibidas podem estar desatualizadas.</template></span>
+      <button type="button" class="retry-button" @click="loadExamActivities">Tentar novamente</button>
+    </div>
 
     <div class="calendar-layout">
       <section class="calendar-board" aria-label="Calendário de eventos">
@@ -482,22 +650,38 @@ async function confirmDeleteEvent() {
 
         <p v-if="loading" class="calendar-loading">Carregando seu calendário…</p>
 
-        <template v-else-if="viewMode === 'day'">
+        <div v-else-if="eventsError && !events.length && !eventsStale" class="calendar-section-error" role="alert">
+          <p>{{ eventsError }}</p>
+          <button type="button" class="retry-button" @click="loadEvents">Tentar novamente</button>
+        </div>
+
+        <template v-else>
+        <div v-if="eventsError" class="calendar-section-error is-inline" role="alert">
+          <p>{{ eventsError }}<template v-if="eventsStale"> Os eventos exibidos podem estar desatualizados.</template></p>
+          <button type="button" class="retry-button" @click="loadEvents">Tentar novamente</button>
+        </div>
+
+        <template v-if="viewMode === 'day'">
           <div class="day-view">
             <h2>{{ periodLabel }}</h2>
 
             <ul v-if="dayViewEvents.length" class="day-view-list">
               <li v-for="event in dayViewEvents" :key="event.id">
-                <button type="button" :class="['day-view-event', categoryClass(event.category)]" @click="openEditEventModal(event)">
+                <component
+                  :is="event.isExamActivity ? 'div' : 'button'"
+                  :type="event.isExamActivity ? undefined : 'button'"
+                  :class="['day-view-event', categoryClass(event.category), { 'is-readonly': event.isExamActivity }]"
+                  @click="event.isExamActivity ? null : openEditEventModal(event)"
+                >
                   <span class="day-view-time">
                     {{ formatTime(event.startsAt) }}<template v-if="event.endsAt"> – {{ formatTime(event.endsAt) }}</template>
                   </span>
                   <span class="day-view-body">
-                    <strong>{{ event.title }}</strong>
+                    <strong>{{ event.title }}<small v-if="event.isExamActivity" class="readonly-tag">Prova</small></strong>
                     <small v-if="event.disciplineName" :class="{ 'is-deleted': event.disciplineDeleted }">{{ event.disciplineName }}</small>
                     <small v-if="event.description" class="day-view-description">{{ event.description }}</small>
                   </span>
-                </button>
+                </component>
               </li>
             </ul>
 
@@ -515,31 +699,33 @@ async function confirmDeleteEvent() {
               v-for="day in calendarDays"
               :key="day.key"
               :class="['calendar-day', { 'is-outside': !day.isCurrentMonth, 'is-today': day.isToday }]"
-              @click.self="openNewEventModal(day.date)"
             >
+              <button
+                type="button"
+                class="calendar-day-create"
+                :aria-label="dayCreateLabel(day.date)"
+                @click="openNewEventModal(day.date)"
+              ></button>
+
               <span class="calendar-day-number">{{ day.number }}</span>
 
               <ul class="calendar-day-events">
                 <li v-for="event in day.events" :key="event.id">
-                  <button type="button" :class="['calendar-event', categoryClass(event.category)]" @click="openEditEventModal(event)">
-                    <strong>{{ event.title }}</strong>
+                  <component
+                    :is="event.isExamActivity ? 'div' : 'button'"
+                    :type="event.isExamActivity ? undefined : 'button'"
+                    :class="['calendar-event', categoryClass(event.category), { 'is-readonly': event.isExamActivity }]"
+                    @click="event.isExamActivity ? null : openEditEventModal(event)"
+                  >
+                    <strong>{{ event.title }}<small v-if="event.isExamActivity" class="readonly-tag">Prova</small></strong>
                     <small v-if="event.disciplineName" :class="{ 'is-deleted': event.disciplineDeleted }">{{ event.disciplineName }}</small>
                     <small class="calendar-event-time">{{ formatTime(event.startsAt) }}</small>
-                  </button>
+                  </component>
                 </li>
               </ul>
-
-              <button
-                v-if="day.hiddenCount"
-                type="button"
-                class="calendar-day-more"
-                :aria-label="`Ver os ${day.hiddenCount + day.events.length} eventos do dia ${day.number}`"
-                @click="openDayView(day.date)"
-              >
-                mais {{ day.hiddenCount }}
-              </button>
             </div>
           </div>
+        </template>
         </template>
 
         <footer class="calendar-legend">
@@ -554,28 +740,47 @@ async function confirmDeleteEvent() {
         <section class="side-card">
           <header class="side-card-header">
             <h2>Próximos eventos</h2>
-            <button type="button" class="side-card-action" @click="toggleUpcomingLimit">
-              {{ upcomingLimit === 5 ? 'Ver todos' : 'Ver menos' }}
+            <button
+              v-if="upcomingCombined.length > UPCOMING_DISPLAY_LIMIT"
+              type="button"
+              class="side-card-action"
+              @click="toggleUpcomingLimit"
+            >
+              {{ upcomingShowAll ? 'Ver menos' : 'Ver todos' }}
             </button>
           </header>
 
-          <ul v-if="upcomingEvents.length" class="upcoming-list">
-            <li v-for="event in upcomingEvents" :key="event.id">
-              <button type="button" class="upcoming-item" @click="openEditEventModal(event)">
+          <div v-if="upcomingError" class="calendar-section-error is-inline" role="alert">
+            <p>{{ upcomingError }}<template v-if="upcomingStale"> Esta lista pode estar desatualizada.</template></p>
+            <button type="button" class="retry-button" @click="loadUpcoming">Tentar novamente</button>
+          </div>
+
+          <ul v-if="upcomingDisplayed.length" class="upcoming-list">
+            <li v-for="event in upcomingDisplayed" :key="event.id">
+              <component
+                :is="event.isExamActivity ? 'div' : 'button'"
+                :type="event.isExamActivity ? undefined : 'button'"
+                :class="['upcoming-item', { 'is-readonly': event.isExamActivity }]"
+                @click="event.isExamActivity ? null : openEditEventModal(event)"
+              >
                 <span :class="['upcoming-dot', categoryClass(event.category)]" aria-hidden="true"></span>
                 <span class="upcoming-body">
-                  <strong>{{ event.title }}</strong>
+                  <strong>{{ event.title }}<small v-if="event.isExamActivity" class="readonly-tag">Prova</small></strong>
                   <small v-if="event.disciplineName" :class="{ 'is-deleted': event.disciplineDeleted }">{{ event.disciplineName }}</small>
                 </span>
                 <span class="upcoming-when">
                   <strong>{{ upcomingDayLabel(event.startsAt) }}</strong>
                   <small>{{ formatTime(event.startsAt) }}</small>
                 </span>
-              </button>
+              </component>
             </li>
           </ul>
 
-          <p v-else class="calendar-empty">Nenhum evento programado.</p>
+          <p v-else-if="!upcomingError" class="calendar-empty">Nenhum evento programado.</p>
+
+          <p v-if="upcomingCombined.length > upcomingDisplayed.length" class="upcoming-count-hint">
+            Mostrando {{ upcomingDisplayed.length }} de {{ upcomingCombined.length }}
+          </p>
         </section>
 
         <section class="side-card">
@@ -637,6 +842,8 @@ async function confirmDeleteEvent() {
       :event="editingEvent"
       :disciplines="disciplines"
       :default-date="modalDefaultDate"
+      :saving="savingEvent"
+      :server-error="modalServerError"
       @close="closeEventModal"
       @save="saveEvent"
       @delete="askToDeleteEvent"
@@ -645,6 +852,8 @@ async function confirmDeleteEvent() {
     <DeleteCalendarEventModal
       v-if="eventToDelete"
       :event-title="eventToDelete.title"
+      :deleting="deletingEvent"
+      :server-error="deleteServerError"
       @close="closeDeleteModal"
       @confirm="confirmDeleteEvent"
     />
@@ -666,8 +875,16 @@ async function confirmDeleteEvent() {
 .new-event-button:hover { box-shadow: 0 11px 24px rgba(102, 36, 225, .28); transform: translateY(-1px); }
 .new-event-button:focus-visible { outline: 3px solid rgba(105, 54, 224, .28); outline-offset: 3px; }
 
-.calendar-alert { background: #fff0f3; border-radius: 8px; color: #c2415f; font-size: .74rem; font-weight: 600; padding: 12px 15px; }
+.calendar-alert { align-items: center; background: #fff0f3; border-radius: 8px; color: #c2415f; display: flex; flex-wrap: wrap; font-size: .74rem; font-weight: 600; gap: 10px; justify-content: space-between; padding: 12px 15px; }
 .calendar-feedback { background: #e9f8ef; border-radius: 8px; color: #1f8a52; font-size: .74rem; font-weight: 600; padding: 12px 15px; }
+
+.calendar-section-error { align-items: center; background: #fff0f3; border-radius: 8px; color: #c2415f; display: flex; flex-wrap: wrap; font-size: .73rem; font-weight: 600; gap: 10px; justify-content: space-between; margin: 14px 18px 0; padding: 12px 15px; }
+.calendar-section-error.is-inline { margin: 0 18px 12px; }
+.calendar-section-error p { flex: 1; min-width: 160px; }
+
+.retry-button { background: #fff; border: 1px solid #f3c1cd; border-radius: 7px; color: #c2415f; flex: 0 0 auto; font-size: .71rem; font-weight: 700; padding: 8px 14px; }
+.retry-button:hover { background: #fff5f7; }
+.retry-button:focus-visible { outline: 2px solid rgba(194, 65, 95, .35); outline-offset: 2px; }
 
 .calendar-layout { align-items: start; display: grid; gap: 15px; grid-template-columns: minmax(0, 1fr) 306px; }
 
@@ -693,24 +910,20 @@ async function confirmDeleteEvent() {
 .calendar-weekdays span { color: #666d84; font-size: .72rem; font-weight: 700; padding: 12px 0; text-align: center; }
 
 .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
-/* min-width/overflow: sem eles, um título comprido estica a célula e as caixas invadem os dias
-   vizinhos, porque o texto do evento não quebra linha (fica com "…" no fim). */
-.calendar-day { border-bottom: 1px solid #f0eff6; border-right: 1px solid #f0eff6; cursor: pointer; display: flex; flex-direction: column; gap: 5px; min-height: 118px; min-width: 0; overflow: hidden; padding: 8px; }
+.calendar-day { border-bottom: 1px solid #f0eff6; border-right: 1px solid #f0eff6; display: flex; flex-direction: column; gap: 5px; min-height: 118px; padding: 8px; position: relative; }
 .calendar-grid.is-week .calendar-day { min-height: 330px; }
 .calendar-day:nth-child(7n) { border-right: 0; }
 .calendar-day.is-outside { background: #fbfbfd; }
 .calendar-day.is-outside .calendar-day-number { color: #b6bac9; }
+.calendar-day-create { background: transparent; border: 0; cursor: pointer; inset: 0; padding: 0; position: absolute; z-index: 0; }
+.calendar-day-create:focus-visible { outline: 2px solid #6936e0; outline-offset: -2px; }
+.calendar-day-number,
+.calendar-day-events { position: relative; z-index: 1; }
 .calendar-day-number { color: #2b3149; font-size: .76rem; font-weight: 700; padding: 2px; pointer-events: none; }
 .calendar-day.is-today .calendar-day-number { align-items: center; background: linear-gradient(135deg, #7749f7, #5320da); border-radius: 50%; color: #fff; display: flex; height: 26px; justify-content: center; width: 26px; }
-/* Uma coluna só, presa à largura da célula (minmax(0, 1fr)): sem isso a coluna da grade cresce
-   até caber o maior título inteiro. */
-.calendar-day-events { display: grid; gap: 4px; grid-template-columns: minmax(0, 1fr); min-width: 0; }
-.calendar-day-events li { min-width: 0; }
+.calendar-day-events { display: grid; gap: 4px; }
 
-.calendar-day-more { background: none; border: 0; border-radius: 5px; color: #6429db; font-size: .63rem; font-weight: 700; padding: 3px 7px; text-align: left; width: 100%; }
-.calendar-day-more:hover { background: #f2effc; }
-
-.calendar-event { border: 0; border-left: 3px solid; border-radius: 5px; box-sizing: border-box; display: block; max-width: 100%; padding: 5px 7px; text-align: left; width: 100%; }
+.calendar-event { border: 0; border-left: 3px solid; border-radius: 5px; display: block; padding: 5px 7px; text-align: left; width: 100%; }
 .calendar-event strong { display: block; font-size: .66rem; font-weight: 700; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .calendar-event small { color: #5f6579; display: block; font-size: .6rem; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .calendar-event .calendar-event-time { color: #737a8e; font-weight: 650; }
@@ -722,6 +935,12 @@ async function confirmDeleteEvent() {
 .calendar-event.is-exam { background: #eaf2ff; border-left-color: #3a7fd9; color: #26599c; }
 .calendar-event.is-assignment { background: #fff4e6; border-left-color: #ef8b1f; color: #a85f10; }
 .calendar-event.is-other { background: #ffeef3; border-left-color: #e2537c; color: #ac3357; }
+
+.calendar-event.is-readonly,
+.day-view-event.is-readonly { cursor: default; }
+.calendar-event.is-readonly:hover,
+.day-view-event.is-readonly:hover { filter: none; }
+.readonly-tag { background: rgba(38, 89, 156, .14); border-radius: 999px; color: #26599c; display: inline-block; font-size: .55rem; font-weight: 750; margin-left: 6px; padding: 1px 6px; vertical-align: middle; }
 
 .calendar-legend { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; padding: 15px 18px; }
 .legend-item { align-items: center; color: #5f6579; display: flex; font-size: .69rem; font-weight: 650; gap: 7px; }
@@ -737,10 +956,9 @@ async function confirmDeleteEvent() {
 
 .day-view { padding: 4px 18px 8px; }
 .day-view h2 { color: #1b2036; font-size: .88rem; font-weight: 750; margin-bottom: 14px; }
-.day-view-list { display: grid; gap: 9px; grid-template-columns: minmax(0, 1fr); }
-.day-view-event { align-items: flex-start; border: 0; border-left: 3px solid; border-radius: 8px; box-sizing: border-box; display: flex; gap: 14px; padding: 13px 15px; text-align: left; width: 100%; }
-.day-view-time { flex: 0 0 92px; font-size: .72rem; font-weight: 750; }
-.day-view-body { min-width: 0; overflow-wrap: anywhere; }
+.day-view-list { display: grid; gap: 9px; }
+.day-view-event { align-items: flex-start; border: 0; border-left: 3px solid; border-radius: 8px; display: flex; gap: 14px; padding: 13px 15px; text-align: left; width: 100%; }
+.day-view-time { font-size: .72rem; font-weight: 750; min-width: 92px; }
 .day-view-body strong { display: block; font-size: .8rem; font-weight: 700; }
 .day-view-body small { color: #5f6579; display: block; font-size: .68rem; margin-top: 3px; }
 .day-view-body small.is-deleted { color: #c2415f; font-style: italic; }
@@ -751,18 +969,19 @@ async function confirmDeleteEvent() {
 .day-view-event.is-assignment { background: #fff4e6; border-left-color: #ef8b1f; color: #a85f10; }
 .day-view-event.is-other { background: #ffeef3; border-left-color: #e2537c; color: #ac3357; }
 
-/* Mesmo motivo das células do mês: sem minmax(0, 1fr) a coluna cresce até caber o conteúdo mais
-   largo dos cartões, e o painel vaza para fora dos 306px (era o que cortava o filtro "Trabalhos"). */
-.calendar-side { display: grid; gap: 15px; grid-template-columns: minmax(0, 1fr); }
-.side-card { background: #fff; border: 1px solid #ebeaf1; border-radius: 12px; box-shadow: 0 5px 16px rgba(30, 36, 65, .035); min-width: 0; padding: 17px; }
+.calendar-side { display: grid; gap: 15px; }
+.side-card { background: #fff; border: 1px solid #ebeaf1; border-radius: 12px; box-shadow: 0 5px 16px rgba(30, 36, 65, .035); padding: 17px; }
 .side-card-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: 13px; }
 .side-card-header h2 { color: #1b2036; font-size: .84rem; font-weight: 750; letter-spacing: -.02em; }
 .side-card-action { background: none; border: 0; color: #6429db; font-size: .69rem; font-weight: 700; padding: 3px 0; }
 .side-card-action:hover { text-decoration: underline; }
 
-.upcoming-list { display: grid; gap: 3px; grid-template-columns: minmax(0, 1fr); }
-.upcoming-item { align-items: flex-start; background: none; border: 0; border-radius: 8px; box-sizing: border-box; display: flex; gap: 10px; padding: 9px 7px; text-align: left; width: 100%; }
+.upcoming-list { display: grid; gap: 3px; }
+.upcoming-item { align-items: flex-start; background: none; border: 0; border-radius: 8px; cursor: pointer; display: flex; gap: 10px; padding: 9px 7px; text-align: left; width: 100%; }
 .upcoming-item:hover { background: #f7f6fc; }
+.upcoming-item.is-readonly { cursor: default; }
+.upcoming-item.is-readonly:hover { background: none; }
+.upcoming-count-hint { color: #9096a8; font-size: .66rem; margin-top: 8px; text-align: center; }
 .upcoming-dot { flex: 0 0 8px; height: 8px; margin-top: 5px; width: 8px; }
 .upcoming-dot.is-class { background: #2daf68; }
 .upcoming-dot.is-activity { background: #7a4ced; }
@@ -773,7 +992,7 @@ async function confirmDeleteEvent() {
 .upcoming-body strong { color: #23283d; display: block; font-size: .73rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .upcoming-body small { color: #767d92; display: block; font-size: .65rem; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .upcoming-body small.is-deleted { color: #c2415f; font-style: italic; }
-.upcoming-when { flex: 0 0 auto; text-align: right; }
+.upcoming-when { text-align: right; }
 .upcoming-when strong { color: #3a4058; display: block; font-size: .68rem; font-weight: 700; }
 .upcoming-when small { color: #868da1; display: block; font-size: .63rem; margin-top: 2px; }
 

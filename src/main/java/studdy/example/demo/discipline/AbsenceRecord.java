@@ -11,6 +11,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
@@ -21,7 +22,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "absence_records")
+@Table(name = "absence_records", indexes = @Index(name = "idx_absence_records_discipline_id", columnList = "discipline_id"))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class AbsenceRecord {
 

@@ -1,5 +1,7 @@
 package studdy.example.demo.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import studdy.example.demo.auth.dto.AuthResponse;
 import studdy.example.demo.user.AppUser;
 import studdy.example.demo.user.Gender;
 
@@ -19,8 +21,19 @@ public record UserResponse(
         boolean hasProfilePhoto,
         String profilePhotoUrl,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        // Versão dos Termos aceita pela conta; null se ainda não houve aceite registrado.
+        String termsAcceptedVersion,
+        // Só presente quando a operação trocou as credenciais (ex.: e-mail em PUT /users/me): as
+        // sessões anteriores caíram e o cliente deve passar a usar este novo par de tokens.
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        AuthResponse session
 ) {
+    public UserResponse withSession(AuthResponse newSession) {
+        return new UserResponse(id, name, email, username, phone, birthDate, gender, location,
+                hasProfilePhoto, profilePhotoUrl, createdAt, updatedAt, termsAcceptedVersion, newSession);
+    }
+
     public static UserResponse from(AppUser user) {
         return from(user, false);
     }
@@ -38,7 +51,9 @@ public record UserResponse(
                 hasProfilePhoto,
                 hasProfilePhoto ? "/api/v1/users/me/profile-photo" : null,
                 user.getCreatedAt(),
-                user.getUpdatedAt()
+                user.getUpdatedAt(),
+                user.getTermsVersion(),
+                null
         );
     }
 }

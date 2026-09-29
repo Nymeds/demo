@@ -11,8 +11,8 @@ import org.springframework.web.server.ResponseStatusException;
 import studdy.example.demo.activities.Activity;
 import studdy.example.demo.activities.ActivityRepository;
 import studdy.example.demo.activities.ActivityStatus;
-import studdy.example.demo.avatar.UserAvatar;
-import studdy.example.demo.avatar.UserAvatarRepository;
+import studdy.example.demo.user.LegacyUserAvatar;
+import studdy.example.demo.user.LegacyUserAvatarRepository;
 import studdy.example.demo.calendar.CalendarEvent;
 import studdy.example.demo.calendar.CalendarEventCategory;
 import studdy.example.demo.calendar.CalendarEventRepository;
@@ -79,13 +79,19 @@ class AccountDeletionServiceTest {
     private UserPreferencesRepository preferencesRepository;
 
     @Autowired
-    private UserAvatarRepository avatarRepository;
+    private LegacyUserAvatarRepository avatarRepository;
 
     @Autowired
     private UserProfilePhotoRepository profilePhotoRepository;
 
     @Autowired
     private AccountDeletionService accountDeletionService;
+
+    @Autowired
+    private studdy.example.demo.auth.RefreshTokenService refreshTokenService;
+
+    @Autowired
+    private studdy.example.demo.auth.RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
     private EntityManager entityManager;
@@ -95,7 +101,7 @@ class AccountDeletionServiceTest {
         AppUser owner = newUser("excluir@example.com");
         OwnedData data = createAcademicData(owner);
         UUID preferencesId = preferencesRepository.save(new UserPreferences(owner)).getId();
-        UUID avatarId = avatarRepository.save(new UserAvatar(owner, new byte[] {1, 2, 3}, "image/jpeg")).getId();
+        UUID avatarId = avatarRepository.save(new LegacyUserAvatar(owner.getId(), new byte[] {1, 2, 3}, "image/jpeg")).getId();
         UUID profilePhotoId = profilePhotoRepository.save(new UserProfilePhoto(owner, new byte[] {1, 2, 3}, "image/jpeg")).getId();
 
         deleteInANewRequest(owner.getId());
@@ -128,6 +134,19 @@ class AccountDeletionServiceTest {
         assertTrue(activityRepository.existsById(kept.activityId()));
         assertTrue(frequencyRepository.existsById(kept.frequencyId()));
         assertTrue(calendarEventRepository.existsById(kept.eventId()));
+    }
+
+    @Test
+    void deletesTheRefreshTokensOfTheAccount() {
+        AppUser owner = newUser("com-sessao@example.com");
+        refreshTokenService.issue(owner, true);
+        refreshTokenService.issue(owner, false);
+        assertEquals(2, refreshTokenRepository.count());
+
+        deleteInANewRequest(owner.getId());
+
+        assertFalse(userRepository.existsById(owner.getId()));
+        assertEquals(0, refreshTokenRepository.count());
     }
 
     @Test
@@ -190,6 +209,7 @@ class AccountDeletionServiceTest {
                 "Entrega em dupla",
                 LocalDate.of(2026, 9, 1),
                 ActivityStatus.PENDING,
+                null,
                 discipline
         )).getId();
         UUID frequencyId = frequencyRepository.save(new Frequency(discipline, 6)).getId();

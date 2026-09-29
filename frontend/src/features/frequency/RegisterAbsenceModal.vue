@@ -1,27 +1,34 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { todayIso } from '../../shared/date/localDate.js'
 import { attendanceAfterAbsences } from './frequencyRules.js'
+
+const CLOCK_REFRESH_MS = 60_000
 
 const props = defineProps({
   // Linhas montadas na FrequencyPage: id, name, configured,
   // absences, attendancePercentage e minimumPercentage.
   rows: { type: Array, required: true },
   initialDisciplineId: { type: String, default: '' },
+  submitting: { type: Boolean, default: false },
+  // Mensagem de erro devolvida pelo servidor (ex.: HTTP 400 para data futura).
+  serverError: { type: String, default: '' },
 })
 
 const emit = defineEmits(['close', 'save'])
+
+const trapRef = ref(null)
+useFocusTrap(() => true, trapRef, {
+  onClose: () => emit('close'),
+  closeOnEscape: () => !props.submitting,
+})
 
 const NOTE_LIMIT = 300
 
 const reasons = ['Saúde', 'Pessoal', 'Trabalho', 'Transporte', 'Outro']
 
-function todayIso() {
-  const now = new Date()
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 10)
-}
-
+const FUTURE_DATE_ERROR = 'Não é possível registrar falta em data futura.'
 const date = ref(todayIso())
 const selectedId = ref(props.initialDisciplineId || props.rows[0]?.id || '')
 const quantity = ref(1)
@@ -29,11 +36,35 @@ const reason = ref(reasons[0])
 const note = ref('')
 const formError = ref('')
 
+// Data máxima permitida para o input de data: hoje, atualizada periodicamente
+// para acompanhar a virada do dia enquanto o modal estiver aberto.
+const maxDate = ref(todayIso())
+let clockTimer
+
+onMounted(() => {
+  clockTimer = setInterval(() => {
+    maxDate.value = todayIso()
+  }, CLOCK_REFRESH_MS)
+})
+
+onBeforeUnmount(() => clearInterval(clockTimer))
+
+// Na virada do dia o limite avança: revalida a data escolhida com o novo limite.
+watch(maxDate, limit => {
+  if (date.value && date.value > limit) formError.value = FUTURE_DATE_ERROR
+  else if (formError.value === FUTURE_DATE_ERROR) formError.value = ''
+})
+
 const selected = computed(() => props.rows.find(row => row.id === selectedId.value) ?? null)
 
 watch(selected, () => {
   formError.value = ''
 })
+
+function closeModal() {
+  if (props.submitting) return
+  emit('close')
+}
 
 const preview = computed(() => {
   const row = selected.value
@@ -57,6 +88,8 @@ function formatPercentage(value, digits = 0) {
 }
 
 function submitForm() {
+  if (props.submitting) return
+
   const row = selected.value
 
   if (!row) {
@@ -76,6 +109,11 @@ function submitForm() {
     return
   }
 
+  if (date.value > maxDate.value) {
+    formError.value = FUTURE_DATE_ERROR
+    return
+  }
+
   formError.value = ''
 
   emit('save', {
@@ -89,8 +127,8 @@ function submitForm() {
 </script>
 
 <template>
-  <div class="modal-backdrop" @mousedown.self="emit('close')">
-    <section class="absence-modal" role="dialog" aria-modal="true" aria-labelledby="register-absence-title">
+  <div class="modal-backdrop" @mousedown.self="closeModal">
+    <section class="absence-modal" ref="trapRef" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="register-absence-title">
       <header class="modal-header">
         <div class="modal-title">
           <span aria-hidden="true">
@@ -102,46 +140,48 @@ function submitForm() {
           </div>
         </div>
 
-        <button class="modal-close" type="button" aria-label="Fechar modal" @click="emit('close')">×</button>
+        <button class="modal-close" type="button" aria-label="Fechar modal" :disabled="submitting" @click="closeModal">×</button>
       </header>
 
       <form @submit.prevent="submitForm">
-        <label class="form-field">
-          <span>Data da falta <strong>*</strong></span>
-          <input v-model="date" type="date" required>
-        </label>
-
-        <label class="form-field">
-          <span>Disciplina <strong>*</strong></span>
-          <select v-model="selectedId" required>
-            <option value="" disabled>Selecione uma disciplina</option>
-            <option v-for="row in rows" :key="row.id" :value="row.id">
-              {{ row.name }}
-            </option>
-          </select>
-        </label>
-
-        <div class="paired-fields">
+        <fieldset :disabled="submitting" class="absence-fieldset">
           <label class="form-field">
-            <span>Quantidade de faltas <strong>*</strong></span>
-            <input v-model.number="quantity" type="number" min="1" step="1" required>
+            <span>Data da falta <strong>*</strong></span>
+            <input v-model="date" type="date" :max="maxDate" required>
           </label>
 
           <label class="form-field">
-            <span>Motivo <strong>*</strong></span>
-            <select v-model="reason" required>
-              <option v-for="option in reasons" :key="option" :value="option">{{ option }}</option>
+            <span>Disciplina <strong>*</strong></span>
+            <select v-model="selectedId" required>
+              <option value="" disabled>Selecione uma disciplina</option>
+              <option v-for="row in rows" :key="row.id" :value="row.id">
+                {{ row.name }}
+              </option>
             </select>
           </label>
-        </div>
 
-        <label class="form-field">
-          <span>Observação <small>(opcional)</small></span>
-          <div class="textarea-wrapper">
-            <textarea v-model="note" :maxlength="NOTE_LIMIT" rows="3" placeholder="Ex.: Consulta médica."></textarea>
-            <small class="char-count">{{ note.length }}/{{ NOTE_LIMIT }}</small>
+          <div class="paired-fields">
+            <label class="form-field">
+              <span>Quantidade de faltas <strong>*</strong></span>
+              <input v-model.number="quantity" type="number" min="1" step="1" required>
+            </label>
+
+            <label class="form-field">
+              <span>Motivo <strong>*</strong></span>
+              <select v-model="reason" required>
+                <option v-for="option in reasons" :key="option" :value="option">{{ option }}</option>
+              </select>
+            </label>
           </div>
-        </label>
+
+          <label class="form-field">
+            <span>Observação <small>(opcional)</small></span>
+            <div class="textarea-wrapper">
+              <textarea v-model="note" :maxlength="NOTE_LIMIT" rows="3" placeholder="Ex.: Consulta médica."></textarea>
+              <small class="char-count">{{ note.length }}/{{ NOTE_LIMIT }}</small>
+            </div>
+          </label>
+        </fieldset>
 
         <p class="info-box">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 11v5m0-8.5v.5" /></svg>
@@ -179,13 +219,14 @@ function submitForm() {
           <span>Selecione uma disciplina para visualizar o impacto das faltas.</span>
         </p>
 
+        <p v-if="serverError" class="form-error" role="alert">{{ serverError }}</p>
         <p v-if="formError" class="form-error" role="alert">{{ formError }}</p>
 
         <footer class="modal-footer">
-          <button class="cancel-button" type="button" @click="emit('close')">Cancelar</button>
-          <button class="save-button" type="submit" :disabled="!selected">
+          <button class="cancel-button" type="button" :disabled="submitting" @click="closeModal">Cancelar</button>
+          <button class="save-button" type="submit" :disabled="!selected || submitting" :aria-busy="submitting">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18m-6 5 2 2 4-4" /></svg>
-            Registrar falta
+            {{ submitting ? 'Registrando…' : 'Registrar falta' }}
           </button>
         </footer>
       </form>
@@ -288,6 +329,18 @@ function submitForm() {
 .absence-modal form {
   display: grid;
   gap: 19px;
+}
+
+.absence-fieldset {
+  border: 0;
+  display: grid;
+  gap: 19px;
+  margin: 0;
+  padding: 0;
+}
+
+.absence-fieldset:disabled {
+  opacity: .75;
 }
 
 .form-field {

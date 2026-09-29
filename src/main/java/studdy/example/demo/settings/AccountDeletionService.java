@@ -2,13 +2,14 @@ package studdy.example.demo.settings;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import studdy.example.demo.avatar.UserAvatarRepository;
+import studdy.example.demo.auth.RefreshTokenService;
 import studdy.example.demo.calendar.CalendarEventRepository;
 import studdy.example.demo.dashboard.Dashboard;
 import studdy.example.demo.dashboard.DashboardRepository;
 import studdy.example.demo.discipline.DisciplineRepository;
 import studdy.example.demo.settings.dto.DeleteAccountRequest;
 import studdy.example.demo.user.AppUser;
+import studdy.example.demo.user.LegacyUserAvatarRepository;
 import studdy.example.demo.user.UserRepository;
 import studdy.example.demo.user.UserProfilePhotoRepository;
 
@@ -24,8 +25,9 @@ public class AccountDeletionService {
     private final DisciplineRepository disciplineRepository;
     private final CalendarEventRepository calendarEventRepository;
     private final UserPreferencesRepository preferencesRepository;
-    private final UserAvatarRepository avatarRepository;
+    private final LegacyUserAvatarRepository legacyAvatarRepository;
     private final UserProfilePhotoRepository profilePhotoRepository;
+    private final RefreshTokenService refreshTokenService;
 
     public AccountDeletionService(
             AccountCredentials accountCredentials,
@@ -34,16 +36,18 @@ public class AccountDeletionService {
             DisciplineRepository disciplineRepository,
             CalendarEventRepository calendarEventRepository,
             UserPreferencesRepository preferencesRepository,
-            UserAvatarRepository avatarRepository,
-            UserProfilePhotoRepository profilePhotoRepository
+            LegacyUserAvatarRepository legacyAvatarRepository,
+            UserProfilePhotoRepository profilePhotoRepository,
+            RefreshTokenService refreshTokenService
     ) {
+        this.refreshTokenService = refreshTokenService;
         this.accountCredentials = accountCredentials;
         this.userRepository = userRepository;
         this.dashboardRepository = dashboardRepository;
         this.disciplineRepository = disciplineRepository;
         this.calendarEventRepository = calendarEventRepository;
         this.preferencesRepository = preferencesRepository;
-        this.avatarRepository = avatarRepository;
+        this.legacyAvatarRepository = legacyAvatarRepository;
         this.profilePhotoRepository = profilePhotoRepository;
     }
 
@@ -65,9 +69,10 @@ public class AccountDeletionService {
             dashboardRepository.deleteAll(dashboards);
         }
 
-        avatarRepository.deleteByUser_Id(userId);
+        legacyAvatarRepository.deleteByUserId(userId);
         profilePhotoRepository.deleteByUser_Id(userId);
         preferencesRepository.deleteByUser_Id(userId);
+        refreshTokenService.deleteAllForUser(userId);
         userRepository.delete(user);
     }
 }

@@ -1,4 +1,5 @@
 <script setup>
+import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
 import { computed, ref } from 'vue'
 import AppSelect from '../../components/ui/AppSelect.vue'
 import AppTimePicker from '../../components/ui/AppTimePicker.vue'
@@ -8,6 +9,11 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'save'])
+
+const trapRef = ref(null)
+useFocusTrap(() => true, trapRef, {
+  onClose: () => emit('close'),
+})
 
 const isEditing = computed(() => Boolean(props.discipline))
 const name = ref(props.discipline?.name ?? '')
@@ -125,7 +131,7 @@ function submitForm() {
 
 <template>
   <div class="modal-backdrop" @mousedown.self="emit('close')">
-    <section class="discipline-modal" role="dialog" aria-modal="true" aria-labelledby="new-discipline-title">
+    <section class="discipline-modal" ref="trapRef" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="new-discipline-title">
       <header class="modal-header">
         <div class="modal-title">
           <span aria-hidden="true">＋</span>

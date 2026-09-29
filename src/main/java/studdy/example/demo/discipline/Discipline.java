@@ -49,7 +49,7 @@ public class Discipline {
     @Column(nullable = false, length = 120)
     private String name;
 
-    @Column(name = "professor_name", nullable = false, length = 120)
+    @Column(name = "professor_name", length = 120)
     private String professorName;
 
     @Column(nullable = false, length = 7)
@@ -127,8 +127,12 @@ public class Discipline {
             String color,
             BigDecimal passingAverage,
             BigDecimal minimumAttendancePercentage,
-            List<ClassSchedule> schedules
+            List<ClassSchedule> schedules,
+            String semester,
+            String periodo
     ) {
+        this.semester = semester;
+        this.periodo = periodo;
         this.name = name;
         this.professorName = professorName;
         this.color = color;

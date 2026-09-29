@@ -12,12 +12,16 @@ import javax.sql.DataSource;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import studdy.example.demo.activities.Activity;
 import studdy.example.demo.activities.ActivityRepository;
 import studdy.example.demo.activities.ActivityStatus;
+import studdy.example.demo.activities.ActivityType;
 import studdy.example.demo.dashboard.Dashboard;
 import studdy.example.demo.dashboard.DashboardRepository;
 import studdy.example.demo.dashboard.DashboardStatus;
@@ -32,7 +36,10 @@ import studdy.example.demo.user.AppUser;
 import studdy.example.demo.user.UserRepository;
 
 @Component
+@Profile("dev")
 public class H2DevelopmentDataSeed implements ApplicationRunner {
+
+    private static final Logger log = LoggerFactory.getLogger(H2DevelopmentDataSeed.class);
 
     public static final String DEVELOPER_EMAIL = "desenvolvedor@dev.com";
     public static final String DEVELOPER_PASSWORD = "desenvolvedor@dev.com";
@@ -73,6 +80,8 @@ public class H2DevelopmentDataSeed implements ApplicationRunner {
             return;
         }
 
+        log.warn("PERFIL DEV: criando usuario demo {} com senha conhecida. Nunca use o perfil dev em producao.",
+                DEVELOPER_EMAIL);
         AppUser developer = userRepository.save(new AppUser(
                 "Desenvolvedor",
                 DEVELOPER_EMAIL,
@@ -141,6 +150,15 @@ public class H2DevelopmentDataSeed implements ApplicationRunner {
                         "Resolver os exercícios 1 a 10 e enviar o código-fonte.",
                         today.plusDays(3),
                         ActivityStatus.IN_PROGRESS,
+                        ActivityType.ACTIVITY,
+                        algorithms
+                ),
+                new Activity(
+                        "Prova de estruturas de dados",
+                        "Conteúdo: árvores, filas e pilhas.",
+                        today.plusDays(10),
+                        ActivityStatus.PENDING,
+                        ActivityType.EXAM,
                         algorithms
                 ),
                 new Activity(
@@ -148,6 +166,7 @@ public class H2DevelopmentDataSeed implements ApplicationRunner {
                         "Finalizar o modelo lógico e revisar os relacionamentos.",
                         today.plusDays(6),
                         ActivityStatus.PENDING,
+                        ActivityType.ACTIVITY,
                         databases
                 ),
                 new Activity(
@@ -155,6 +174,7 @@ public class H2DevelopmentDataSeed implements ApplicationRunner {
                         "Aplicar os ajustes encontrados na avaliação de usabilidade.",
                         today.plusDays(9),
                         ActivityStatus.PENDING,
+                        ActivityType.ACTIVITY,
                         ux
                 ),
                 new Activity(
@@ -162,6 +182,7 @@ public class H2DevelopmentDataSeed implements ApplicationRunner {
                         "Entrega concluída para demonstração dos indicadores.",
                         today.minusDays(2),
                         ActivityStatus.COMPLETED,
+                        ActivityType.ACTIVITY,
                         ux
                 )
         ));

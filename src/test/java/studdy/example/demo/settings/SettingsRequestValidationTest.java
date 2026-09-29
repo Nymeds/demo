@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 import studdy.example.demo.settings.dto.ChangePasswordRequest;
 import studdy.example.demo.settings.dto.DeleteAccountRequest;
 import studdy.example.demo.settings.dto.UpdatePreferencesRequest;
-import studdy.example.demo.settings.dto.UpdateProfileRequest;
 
 import java.math.BigDecimal;
 
@@ -15,28 +14,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SettingsRequestValidationTest {
 
     private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
-
-    @Test
-    void acceptsAProfileWithoutPasswordWhenOnlyTheNameChanges() {
-        assertTrue(validator.validate(new UpdateProfileRequest("Maria", "maria@example.com", null)).isEmpty());
-    }
-
-    @Test
-    void requiresTheName() {
-        assertRejects(new UpdateProfileRequest(" ", "maria@example.com", null), "Nome obrigatório.");
-    }
-
-    @Test
-    void rejectsAnInvalidEmail() {
-        assertRejects(new UpdateProfileRequest("Maria", "maria-sem-arroba", null), "E-mail inválido.");
-    }
-
-    @Test
-    void rejectsAnEmailLongerThanTheColumn() {
-        String email = "a".repeat(60) + "@" + "b".repeat(90) + ".com";
-
-        assertRejects(new UpdateProfileRequest("Maria", email, null), "O e-mail deve ter no máximo 150 caracteres.");
-    }
 
     @Test
     void rejectsAShortNewPassword() {
@@ -78,6 +55,16 @@ class SettingsRequestValidationTest {
         assertTrue(validator.validate(new UpdatePreferencesRequest(1, 0, StartSection.DASHBOARD, null)).isEmpty());
         assertTrue(validator.validate(new UpdatePreferencesRequest(30, 30, StartSection.SIMULATOR, new BigDecimal("0"))).isEmpty());
         assertTrue(validator.validate(new UpdatePreferencesRequest(3, 10, StartSection.GRADES, new BigDecimal("10.0"))).isEmpty());
+    }
+
+    @Test
+    void acceptsEveryNavigableScreenAsStartSection() {
+        for (StartSection section : StartSection.values()) {
+            assertTrue(
+                    validator.validate(new UpdatePreferencesRequest(3, 10, section, null)).isEmpty(),
+                    "Deveria aceitar " + section + " como tela inicial."
+            );
+        }
     }
 
     @Test

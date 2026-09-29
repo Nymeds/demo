@@ -7,37 +7,30 @@ export const START_SECTIONS = Object.freeze([
   { value: 'DASHBOARD', section: 'dashboard', label: 'Dashboard' },
   { value: 'DISCIPLINES', section: 'disciplines', label: 'Disciplinas' },
   { value: 'ACTIVITIES', section: 'activities', label: 'Atividades' },
+  { value: 'EXAMS', section: 'exams', label: 'Provas' },
+  { value: 'FREQUENCY', section: 'frequency', label: 'Frequência' },
   { value: 'GRADES', section: 'grades', label: 'Notas' },
   { value: 'SIMULATOR', section: 'simulator', label: 'Simulador de Notas' },
+  { value: 'CALENDAR', section: 'calendar', label: 'Calendário' },
 ])
 
 export function sectionFromPreference(startSection) {
   return START_SECTIONS.find(option => option.value === startSection)?.section || 'dashboard'
 }
 
-export function createSettingsApi(getAccessToken) {
-  const client = createApiClient(getAccessToken)
+export function createSettingsApi() {
+  const client = createApiClient()
 
   function request(path, options) {
     return client.request(`/api/v1/settings${path}`, options)
   }
 
-  function uploadAvatar(image) {
-    const formData = new FormData()
-    formData.append('file', image, 'foto-de-perfil.jpg')
-    return request('/avatar', { method: 'POST', formData })
-  }
-
   return Object.freeze({
     getProfile: () => request('/profile'),
-    updateProfile: payload => request('/profile', { method: 'PUT', body: payload }),
     changePassword: payload => request('/password', { method: 'PUT', body: payload }),
     getPreferences: () => request('/preferences'),
     updatePreferences: payload => request('/preferences', { method: 'PUT', body: payload }),
     deleteAccount: payload => request('/account', { method: 'DELETE', body: payload }),
-    getAvatar: () => request('/avatar', { as: 'blob' }),
-    uploadAvatar,
-    deleteAvatar: () => request('/avatar', { method: 'DELETE' }),
   })
 }
 

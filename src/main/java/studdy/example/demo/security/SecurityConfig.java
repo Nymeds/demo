@@ -15,6 +15,10 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 public class SecurityConfig {
 
+    // Corpo único para token ausente, inválido ou expirado: o frontend detecta o fim da sessão por ele.
+    private static final String SESSION_EXPIRED_BODY = "{\"type\":\"about:blank\",\"title\":\"Sessão expirada\","
+            + "\"status\":401,\"detail\":\"Sua sessão expirou. Entre novamente.\"}";
+
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
@@ -30,15 +34,16 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/legal/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, exception) -> {
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                            response.setContentType("application/json");
-                            response.getWriter()
-                                    .write("{\"message\":\"Token ausente, inválido ou expirado.\"}");
+                            response.setContentType("application/problem+json");
+                            response.setCharacterEncoding("UTF-8");
+                            response.getWriter().write(SESSION_EXPIRED_BODY);
                         })
                 )
                 .addFilterBefore(

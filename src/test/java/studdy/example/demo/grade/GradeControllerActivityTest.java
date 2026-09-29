@@ -169,6 +169,7 @@ class GradeControllerActivityTest {
                 null,
                 dueDate,
                 ActivityStatus.COMPLETED,
+                null,
                 discipline
         ));
     }

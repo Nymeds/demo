@@ -8,6 +8,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
@@ -27,7 +28,10 @@ import java.util.UUID;
 
 @Getter
 @Entity
-@Table(name = "calendar_events")
+@Table(name = "calendar_events", indexes = {
+        @Index(name = "idx_calendar_events_dashboard_id", columnList = "dashboard_id"),
+        @Index(name = "idx_calendar_events_discipline_id", columnList = "discipline_id")
+})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CalendarEvent {
 

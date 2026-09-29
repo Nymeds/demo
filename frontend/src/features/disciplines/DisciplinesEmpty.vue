@@ -1,14 +1,14 @@
 <script setup>
+import { apiRequest } from '../../shared/http/apiRequest.js'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppToast from '../../components/ui/AppToast.vue'
-import { frequencySituation } from '../frequency/frequencyRules.js'
+import { ATTENTION_MARGIN, frequencySituation } from '../frequency/frequencyRules.js'
 import AppSelect from '../../components/ui/AppSelect.vue'
 import DisciplineModal from './DisciplineModal.vue'
 import DeleteDisciplineModal from './DeleteDisciplineModal.vue'
-
-const props = defineProps({
-  accessToken: { type: String, required: true },
-})
+import { formatAverage } from '../../shared/format/grade.js'
+import { loadActiveDashboard } from '../../shared/dashboards/useActiveDashboard.js'
+import { loadAttendanceAlertMargin } from '../../shared/settings/loadAttendanceAlertMargin.js'
 
 const activeFilter = ref('all')
 const viewMode = ref('list')
@@ -31,6 +31,7 @@ const loading = ref(true)
 const dashboardId = ref('')
 const disciplines = ref([])
 const toast = ref({ message: '', type: 'success' })
+const attendanceAlertMargin = ref(ATTENTION_MARGIN)
 let toastTimer
 
 const filters = [
@@ -77,31 +78,6 @@ function closeAddModal() {
   editingDiscipline.value = null
 }
 
-async function apiRequest(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${props.accessToken}`,
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...options.headers,
-    },
-  })
-
-  const data = response.status === 204
-    ? null
-    : await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    const fieldErrors = data.errors && typeof data.errors === 'object'
-      ? Object.values(data.errors).filter(Boolean).join(' ')
-      : ''
-
-    throw new Error(fieldErrors || data.detail || data.message || 'Não foi possível concluir a solicitação.')
-  }
-
-  return data
-}
-
 function normalizeDiscipline(discipline) {
   return {
     ...discipline,
@@ -120,8 +96,7 @@ async function loadDisciplines() {
   requestError.value = ''
 
   try {
-    const dashboards = await apiRequest('/api/v1/dashboards')
-    let dashboard = dashboards.find(item => item.status === 'ACTIVE') || dashboards[0]
+    let dashboard = await loadActiveDashboard(apiRequest)
 
     if (!dashboard) {
       dashboard = await apiRequest('/api/v1/dashboards', {
@@ -271,6 +246,9 @@ async function confirmDeleteDiscipline() {
 
 onMounted(() => {
   loadDisciplines()
+  loadAttendanceAlertMargin(apiRequest).then(margin => {
+    attendanceAlertMargin.value = margin
+  })
   document.addEventListener('click', closeStatusMenu)
   window.addEventListener('resize', closeStatusMenu)
   window.addEventListener('keydown', handleStatusMenuKeydown)
@@ -295,7 +273,7 @@ const filteredDisciplines = computed(() => {
     .filter(discipline => {
       const matchesSearch = !search
         || discipline.name.toLocaleLowerCase('pt-BR').includes(search)
-        || discipline.professorName.toLocaleLowerCase('pt-BR').includes(search)
+        || (discipline.professorName ?? '').toLocaleLowerCase('pt-BR').includes(search)
 
       const matchesFilter = activeFilter.value === 'all'
         || (activeFilter.value === 'active' && discipline.status === 'IN_PROGRESS')
@@ -337,7 +315,7 @@ const averageAttendance = computed(() => {
     : null
 })
 
-const averageAttendanceSituation = computed(() => attendanceSituation(averageAttendance.value))
+const averageAttendanceSituation = computed(() => attendanceSituation(averageAttendance.value, 75, Number.POSITIVE_INFINITY, attendanceAlertMargin.value))
 
 const dayLabels = {
   MONDAY: 'Seg',
@@ -349,19 +327,17 @@ const dayLabels = {
   SUNDAY: 'Dom',
 }
 
-function formatAverage(value) {
-  return typeof value === 'number'
-    ? value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : '—'
-}
-
 function disciplineColor(discipline) {
   return discipline.color || '#6432df'
 }
 
-function attendanceSituation(attendance, minimum = 75, remainingAbsences = Number.POSITIVE_INFINITY) {
+function attendanceLabel(value) {
+  return typeof value === 'number' ? `${Math.round(value)}%` : 'Sem frequência cadastrada'
+}
+
+function attendanceSituation(attendance, minimum = 75, remainingAbsences = Number.POSITIVE_INFINITY, margin = attendanceAlertMargin.value) {
   if (typeof attendance !== 'number') return 'neutral'
-  return frequencySituation(attendance, Number(minimum ?? 75), remainingAbsences)
+  return frequencySituation(attendance, Number(minimum ?? 75), remainingAbsences, margin)
 }
 
 function disciplineAttendanceSituation(discipline) {
@@ -375,6 +351,7 @@ function disciplineAttendanceSituation(discipline) {
     discipline.attendancePercentage,
     discipline.minimumAttendancePercentage,
     remainingAbsences,
+    attendanceAlertMargin.value,
   )
 }
 
@@ -451,7 +428,7 @@ function statusDetails(status) {
         </span>
         <div>
           <p>Frequência média</p>
-          <strong>{{ averageAttendance === null ? '—' : `${Math.round(averageAttendance)}%` }}</strong>
+          <strong>{{ averageAttendance === null ? 'Sem frequência cadastrada' : `${Math.round(averageAttendance)}%` }}</strong>
           <small>{{ averageAttendance === null ? 'Aguardando frequência' : 'Todas as disciplinas' }}</small>
         </div>
       </article>
@@ -563,8 +540,8 @@ function statusDetails(status) {
                   <span class="discipline-name" :title="discipline.name">{{ discipline.name }}</span>
                 </div>
               </td>
-              <td class="discipline-professor" :title="discipline.professorName || 'Não informado'">
-                {{ discipline.professorName || 'Não informado' }}
+              <td class="discipline-professor" :title="discipline.professorName || 'Sem professor'">
+                {{ discipline.professorName || 'Sem professor' }}
               </td>
               <td>
                 <div class="discipline-schedules">
@@ -583,7 +560,7 @@ function statusDetails(status) {
               </td>
               <td>
                 <div :class="['discipline-attendance', 'is-' + disciplineAttendanceSituation(discipline)]">
-                  <span>{{ typeof discipline.attendancePercentage === 'number' ? `${Math.round(discipline.attendancePercentage)}%` : '—' }}</span>
+                  <span>{{ attendanceLabel(discipline.attendancePercentage) }}</span>
                   <span class="attendance-track" aria-hidden="true">
                     <span v-if="typeof discipline.attendancePercentage === 'number'" :style="{ width: `${discipline.attendancePercentage}%` }"></span>
                   </span>
@@ -629,14 +606,14 @@ function statusDetails(status) {
           <span class="discipline-color" :style="{ backgroundColor: `${disciplineColor(discipline)}1f`, color: disciplineColor(discipline) }" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" /></svg>
           </span>
-          <div><h2>{{ discipline.name }}</h2><p>{{ discipline.professorName || 'Professor não informado' }}</p></div>
+          <div><h2>{{ discipline.name }}</h2><p>{{ discipline.professorName || 'Sem professor' }}</p></div>
         </header>
         <div class="grid-card-schedules">
           <span v-for="(schedule, index) in discipline.schedules" :key="index">{{ dayLabels[schedule.dayOfWeek] }} {{ schedule.startTime }} – {{ schedule.endTime }}</span>
         </div>
         <div class="grid-card-data">
           <span><small>Média</small><strong>{{ formatAverage(discipline.average) }}</strong></span>
-          <span :class="['grid-attendance', 'is-' + disciplineAttendanceSituation(discipline)]"><small>Frequência</small><strong>{{ typeof discipline.attendancePercentage === 'number' ? `${Math.round(discipline.attendancePercentage)}%` : '—' }}</strong></span>
+          <span :class="['grid-attendance', 'is-' + disciplineAttendanceSituation(discipline)]"><small>Frequência</small><strong>{{ attendanceLabel(discipline.attendancePercentage) }}</strong></span>
         </div>
         <footer>
           <span :class="['discipline-status', statusDetails(discipline.status).className]">{{ statusDetails(discipline.status).label }}</span>

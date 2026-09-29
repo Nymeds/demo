@@ -8,6 +8,7 @@ import studdy.example.demo.discipline.Discipline;
 import studdy.example.demo.discipline.DisciplineAccessService;
 import studdy.example.demo.grade.Grade;
 import studdy.example.demo.grade.GradeRepository;
+import studdy.example.demo.simulator.dto.SimulationStatus;
 import studdy.example.demo.simulator.dto.SimulatorRequest;
 import studdy.example.demo.simulator.dto.SimulatorResponse;
 
@@ -19,121 +20,92 @@ import java.util.UUID;
 @Service
 public class SimulatorService {
 
+    private static final int OUTPUT_SCALE = 2;
 
-private final GradeRepository gradeRepository;
-private final DisciplineAccessService disciplineAccessService;
-private final AcademicPerformanceService academicPerformanceService;
+    private final GradeRepository gradeRepository;
+    private final DisciplineAccessService disciplineAccessService;
+    private final AcademicPerformanceService academicPerformanceService;
 
-public SimulatorService(
-        GradeRepository gradeRepository,
-        DisciplineAccessService disciplineAccessService,
-        AcademicPerformanceService academicPerformanceService
-) {
-    this.gradeRepository = gradeRepository;
-    this.disciplineAccessService = disciplineAccessService;
-    this.academicPerformanceService = academicPerformanceService;
-}
-
-@Transactional(readOnly = true)
-public SimulatorResponse simulate(
-        UUID userId,
-        UUID dashboardId,
-        UUID disciplineId,
-        SimulatorRequest request
-) {
-
-    // Garante que a disciplina pertence ao usuário.
-    Discipline discipline = disciplineAccessService.findOwnedDiscipline(
-            userId,
-            dashboardId,
-            disciplineId
-    );
-
-    List<Grade> grades =
-            gradeRepository.findAllByDiscipline_IdOrderByRecordedAtDescCreatedAtDesc(
-                    disciplineId
-            );
-
-    // Reutiliza o serviço existente para calcular a média.
-    AcademicPerformance performance =
-            academicPerformanceService.calculate(
-                    grades,
-                    discipline.getPassingAverage()
-            );
-
-    BigDecimal currentAverage = performance.average();
-
-    BigDecimal requiredGrade = calculateRequiredGrade(
-            grades.size(),
-            currentAverage,
-            request.targetAverage()
-    );
-
-    /*
-     * A nota necessária é atingível quando está entre 0 e 10
-     * e a meta respeita a média de aprovação da disciplina.
-     */
-    boolean achievable =
-            requiredGrade.compareTo(BigDecimal.ZERO) >= 0
-                    && requiredGrade.compareTo(BigDecimal.TEN) <= 0
-                    && request.targetAverage().compareTo(
-                            discipline.getPassingAverage()
-                    ) >= 0;
-
-    /*
-     * Mantém a nota retornada dentro da faixa válida de 0 a 10.
-     * O campo "achievable" informa se a nota original era possível.
-     */
-    if (requiredGrade.compareTo(BigDecimal.ZERO) < 0) {
-        requiredGrade = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-    } else if (requiredGrade.compareTo(BigDecimal.TEN) > 0) {
-        requiredGrade = BigDecimal.TEN.setScale(2, RoundingMode.HALF_UP);
+    public SimulatorService(
+            GradeRepository gradeRepository,
+            DisciplineAccessService disciplineAccessService,
+            AcademicPerformanceService academicPerformanceService
+    ) {
+        this.gradeRepository = gradeRepository;
+        this.disciplineAccessService = disciplineAccessService;
+        this.academicPerformanceService = academicPerformanceService;
     }
 
-    return new SimulatorResponse(
-            currentAverage,
-            request.targetAverage(),
-            requiredGrade,
-            achievable
-    );
-}
+    @Transactional(readOnly = true)
+    public SimulatorResponse simulate(
+            UUID userId,
+            UUID dashboardId,
+            UUID disciplineId,
+            SimulatorRequest request
+    ) {
+        // Garante que a disciplina pertence ao usuário.
+        Discipline discipline = disciplineAccessService.findOwnedDiscipline(userId, dashboardId, disciplineId);
 
-private BigDecimal calculateRequiredGrade(
-        int gradeCount,
-        BigDecimal currentAverage,
-        BigDecimal targetAverage
-) {
+        List<Grade> grades = gradeRepository.findAllByDiscipline_IdOrderByRecordedAtDescCreatedAtDesc(disciplineId);
 
-    // Sem notas anteriores, a primeira nota precisa ser a própria meta.
-    if (gradeCount == 0) {
-        return targetAverage.setScale(2, RoundingMode.HALF_UP);
+        // Reutiliza o serviço existente para calcular a média.
+        AcademicPerformance performance = academicPerformanceService.calculate(grades, discipline.getPassingAverage());
+
+        // A classificação usa a nota necessária exata; só as saídas são arredondadas. Assim
+        // 10,004 continua IMPOSSIBLE mesmo que seja exibido como 10,00.
+        BigDecimal exactRequiredScore = calculateExactRequiredScore(grades, request.targetAverage());
+        SimulationStatus status = classify(exactRequiredScore);
+
+        // Valor exato arredondado a 2 casas para exibição, sem limitar à faixa [0, 10].
+        BigDecimal requiredScoreRaw = exactRequiredScore.setScale(OUTPUT_SCALE, RoundingMode.HALF_UP);
+
+        return new SimulatorResponse(
+                performance.average(),
+                request.targetAverage(),
+                clampToGradeRange(requiredScoreRaw),
+                status != SimulationStatus.IMPOSSIBLE,
+                requiredScoreRaw,
+                status
+        );
     }
 
     /*
-     * Recupera a soma das notas usando a média já calculada.
-     * Assim evitamos percorrer a lista de notas novamente.
+     * A classificação depende apenas de a nota necessária estar dentro da faixa válida de uma
+     * avaliação [0, 10], independentemente da média de aprovação da disciplina.
      */
-    BigDecimal currentSum = currentAverage.multiply(
-            BigDecimal.valueOf(gradeCount)
-    );
+    private SimulationStatus classify(BigDecimal exactRequiredScore) {
+        if (exactRequiredScore.signum() <= 0) {
+            return SimulationStatus.ALREADY_REACHED;
+        }
+        if (exactRequiredScore.compareTo(BigDecimal.TEN) > 0) {
+            return SimulationStatus.IMPOSSIBLE;
+        }
+        return SimulationStatus.ACHIEVABLE;
+    }
+
+    // Campo legado requiredGrade: valor arredondado e limitado (clamped) à faixa 0..10.
+    private BigDecimal clampToGradeRange(BigDecimal score) {
+        if (score.signum() < 0) {
+            return BigDecimal.ZERO.setScale(OUTPUT_SCALE, RoundingMode.HALF_UP);
+        }
+        if (score.compareTo(BigDecimal.TEN) > 0) {
+            return BigDecimal.TEN.setScale(OUTPUT_SCALE, RoundingMode.HALF_UP);
+        }
+        return score;
+    }
 
     /*
-     * Fórmula:
-     *
-     * (soma atual + nota necessária) / (quantidade atual + 1)
-     * = média desejada
-     *
-     * Logo:
-     *
-     * nota necessária =
-     * média desejada * (quantidade + 1) - soma atual
+     * (soma atual + nota necessária) / (quantidade atual + 1) = média desejada, logo
+     * nota necessária = média desejada * (quantidade + 1) - soma atual.
+     * Sem notas anteriores, a primeira nota precisa ser a própria meta. Sem arredondamento.
      */
-    BigDecimal targetTotal = targetAverage.multiply(
-            BigDecimal.valueOf(gradeCount + 1)
-    );
+    private BigDecimal calculateExactRequiredScore(List<Grade> grades, BigDecimal targetAverage) {
+        BigDecimal currentSum = grades.stream()
+                .map(Grade::getScore)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-    BigDecimal requiredGrade = targetTotal.subtract(currentSum);
-
-    return requiredGrade.setScale(2, RoundingMode.HALF_UP);
-}
+        return targetAverage
+                .multiply(BigDecimal.valueOf(grades.size() + 1L))
+                .subtract(currentSum);
+    }
 }

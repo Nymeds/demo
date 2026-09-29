@@ -8,6 +8,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
@@ -26,7 +27,7 @@ import java.util.UUID;
 
 @Getter
 @Entity
-@Table(name = "activities")
+@Table(name = "activities", indexes = @Index(name = "idx_activities_discipline_id", columnList = "discipline_id"))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Activity {
 
@@ -47,6 +48,10 @@ public class Activity {
     @Column(nullable = false, length = 30)
     private ActivityStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30, columnDefinition = "varchar(30) default 'ACTIVITY'")
+    private ActivityType type;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "discipline_id", nullable = false)
     private Discipline discipline;
@@ -62,12 +67,14 @@ public class Activity {
             String description,
             LocalDate dueDate,
             ActivityStatus status,
+            ActivityType type,
             Discipline discipline
     ) {
         this.title = title;
         this.description = description;
         this.dueDate = dueDate;
         this.status = status;
+        this.type = type != null ? type : ActivityType.ACTIVITY;
         this.discipline = discipline;
     }
 
@@ -75,12 +82,14 @@ public class Activity {
             String title,
             String description,
             LocalDate dueDate,
-            ActivityStatus status
+            ActivityStatus status,
+            ActivityType type
     ) {
         this.title = title;
         this.description = description;
         this.dueDate = dueDate;
         this.status = status;
+        this.type = type != null ? type : this.type;
         this.updatedAt = Instant.now();
     }
 

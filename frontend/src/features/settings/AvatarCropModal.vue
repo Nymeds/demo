@@ -1,9 +1,11 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
 
 const VIEWPORT = 240 // lado da área de recorte, em pixels de tela (cabe numa tela de 320 px)
-const OUTPUT_SIZE = 256 // foto compacta e padronizada para o perfil e a barra lateral
-const JPEG_QUALITY = 0.9
+const OUTPUT_SIZES = [512, 384, 256, 192, 128] // maior dimensão primeiro; reduz se necessário
+const JPEG_QUALITIES = [0.9, 0.8, 0.7, 0.55, 0.4]
+const MAX_OUTPUT_BYTES = 2 * 1024 * 1024 // limite do servidor (UserProfilePhoto.MAX_FILE_SIZE)
 const MAX_ZOOM = 4
 const ZOOM_STEP = 0.1
 const KEYBOARD_NUDGE = 10
@@ -120,68 +122,66 @@ function previewStyle(size) {
 const sidebarPreview = computed(() => previewStyle(SIDEBAR_AVATAR))
 const profilePreview = computed(() => previewStyle(PROFILE_AVATAR))
 
-function confirmCrop() {
-  if (!sourceImage || props.saving) return
+const encoding = ref(false)
 
-  const canvas = document.createElement('canvas')
-  canvas.width = OUTPUT_SIZE
-  canvas.height = OUTPUT_SIZE
+async function confirmCrop() {
+  if (!sourceImage || props.saving || encoding.value) return
+  encoding.value = true
 
-  const context = canvas.getContext('2d')
-  const sourceSide = VIEWPORT / scale.value
-
-  context.fillStyle = '#ffffff'
-  context.fillRect(0, 0, OUTPUT_SIZE, OUTPUT_SIZE)
-  context.imageSmoothingQuality = 'high'
-  context.drawImage(
-    sourceImage,
-    -offset.value.x / scale.value,
-    -offset.value.y / scale.value,
-    sourceSide,
-    sourceSide,
-    0,
-    0,
-    OUTPUT_SIZE,
-    OUTPUT_SIZE,
-  )
-
-  canvas.toBlob(image => {
-    if (image) emit('confirm', image)
-    else emit('failed', new Error('Não foi possível preparar a foto. Tente outra imagem.'))
-  }, 'image/jpeg', JPEG_QUALITY)
+  try {
+    await encodeAndEmit()
+  } finally {
+    encoding.value = false
+  }
 }
 
-function handleKeydown(event) {
-  if (event.key === 'Escape' && !props.saving) {
-    emit('close')
-    return
+async function encodeAndEmit() {
+  const sourceSide = VIEWPORT / scale.value
+  const sourceX = -offset.value.x / scale.value
+  const sourceY = -offset.value.y / scale.value
+
+  // Reduz qualidade e depois dimensão até caber no limite do servidor (2 MB).
+  const attempts = []
+  for (const size of OUTPUT_SIZES) {
+    for (const quality of JPEG_QUALITIES) attempts.push({ size, quality })
   }
 
-  if (event.key !== 'Tab') return
-
-  const focusable = [...dialog.value.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex="0"]')]
-  if (focusable.length === 0) return
-
-  const first = focusable[0]
-  const last = focusable[focusable.length - 1]
-  const active = document.activeElement
-
-  if (event.shiftKey && (active === first || active === dialog.value)) {
-    event.preventDefault()
-    last.focus()
-  } else if (!event.shiftKey && active === last) {
-    event.preventDefault()
-    first.focus()
+  for (const { size, quality } of attempts) {
+    const image = await renderCrop(size, quality, sourceX, sourceY, sourceSide)
+    if (image && image.size <= MAX_OUTPUT_BYTES) {
+      emit('confirm', image)
+      return
+    }
   }
+
+  emit('failed', new Error('Não foi possível reduzir a foto para até 2 MB. Tente outra imagem.'))
+}
+
+function renderCrop(size, quality, sourceX, sourceY, sourceSide) {
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+
+  const context = canvas.getContext('2d')
+  context.fillStyle = '#ffffff'
+  context.fillRect(0, 0, size, size)
+  context.imageSmoothingQuality = 'high'
+  context.drawImage(sourceImage, sourceX, sourceY, sourceSide, sourceSide, 0, 0, size, size)
+
+  return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality))
 }
 
 function closeFromBackdrop() {
   if (!props.saving) emit('close')
 }
 
-onMounted(() => {
-  dialog.value?.focus()
+useFocusTrap(() => true, dialog, {
+  onClose: () => emit('close'),
+  initialFocus: () => dialog.value,
+  closeOnEscape: () => !props.saving,
+})
 
+onMounted(() => {
   const image = new Image()
   image.onload = () => {
     sourceImage = image
@@ -208,7 +208,6 @@ onBeforeUnmount(() => URL.revokeObjectURL(sourceUrl))
       aria-labelledby="avatar-crop-title"
       aria-describedby="avatar-crop-help"
       tabindex="-1"
-      @keydown="handleKeydown"
     >
       <header class="crop-header">
         <div>
@@ -281,8 +280,8 @@ onBeforeUnmount(() => URL.revokeObjectURL(sourceUrl))
 
       <footer class="crop-actions">
         <button class="settings-button is-secondary" type="button" :disabled="saving" @click="emit('close')">Cancelar</button>
-        <button class="settings-button is-primary" type="button" :disabled="!natural || saving" @click="confirmCrop">
-          {{ saving ? 'Salvando…' : confirmLabel }}
+        <button class="settings-button is-primary" type="button" :disabled="!natural || saving || encoding" :aria-busy="encoding || saving" @click="confirmCrop">
+          {{ saving ? 'Salvando…' : encoding ? 'Processando…' : confirmLabel }}
         </button>
       </footer>
     </section>

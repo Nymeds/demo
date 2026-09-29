@@ -1,5 +1,6 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
 
 // Digitar a palavra evita que a exclusão aconteça por um clique distraído.
 const CONFIRMATION_WORD = 'EXCLUIR'
@@ -15,24 +16,6 @@ const currentPassword = ref('')
 const confirmationInput = ref(null)
 const dialog = ref(null)
 
-// aria-modal promete que o foco não sai do diálogo; sem isto, o Tab alcançaria a tela de trás.
-function keepFocusInside(event) {
-  const focusable = [...dialog.value.querySelectorAll('input:not([disabled]), button:not([disabled])')]
-
-  if (focusable.length === 0) return
-
-  const first = focusable[0]
-  const last = focusable[focusable.length - 1]
-
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault()
-    last.focus()
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault()
-    first.focus()
-  }
-}
-
 const canConfirm = computed(() => (
   confirmation.value.trim().toUpperCase() === CONFIRMATION_WORD
   && currentPassword.value.length > 0
@@ -43,16 +26,19 @@ function submit() {
   if (canConfirm.value) emit('confirm', currentPassword.value)
 }
 
-onMounted(() => confirmationInput.value?.focus())
+useFocusTrap(() => true, dialog, {
+  onClose: () => emit('close'),
+  initialFocus: () => confirmationInput.value,
+  closeOnEscape: () => !props.deleting,
+})
 </script>
 
 <template>
-  <div class="account-delete-backdrop" @mousedown.self="emit('close')" @keydown.esc="emit('close')">
+  <div class="account-delete-backdrop" @mousedown.self="emit('close')">
     <section
       ref="dialog"
       class="account-delete-modal"
       role="alertdialog"
-      @keydown.tab="keepFocusInside"
       aria-modal="true"
       aria-labelledby="account-delete-title"
       aria-describedby="account-delete-description"

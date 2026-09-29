@@ -1,4 +1,5 @@
 <script setup>
+import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
 import { computed, ref } from 'vue'
 import AppDatePicker from '../../components/ui/AppDatePicker.vue'
 import AppSelect from '../../components/ui/AppSelect.vue'
@@ -7,9 +8,16 @@ const props = defineProps({
   activity: { type: Object, default: null },
   disciplines: { type: Array, required: true },
   saving: { type: Boolean, default: false },
+  serverError: { type: String, default: '' },
 })
 
 const emit = defineEmits(['close', 'save'])
+
+const trapRef = ref(null)
+useFocusTrap(() => true, trapRef, {
+  onClose: () => emit('close'),
+  closeOnEscape: () => !props.saving,
+})
 
 const isEditing = computed(() => Boolean(props.activity))
 
@@ -23,11 +31,17 @@ const title = ref(props.activity?.title ?? '')
 const description = ref(props.activity?.description ?? '')
 const dueDate = ref(props.activity?.dueDate ?? '')
 const status = ref(props.activity?.status ?? 'PENDING')
+const type = ref(props.activity?.type ?? 'ACTIVITY')
 
 const statuses = [
   { value: 'PENDING', label: 'Pendente' },
   { value: 'IN_PROGRESS', label: 'Em andamento' },
   { value: 'COMPLETED', label: 'Concluída' },
+]
+
+const types = [
+  { value: 'ACTIVITY', label: 'Atividade' },
+  { value: 'EXAM', label: 'Prova' },
 ]
 
 const disciplineOptions = computed(() => props.disciplines.map(discipline => ({
@@ -41,6 +55,8 @@ const submitted = ref(false)
 const formError = ref('')
 
 function submitForm() {
+  if (props.saving) return
+
   submitted.value = true
 
   if (!disciplineId.value || !dueDate.value) {
@@ -56,6 +72,7 @@ function submitForm() {
     description: description.value.trim(),
     dueDate: dueDate.value,
     status: status.value,
+    type: type.value,
   })
 }
 </script>
@@ -64,7 +81,7 @@ function submitForm() {
   <div class="activity-modal-backdrop" @mousedown.self="emit('close')">
     <section
       class="activity-modal"
-      role="dialog"
+      ref="trapRef" tabindex="-1" role="dialog"
       aria-modal="true"
       aria-labelledby="activity-modal-title"
     >
@@ -107,7 +124,7 @@ function submitForm() {
           <AppSelect
             v-model="disciplineId"
             :options="disciplineOptions"
-            :disabled="isEditing"
+            :disabled="isEditing || saving"
             :invalid="submitted && !disciplineId"
             placeholder="Selecione uma disciplina"
           />
@@ -125,8 +142,24 @@ function submitForm() {
             placeholder="Ex.: Entregar trabalho de Engenharia de Software"
             required
             autofocus
+            :disabled="saving"
           >
         </label>
+
+        <fieldset class="activity-form-field activity-type-field">
+          <legend>Tipo <strong>*</strong></legend>
+          <div class="activity-type-options">
+            <label
+              v-for="option in types"
+              :key="option.value"
+              class="activity-type-option"
+              :class="{ selected: type === option.value }"
+            >
+              <input v-model="type" type="radio" name="activity-type" :value="option.value" :disabled="saving">
+              {{ option.label }}
+            </label>
+          </div>
+        </fieldset>
 
         <label class="activity-form-field">
           <span>Descrição <small>(opcional)</small></span>
@@ -135,6 +168,7 @@ function submitForm() {
             maxlength="2000"
             rows="5"
             placeholder="Adicione detalhes importantes sobre a atividade..."
+            :disabled="saving"
           ></textarea>
           <small>{{ description.length }}/2000 caracteres</small>
         </label>
@@ -142,12 +176,13 @@ function submitForm() {
         <div class="activity-form-grid">
           <label class="activity-form-field">
             <span>Data de entrega <strong>*</strong></span>
-            <AppDatePicker v-model="dueDate" :invalid="submitted && !dueDate" />
+            <AppDatePicker v-model="dueDate" :disabled="saving" :invalid="(submitted && !dueDate) || Boolean(serverError)" />
+            <p v-if="serverError" class="activity-form-error" role="alert">{{ serverError }}</p>
           </label>
 
           <label class="activity-form-field">
             <span>Status <strong>*</strong></span>
-            <AppSelect v-model="status" :options="statuses" />
+            <AppSelect v-model="status" :disabled="saving" :options="statuses" />
           </label>
         </div>
 
@@ -157,6 +192,7 @@ function submitForm() {
           <button
             class="activity-cancel-button"
             type="button"
+            :disabled="saving"
             @click="emit('close')"
           >
             Cancelar
@@ -341,6 +377,14 @@ function submitForm() {
   gap: 14px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+
+.activity-type-field { border: 0; margin: 0; padding: 0; }
+.activity-type-field legend { color: #282d40; font-size: .74rem; font-weight: 700; margin-bottom: 8px; padding: 0; }
+.activity-type-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.activity-type-option { align-items: center; border: 1px solid #dfe1e8; border-radius: 999px; color: #4a5066; cursor: pointer; display: flex; font-size: .72rem; font-weight: 650; gap: 7px; padding: 9px 14px; position: relative; }
+.activity-type-option input { opacity: 0; pointer-events: none; position: absolute; }
+.activity-type-option.selected { background: #eaf2ff; border-color: #3a7fd9; color: #26599c; }
+.activity-type-option:focus-within { outline: 2px solid rgba(105, 54, 224, .28); outline-offset: 2px; }
 
 .activity-modal-footer {
   border-top: 1px solid #ececf1;

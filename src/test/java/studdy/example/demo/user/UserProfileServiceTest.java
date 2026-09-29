@@ -10,8 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import studdy.example.demo.user.dto.UpdateProfileRequest;
 import studdy.example.demo.user.dto.UserResponse;
-import studdy.example.demo.avatar.UserAvatar;
-import studdy.example.demo.avatar.UserAvatarRepository;
 
 import java.time.LocalDate;
 
@@ -26,9 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Transactional
 class UserProfileServiceTest {
 
-    private static final byte[] PNG = {
-            (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x01
-    };
+    private static final String PASSWORD = "Senha@1234";
+
+    private static final byte[] PNG = PhotoFixtures.png(32, 32);
+
+    @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     @Autowired
     private UserRepository userRepository;
@@ -39,46 +40,6 @@ class UserProfileServiceTest {
     @Autowired
     private UserProfileService profileService;
 
-    @Autowired
-    private UserAvatarRepository legacyAvatarRepository;
-
-    @Test
-    void readsPhotoPreviouslySavedInSettings() {
-        legacyAvatarRepository.saveAndFlush(new UserAvatar(user, PNG, "image/png"));
-
-        assertTrue(profileService.findCurrentUser(user.getId()).hasProfilePhoto());
-        assertArrayEquals(PNG, profileService.findPhoto(user.getId()).content());
-    }
-
-    @Test
-    void replacingLegacyPhotoKeepsOnlyTheNewProfilePhoto() {
-        legacyAvatarRepository.saveAndFlush(new UserAvatar(user, PNG, "image/png"));
-        profileService.updatePhoto(user.getId(), new MockMultipartFile("file", "photo.png", "image/png", PNG));
-
-        assertFalse(legacyAvatarRepository.existsByUser_Id(user.getId()));
-        assertTrue(photoRepository.existsByUser_Id(user.getId()));
-        assertTrue(profileService.findCurrentUser(user.getId()).hasProfilePhoto());
-    }
-
-    @Test
-    void deletingProfilePhotoAlsoRemovesLegacyPhoto() {
-        profileService.updatePhoto(user.getId(), new MockMultipartFile("file", "photo.png", "image/png", PNG));
-        legacyAvatarRepository.saveAndFlush(new UserAvatar(user, PNG, "image/png"));
-
-        profileService.deletePhoto(user.getId());
-
-        assertFalse(legacyAvatarRepository.existsByUser_Id(user.getId()));
-        assertFalse(photoRepository.existsByUser_Id(user.getId()));
-        assertFalse(profileService.findCurrentUser(user.getId()).hasProfilePhoto());
-    }
-
-    @Test
-    void deletingPhotoThatExistsOnlyInSettingsDoesNotRequireNewUpload() {
-        legacyAvatarRepository.saveAndFlush(new UserAvatar(user, PNG, "image/png"));
-        profileService.deletePhoto(user.getId());
-        assertFalse(profileService.findCurrentUser(user.getId()).hasProfilePhoto());
-    }
-
     private AppUser user;
 
     @BeforeEach
@@ -86,7 +47,7 @@ class UserProfileServiceTest {
         user = userRepository.save(new AppUser(
                 "Gabriel Silva",
                 "perfil-gabriel@example.com",
-                "hash"
+                passwordEncoder.encode(PASSWORD)
         ));
     }
 
@@ -105,7 +66,7 @@ class UserProfileServiceTest {
     void updatesAndNormalizesTheProfile() {
         UserResponse response = profileService.update(
                 user.getId(),
-                request("  Gabriel Souza  ", "  GABRIEL.NOVO@EXAMPLE.COM  ", "  Gabriel.Souza  ")
+                request("  Gabriel Souza  ", "  GABRIEL.NOVO@EXAMPLE.COM  ", "  Gabriel.Souza  ", PASSWORD)
         );
 
         assertEquals("Gabriel Souza", response.name());
@@ -123,7 +84,7 @@ class UserProfileServiceTest {
 
         UserResponse response = profileService.update(
                 user.getId(),
-                new UpdateProfileRequest("Gabriel", user.getEmail(), "", "", null, null, "")
+                new UpdateProfileRequest("Gabriel", user.getEmail(), "", "", null, null, "", null)
         );
 
         assertNull(response.username());
@@ -141,7 +102,7 @@ class UserProfileServiceTest {
                 ResponseStatusException.class,
                 () -> profileService.update(
                         user.getId(),
-                        request("Gabriel", other.getEmail(), "gabrielsilva")
+                        request("Gabriel", other.getEmail(), "gabrielsilva", PASSWORD)
                 )
         );
 
@@ -174,7 +135,7 @@ class UserProfileServiceTest {
     }
 
     @Test
-    void storesAndReadsAPngProfilePhoto() {
+    void storesAPngUploadReencodedAsJpeg() {
         MockMultipartFile file = new MockMultipartFile("file", "perfil.png", "image/png", PNG);
 
         UserResponse response = profileService.updatePhoto(user.getId(), file);
@@ -182,13 +143,13 @@ class UserProfileServiceTest {
 
         assertTrue(response.hasProfilePhoto());
         assertEquals("/api/v1/users/me/profile-photo", response.profilePhotoUrl());
-        assertEquals("image/png", storedPhoto.contentType());
-        assertArrayEquals(PNG, storedPhoto.content());
+        assertEquals("image/jpeg", storedPhoto.contentType());
+        assertEquals((byte) 0xFF, storedPhoto.content()[0]);
     }
 
     @Test
     void detectsTheRealImageTypeInsteadOfTrustingTheRequestHeader() {
-        byte[] jpeg = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x01};
+        byte[] jpeg = PhotoFixtures.jpeg(20, 20);
         MockMultipartFile file = new MockMultipartFile("file", "perfil.png", "image/png", jpeg);
 
         profileService.updatePhoto(user.getId(), file);
@@ -215,6 +176,29 @@ class UserProfileServiceTest {
     }
 
     @Test
+    void rejectsUndecodableImageWithBadRequest() {
+        byte[] corrupt = {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3};
+        MockMultipartFile file = new MockMultipartFile("file", "x.png", "image/png", corrupt);
+
+        ResponseStatusException error = assertThrows(
+                ResponseStatusException.class,
+                () -> profileService.updatePhoto(user.getId(), file)
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
+        assertFalse(photoRepository.existsByUser_Id(user.getId()));
+    }
+
+    @Test
+    void stripsExifFromStoredPhoto() {
+        byte[] jpeg = PhotoFixtures.withExif(PhotoFixtures.jpeg(40, 40));
+
+        profileService.updatePhoto(user.getId(), new MockMultipartFile("file", "a.jpg", "image/jpeg", jpeg));
+
+        assertFalse(PhotoFixtures.containsApp1(profileService.findPhoto(user.getId()).content()));
+    }
+
+    @Test
     void rejectsProfilePhotosLargerThanTwoMegabytes() {
         byte[] oversized = new byte[UserProfilePhoto.MAX_FILE_SIZE + 1];
         System.arraycopy(PNG, 0, oversized, 0, PNG.length);
@@ -234,7 +218,7 @@ class UserProfileServiceTest {
                 user.getId(),
                 new MockMultipartFile("file", "perfil.png", "image/png", PNG)
         );
-        byte[] jpeg = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x02};
+        byte[] jpeg = PhotoFixtures.jpeg(24, 24);
 
         profileService.updatePhoto(
                 user.getId(),
@@ -242,7 +226,7 @@ class UserProfileServiceTest {
         );
 
         assertEquals(1, photoRepository.count());
-        assertArrayEquals(jpeg, profileService.findPhoto(user.getId()).content());
+        assertEquals("image/jpeg", profileService.findPhoto(user.getId()).contentType());
 
         profileService.deletePhoto(user.getId());
 
@@ -254,6 +238,47 @@ class UserProfileServiceTest {
     }
 
     private UpdateProfileRequest request(String name, String email, String username) {
+        return request(name, email, username, null);
+    }
+
+    @Test
+    void changingEmailWithoutPasswordIsRejected() {
+        ResponseStatusException error = assertThrows(
+                ResponseStatusException.class,
+                () -> profileService.update(user.getId(), request("Gabriel", "novo-sem-senha@example.com", "gabrielsilva"))
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
+        assertEquals("Informe sua senha atual para confirmar.", error.getReason());
+        assertEquals("perfil-gabriel@example.com", userRepository.findById(user.getId()).orElseThrow().getEmail());
+    }
+
+    @Test
+    void changingEmailWithWrongPasswordIsRejected() {
+        ResponseStatusException error = assertThrows(
+                ResponseStatusException.class,
+                () -> profileService.update(
+                        user.getId(),
+                        request("Gabriel", "novo-errada@example.com", "gabrielsilva", "senha-errada-000")
+                )
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
+        assertEquals("A senha atual está incorreta.", error.getReason());
+    }
+
+    @Test
+    void changingOtherFieldsWithoutChangingEmailDoesNotRequirePassword() {
+        UserResponse response = profileService.update(
+                user.getId(),
+                request("Novo Nome", "  PERFIL-GABRIEL@example.com ", "gabrielsilva")
+        );
+
+        assertEquals("Novo Nome", response.name());
+        assertEquals("perfil-gabriel@example.com", response.email());
+    }
+
+    private UpdateProfileRequest request(String name, String email, String username, String password) {
         return new UpdateProfileRequest(
                 name,
                 email,
@@ -261,7 +286,8 @@ class UserProfileServiceTest {
                 "(62) 99999-9999",
                 LocalDate.of(2005, 3, 18),
                 Gender.PREFER_NOT_TO_SAY,
-                "  Goiânia - GO  "
+                "  Goiânia - GO  ",
+                password
         );
     }
 }

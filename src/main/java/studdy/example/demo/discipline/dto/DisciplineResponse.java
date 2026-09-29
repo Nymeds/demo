@@ -49,7 +49,7 @@ public record DisciplineResponse(
                 schedules,
                 performance.average(),
                 performance.passingAverage(),
-                frequency == null ? new BigDecimal("100.00") : frequency.attendancePercentage(),
+                frequency == null ? null : frequency.attendancePercentage(),
                 frequency == null ? 0 : frequency.getAbsences(),
                 FrequencyRules.LOSS_PER_ABSENCE,
                 FrequencyRules.maximumAbsences(discipline.getMinimumAttendancePercentage()),

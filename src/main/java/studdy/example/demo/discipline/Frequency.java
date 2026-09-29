@@ -10,12 +10,15 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
+@Table(name = "frequency", uniqueConstraints = @UniqueConstraint(name = "uk_frequency_discipline_id", columnNames = "discipline_id"))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Frequency {
 
@@ -26,11 +29,6 @@ public class Frequency {
     @OneToOne
     @JoinColumn(name = "discipline_id", nullable = false)
     private Discipline discipline;
-
-    // Compatibilidade com bancos existentes: esta coluna não participa dos cálculos.
-    @Column(name = "total_classes", nullable = false)
-    @Getter(AccessLevel.NONE)
-    private Integer legacyTotalClasses = 0;
 
     @Column(nullable = false)
     private Integer absences;

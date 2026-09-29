@@ -13,6 +13,7 @@ import studdy.example.demo.activities.Activity;
 import studdy.example.demo.activities.ActivityRepository;
 import studdy.example.demo.activities.ActivityService;
 import studdy.example.demo.activities.ActivityStatus;
+import studdy.example.demo.activities.ActivityType;
 import studdy.example.demo.dashboard.Dashboard;
 import studdy.example.demo.dashboard.DashboardRepository;
 import studdy.example.demo.dashboard.DashboardStatus;
@@ -41,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @Transactional
 class GradeActivityLinkTest {
 
-    private static final LocalDate TODAY = LocalDate.now();
+    private static final LocalDate TODAY = LocalDate.now(java.time.ZoneId.of("America/Sao_Paulo"));
 
     @Autowired
     private UserRepository userRepository;
@@ -82,6 +83,22 @@ class GradeActivityLinkTest {
     @Test
     void linksTheGradeToAnActivityOfTheSameDiscipline() {
         Activity exam = newActivity(discipline, TODAY.minusDays(3));
+
+        GradeResponse response = create(exam.getId(), TODAY);
+
+        assertEquals(exam.getId(), response.activityId());
+    }
+
+    @Test
+    void linksTheGradeToAnExamTypeActivityWithoutExtraRestriction() {
+        Activity exam = activityRepository.save(new Activity(
+                "Prova final",
+                "Conteúdo completo",
+                TODAY.minusDays(3),
+                ActivityStatus.COMPLETED,
+                ActivityType.EXAM,
+                discipline
+        ));
 
         GradeResponse response = create(exam.getId(), TODAY);
 
@@ -211,6 +228,7 @@ class GradeActivityLinkTest {
                 "Capítulos 1 a 3",
                 dueDate,
                 ActivityStatus.COMPLETED,
+                null,
                 owner
         ));
     }

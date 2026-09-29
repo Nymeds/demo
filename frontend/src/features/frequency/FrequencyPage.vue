@@ -1,17 +1,22 @@
 <script setup>
+import { apiRequest } from '../../shared/http/apiRequest.js'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppToast from '../../components/ui/AppToast.vue'
 import FrequencyConfigModal from './FrequencyConfigModal.vue'
 import RegisterAbsenceModal from './RegisterAbsenceModal.vue'
-import { frequencySituation, LOSS_PER_ABSENCE, maximumAbsencesFor } from './frequencyRules.js'
-
-const props = defineProps({
-  accessToken: { type: String, required: true },
-})
+import DeleteAbsenceModal from './DeleteAbsenceModal.vue'
+import { ATTENTION_MARGIN, frequencySituation, LOSS_PER_ABSENCE, maximumAbsencesFor } from './frequencyRules.js'
+import { parseLocalDate } from '../../shared/date/localDate.js'
+import { loadActiveDashboard } from '../../shared/dashboards/useActiveDashboard.js'
 
 const HISTORY_PREVIEW_SIZE = 3
 
 const loading = ref(true)
+const hasLoadedOnce = ref(false)
+// Erro persistente do carregamento completo (lista de disciplinas). Quando já
+// existem dados carregados, os dados antigos continuam visíveis e este erro
+// vira apenas um aviso de "dados possivelmente desatualizados".
+const loadError = ref('')
 const requestError = ref('')
 const dashboardId = ref('')
 const disciplines = ref([])
@@ -24,8 +29,26 @@ const modalTargetId = ref('')
 const showAllHistory = ref(false)
 const toast = ref({ message: '', type: 'success' })
 
+// Margem do aviso de frequência configurada em Preferências. Usa o valor fixo
+// (ATTENTION_MARGIN) enquanto não carregada, quando não definida pelo usuário
+// ou quando o carregamento das preferências falha.
+const attendanceAlertMargin = ref(ATTENTION_MARGIN)
+
+const registering = ref(false)
+const registerServerError = ref('')
+
+const deletingEntry = ref(null)
+const deletingInFlight = ref(false)
+const deleteServerError = ref('')
+
+// Aviso não bloqueante exibido quando a operação principal (criar/excluir falta)
+// deu certo, mas a atualização dos números da disciplina falhou. `retry` refaz
+// apenas a atualização, nunca a operação inteira.
+const refreshWarning = ref(null)
+
 const absenceHistory = ref([])
 let toastTimer
+let loadRequestId = 0
 
 const situationFilters = [
   { value: 'all', label: 'Todas' },
@@ -38,6 +61,7 @@ const situationDetails = {
   good: { label: 'Ótimo', className: 'is-success' },
   warning: { label: 'Atenção', className: 'is-warning' },
   bad: { label: 'Ruim', className: 'is-danger' },
+  neutral: { label: 'Sem frequência cadastrada', className: 'is-neutral' },
 }
 
 function showToast(message, type = 'success') {
@@ -51,35 +75,6 @@ function showToast(message, type = 'success') {
 function closeToast() {
   clearTimeout(toastTimer)
   toast.value.message = ''
-}
-
-async function apiRequest(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${props.accessToken}`,
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...options.headers,
-    },
-  })
-
-  const data = response.status === 204
-    ? null
-    : await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    const fieldErrors = data?.errors && typeof data.errors === 'object'
-      ? Object.values(data.errors).filter(Boolean).join(' ')
-      : ''
-
-    const error = new Error(
-      fieldErrors || data?.detail || data?.message || 'Não foi possível concluir a solicitação.',
-    )
-    error.status = response.status
-    throw error
-  }
-
-  return data
 }
 
 function frequencyPath(disciplineId) {
@@ -124,13 +119,28 @@ async function loadFrequency(disciplineId) {
   }
 }
 
+// Falha ao carregar a margem do aviso de frequência não deve derrubar a tela:
+// mantém-se o valor fixo (ATTENTION_MARGIN) como alternativa.
+async function loadAttendanceAlertMargin() {
+  try {
+    const preferences = await apiRequest('/api/v1/settings/preferences')
+    const margin = Number(preferences?.attendanceAlertMargin)
+    attendanceAlertMargin.value = Number.isFinite(margin) ? margin : ATTENTION_MARGIN
+  } catch {
+    attendanceAlertMargin.value = ATTENTION_MARGIN
+  }
+}
+
 async function loadData() {
-  loading.value = true
+  // Contador de requisições: se uma chamada mais recente já respondeu quando
+  // esta terminar, o resultado desta é descartado (evita sobrescrever dados
+  // novos com uma resposta antiga fora de ordem).
+  const requestId = ++loadRequestId
+  loading.value = !hasLoadedOnce.value
   requestError.value = ''
 
   try {
-    const dashboards = await apiRequest('/api/v1/dashboards')
-    let dashboard = dashboards.find(item => item.status === 'ACTIVE') || dashboards[0]
+    let dashboard = await loadActiveDashboard(apiRequest)
 
     if (!dashboard) {
       dashboard = await apiRequest('/api/v1/dashboards', {
@@ -139,7 +149,6 @@ async function loadData() {
       })
     }
 
-    dashboardId.value = dashboard.id
     const savedDisciplines = await apiRequest(`/api/v1/dashboards/${dashboard.id}/disciplines`)
 
     const loadedDisciplines = await Promise.all(savedDisciplines.map(async discipline => {
@@ -154,6 +163,9 @@ async function loadData() {
       }
     }))
 
+    if (requestId !== loadRequestId) return
+
+    dashboardId.value = dashboard.id
     disciplines.value = loadedDisciplines.map(item => item.discipline)
     absenceHistory.value = loadedDisciplines
       .flatMap(item => item.history)
@@ -161,15 +173,29 @@ async function loadData() {
         const dateOrder = second.date.localeCompare(first.date)
         return dateOrder || second.createdAt.localeCompare(first.createdAt)
       })
+
+    hasLoadedOnce.value = true
+    loadError.value = ''
   } catch (error) {
-    requestError.value = error.message || 'Não foi possível carregar a frequência.'
-    showToast(requestError.value, 'error')
+    if (requestId !== loadRequestId) return
+
+    const message = error.message || 'Não foi possível carregar a frequência.'
+    loadError.value = message
+    requestError.value = message
+
+    // Só interrompe a tela com um toast quando não havia nenhum dado prévio
+    // para mostrar; se já há disciplinas carregadas, elas permanecem visíveis
+    // e o aviso de dados desatualizados aparece no lugar do toast.
+    if (!hasLoadedOnce.value) showToast(message, 'error')
   } finally {
-    loading.value = false
+    if (requestId === loadRequestId) loading.value = false
   }
 }
 
-onMounted(loadData)
+onMounted(() => {
+  loadData()
+  loadAttendanceAlertMargin()
+})
 onBeforeUnmount(() => clearTimeout(toastTimer))
 
 function periodOf(discipline) {
@@ -197,10 +223,10 @@ function buildRow(discipline) {
       ...base,
       configured: false,
       absences: 0,
-      attendancePercentage: 100,
+      attendancePercentage: null,
       lossPerAbsence: LOSS_PER_ABSENCE,
       remainingAbsences: maximumAbsencesFor(minimumPercentage),
-      situation: frequencySituation(100, minimumPercentage, maximumAbsencesFor(minimumPercentage)),
+      situation: 'neutral',
     }
   }
 
@@ -213,7 +239,12 @@ function buildRow(discipline) {
     attendancePercentage: frequency.attendancePercentage,
     lossPerAbsence: LOSS_PER_ABSENCE,
     remainingAbsences,
-    situation: frequencySituation(frequency.attendancePercentage, minimumPercentage, remainingAbsences),
+    situation: frequencySituation(
+      frequency.attendancePercentage,
+      minimumPercentage,
+      remainingAbsences,
+      attendanceAlertMargin.value,
+    ),
   }
 }
 
@@ -241,6 +272,7 @@ const filteredRows = computed(() => {
 const averageAttendance = computed(() => {
   const values = rows.value
     .map(row => row.attendancePercentage)
+    .filter(value => typeof value === 'number')
 
   return values.length
     ? values.reduce((total, value) => total + value, 0) / values.length
@@ -282,7 +314,8 @@ function formatPercentage(value, digits = 0) {
 }
 
 function formatDate(isoDate) {
-  const date = new Date(`${isoDate}T00:00:00`)
+  const date = parseLocalDate(isoDate)
+  if (!date) return '—'
   const weekday = date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')
 
   return `${date.toLocaleDateString('pt-BR')} (${weekday.charAt(0).toUpperCase()}${weekday.slice(1)})`
@@ -299,6 +332,7 @@ function openConfigModal(disciplineId = '') {
 
 function openAbsenceModal(disciplineId = '') {
   modalTargetId.value = disciplineId
+  registerServerError.value = ''
   showAbsenceModal.value = true
 }
 
@@ -369,8 +403,39 @@ async function saveConfig({ disciplineId, minimumAttendancePercentage }) {
   }
 }
 
+function clearRefreshWarning() {
+  refreshWarning.value = null
+}
+
+function setRefreshWarning(message, retry) {
+  refreshWarning.value = { message, retry }
+}
+
+async function retryRefreshWarning() {
+  const pending = refreshWarning.value
+  if (!pending) return
+  clearRefreshWarning()
+  await pending.retry()
+}
+
+// Atualiza os números de uma disciplina após criar/excluir uma falta. Se essa
+// atualização falhar, a operação principal (que já concluiu) continua sendo
+// reportada como sucesso; só aparece o aviso não bloqueante, com retentativa
+// que refaz apenas esta atualização.
+async function refreshFrequencyOrWarn(disciplineId, warningMessage) {
+  try {
+    const frequency = await loadFrequency(disciplineId)
+    replaceFrequency(disciplineId, frequency)
+  } catch {
+    setRefreshWarning(warningMessage, () => refreshFrequencyOrWarn(disciplineId, warningMessage))
+  }
+}
+
 async function registerAbsence({ disciplineId, date, quantity, reason, note }) {
-  requestError.value = ''
+  if (registering.value) return
+
+  registering.value = true
+  registerServerError.value = ''
 
   try {
     const entry = await apiRequest(absencePath(disciplineId), {
@@ -382,39 +447,64 @@ async function registerAbsence({ disciplineId, date, quantity, reason, note }) {
         note,
       }),
     })
-    const frequency = await loadFrequency(disciplineId)
 
-    replaceFrequency(disciplineId, frequency)
     absenceHistory.value.unshift(entry)
-
     closeModals()
     showToast(quantity > 1 ? 'Faltas registradas.' : 'Falta registrada.')
+
+    await refreshFrequencyOrWarn(
+      disciplineId,
+      'Falta registrada, mas não foi possível atualizar os números. Tentar novamente',
+    )
   } catch (error) {
-    requestError.value = error.message || 'Não foi possível registrar a falta.'
-    showToast(requestError.value, 'error')
+    // A falta não foi criada: o erro (incluindo a mensagem HTTP 400 do
+    // servidor para data futura) fica visível dentro do próprio formulário.
+    registerServerError.value = error.message || 'Não foi possível registrar a falta.'
+  } finally {
+    registering.value = false
   }
 }
 
-async function undoAbsence(entry) {
-  requestError.value = ''
+function requestDeleteAbsence(entry) {
+  deletingEntry.value = entry
+  deleteServerError.value = ''
+}
+
+function cancelDeleteAbsence() {
+  if (deletingInFlight.value) return
+  deletingEntry.value = null
+  deleteServerError.value = ''
+}
+
+async function confirmDeleteAbsence() {
+  const entry = deletingEntry.value
+  if (!entry || deletingInFlight.value) return
+
+  deletingInFlight.value = true
+  deleteServerError.value = ''
 
   try {
     const discipline = disciplines.value.find(item => item.id === entry.disciplineId)
 
     if (!discipline?.frequency) {
-      showToast('A frequência desta disciplina não está mais disponível.', 'error')
+      deleteServerError.value = 'A frequência desta disciplina não está mais disponível.'
       return
     }
 
     await apiRequest(absencePath(entry.disciplineId, entry.id), { method: 'DELETE' })
-    const frequency = await loadFrequency(entry.disciplineId)
 
-    replaceFrequency(entry.disciplineId, frequency)
     absenceHistory.value = absenceHistory.value.filter(item => item.id !== entry.id)
+    deletingEntry.value = null
     showToast('Lançamento desfeito.')
+
+    await refreshFrequencyOrWarn(
+      entry.disciplineId,
+      'Falta removida, mas não foi possível atualizar os números. Tentar novamente',
+    )
   } catch (error) {
-    requestError.value = error.message || 'Não foi possível desfazer o lançamento.'
-    showToast(requestError.value, 'error')
+    deleteServerError.value = error.message || 'Não foi possível desfazer o lançamento.'
+  } finally {
+    deletingInFlight.value = false
   }
 }
 
@@ -477,7 +567,7 @@ async function undoAbsence(entry) {
         </span>
         <div>
           <p>Frequência média geral</p>
-          <strong>{{ formatPercentage(averageAttendance) }}</strong>
+          <strong>{{ averageAttendance === null ? 'Sem frequência cadastrada' : formatPercentage(averageAttendance) }}</strong>
           <small>{{ averageLabel }}</small>
         </div>
       </article>
@@ -525,12 +615,29 @@ async function undoAbsence(entry) {
       <p>Carregando frequência...</p>
     </article>
 
+    <article v-else-if="loadError && disciplines.length === 0" class="frequency-empty-card" role="alert">
+      <h2>Não foi possível carregar a frequência</h2>
+      <p>{{ loadError }}</p>
+      <button class="retry-button" type="button" @click="loadData">Tentar novamente</button>
+    </article>
+
     <article v-else-if="disciplines.length === 0" class="frequency-empty-card">
       <h2>Nenhuma disciplina cadastrada</h2>
       <p>Cadastre uma disciplina para começar a acompanhar as faltas e a frequência do período.</p>
     </article>
 
-    <section v-else class="frequency-table-card" aria-labelledby="frequency-table-title">
+    <template v-else>
+      <p v-if="loadError" class="frequency-stale-banner" role="alert">
+        Não foi possível atualizar a frequência. Os dados exibidos podem estar desatualizados.
+        <button type="button" @click="loadData">Tentar novamente</button>
+      </p>
+
+      <p v-if="refreshWarning" class="frequency-refresh-warning" role="alert">
+        {{ refreshWarning.message }}
+        <button type="button" @click="retryRefreshWarning">Tentar novamente</button>
+      </p>
+
+    <section class="frequency-table-card" aria-labelledby="frequency-table-title">
       <header class="table-card-header">
         <h2 id="frequency-table-title">Frequência por disciplina</h2>
       </header>
@@ -580,10 +687,11 @@ async function undoAbsence(entry) {
               <td>
                 <div class="attendance-cell">
                   <span :class="['attendance-value', barClass(row)]">
-                    {{ formatPercentage(row.attendancePercentage) }}
+                    {{ row.attendancePercentage === null ? 'Sem frequência cadastrada' : formatPercentage(row.attendancePercentage) }}
                   </span>
                   <span class="attendance-track" aria-hidden="true">
                     <span
+                      v-if="row.attendancePercentage !== null"
                       :class="barClass(row)"
                       :style="{ width: `${Math.min(row.attendancePercentage, 100)}%` }"
                     ></span>
@@ -666,7 +774,7 @@ async function undoAbsence(entry) {
                     type="button"
                     aria-label="Desfazer lançamento de falta"
                     title="Desfazer lançamento"
-                    @click="undoAbsence(entry)"
+                    @click="requestDeleteAbsence(entry)"
                   >
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10h10a5 5 0 0 1 0 10H9" /><path d="m8 6-4 4 4 4" /></svg>
                   </button>
@@ -677,6 +785,7 @@ async function undoAbsence(entry) {
         </table>
       </div>
     </section>
+    </template>
 
     <AppToast :message="toast.message" :type="toast.type" @close="closeToast" />
 
@@ -692,8 +801,19 @@ async function undoAbsence(entry) {
       v-if="showAbsenceModal"
       :rows="rows"
       :initial-discipline-id="modalTargetId"
+      :submitting="registering"
+      :server-error="registerServerError"
       @close="closeModals"
       @save="registerAbsence"
+    />
+
+    <DeleteAbsenceModal
+      v-if="deletingEntry"
+      :entry="deletingEntry"
+      :deleting="deletingInFlight"
+      :server-error="deleteServerError"
+      @close="cancelDeleteAbsence"
+      @confirm="confirmDeleteAbsence"
     />
 
   </section>
@@ -1046,6 +1166,51 @@ async function undoAbsence(entry) {
   margin: 0;
 }
 
+.retry-button {
+  background: linear-gradient(100deg, #5d20df, #7419f5);
+  border: 0;
+  border-radius: 7px;
+  box-shadow: 0 8px 18px rgba(101, 31, 225, .18);
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 700;
+  padding: 11px 18px;
+}
+
+.frequency-stale-banner,
+.frequency-refresh-warning {
+  align-items: center;
+  background: #fff4e6;
+  border: 1px solid #f3d9ac;
+  border-radius: 10px;
+  color: #9a6414;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: .74rem;
+  gap: 12px;
+  justify-content: space-between;
+  line-height: 1.5;
+  padding: 13px 16px;
+}
+
+.frequency-stale-banner button,
+.frequency-refresh-warning button {
+  background: #fff;
+  border: 1px solid #eac488;
+  border-radius: 7px;
+  color: #8a5a10;
+  flex-shrink: 0;
+  font-size: .7rem;
+  font-weight: 700;
+  padding: 7px 13px;
+  white-space: nowrap;
+}
+
+.frequency-stale-banner button:hover,
+.frequency-refresh-warning button:hover {
+  background: #fff8ee;
+}
+
 .loading-spinner {
   animation: spin .75s linear infinite;
   border: 3px solid #e8e1fa;
@@ -1249,6 +1414,7 @@ async function undoAbsence(entry) {
 .attendance-value.is-warning { color: #d9811a; }
 .attendance-value.is-bad { color: #d93b2b; }
 .attendance-value.is-empty { color: #767d90; }
+.attendance-value.is-neutral { color: #767d90; }
 
 .attendance-track {
   background: #e8e9ee;

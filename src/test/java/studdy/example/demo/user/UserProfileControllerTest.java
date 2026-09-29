@@ -24,9 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class UserProfileControllerTest {
 
-    private static final byte[] PNG = {
-            (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x01
-    };
+    private static final byte[] PNG = PhotoFixtures.png(32, 32);
 
     @Autowired
     private MockMvc mockMvc;
@@ -37,6 +35,9 @@ class UserProfileControllerTest {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
     private String authorization;
 
     @BeforeEach
@@ -44,7 +45,7 @@ class UserProfileControllerTest {
         AppUser user = userRepository.save(new AppUser(
                 "Gabriel Silva",
                 "perfil-controller@example.com",
-                "hash"
+                passwordEncoder.encode("Senha@1234")
         ));
         authorization = "Bearer " + jwtService.generateToken(user.getId());
     }
@@ -53,7 +54,7 @@ class UserProfileControllerTest {
     void requiresAuthenticationToReadTheProfile() throws Exception {
         mockMvc.perform(get("/api/v1/users/me"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value("Token ausente, inválido ou expirado."));
+                .andExpect(jsonPath("$.detail").value("Sua sessão expirou. Entre novamente."));
     }
 
     @Test
@@ -75,7 +76,8 @@ class UserProfileControllerTest {
                                   "phone": "(62) 99999-9999",
                                   "birthDate": "2005-03-18",
                                   "gender": "PREFER_NOT_TO_SAY",
-                                  "location": "Goiânia - GO"
+                                  "location": "Goiânia - GO",
+                                  "currentPassword": "Senha@1234"
                                 }
                                 """))
                 .andExpect(status().isOk())
@@ -102,8 +104,7 @@ class UserProfileControllerTest {
         mockMvc.perform(get("/api/v1/users/me/profile-photo")
                         .header("Authorization", authorization))
                 .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.IMAGE_PNG))
-                .andExpect(content().bytes(PNG));
+                .andExpect(content().contentType(MediaType.IMAGE_JPEG));
 
         mockMvc.perform(delete("/api/v1/users/me/profile-photo")
                         .header("Authorization", authorization))
@@ -112,6 +113,18 @@ class UserProfileControllerTest {
         mockMvc.perform(get("/api/v1/users/me/profile-photo")
                         .header("Authorization", authorization))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void changingEmailWithoutCurrentPasswordReturnsBadRequestDetail() throws Exception {
+        mockMvc.perform(put("/api/v1/users/me")
+                        .header("Authorization", authorization)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": "Gabriel Silva", "email": "novo-email@example.com"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Informe sua senha atual para confirmar."));
     }
 
     @Test

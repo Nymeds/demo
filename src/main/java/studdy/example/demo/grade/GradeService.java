@@ -15,6 +15,7 @@ import studdy.example.demo.grade.dto.GradeResponse;
 import studdy.example.demo.grade.dto.GradeSummaryResponse;
 import studdy.example.demo.grade.dto.UpdateGradeRequest;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -29,17 +30,20 @@ public class GradeService {
     private final ActivityRepository activityRepository;
     private final DisciplineAccessService disciplineAccessService;
     private final AcademicPerformanceService academicPerformanceService;
+    private final Clock clock;
 
     public GradeService(
             GradeRepository gradeRepository,
             ActivityRepository activityRepository,
             DisciplineAccessService disciplineAccessService,
-            AcademicPerformanceService academicPerformanceService
+            AcademicPerformanceService academicPerformanceService,
+            Clock clock
     ) {
         this.gradeRepository = gradeRepository;
         this.activityRepository = activityRepository;
         this.disciplineAccessService = disciplineAccessService;
         this.academicPerformanceService = academicPerformanceService;
+        this.clock = clock;
     }
 
     @Transactional
@@ -155,7 +159,7 @@ public class GradeService {
                         "Avaliação não encontrada nesta disciplina."
                 ));
 
-        if (activity.getDueDate().isAfter(LocalDate.now())) {
+        if (activity.getDueDate().isAfter(LocalDate.now(clock))) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Essa avaliação ainda não aconteceu. Lance a nota a partir de " + activity.getDueDate().format(BRAZILIAN_DATE) + "."

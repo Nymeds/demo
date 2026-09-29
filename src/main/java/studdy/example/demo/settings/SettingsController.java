@@ -16,7 +16,6 @@ import studdy.example.demo.settings.dto.DeleteAccountRequest;
 import studdy.example.demo.settings.dto.PreferencesResponse;
 import studdy.example.demo.settings.dto.ProfileResponse;
 import studdy.example.demo.settings.dto.UpdatePreferencesRequest;
-import studdy.example.demo.settings.dto.UpdateProfileRequest;
 
 import java.util.UUID;
 
@@ -41,14 +40,6 @@ public class SettingsController {
     @GetMapping("/profile")
     public ProfileResponse profile(@AuthenticationPrincipal UUID userId) {
         return profileSettingsService.find(userId);
-    }
-
-    @PutMapping("/profile")
-    public ProfileResponse updateProfile(
-            @AuthenticationPrincipal UUID userId,
-            @Valid @RequestBody UpdateProfileRequest request
-    ) {
-        return profileSettingsService.update(userId, request);
     }
 
     @PutMapping("/password")

@@ -3,13 +3,14 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { compileScript, parse } from '@vue/compiler-sfc'
 import { createRenderer, nextTick } from 'vue'
+import { rewriteRelativeImports } from './helpers/rewriteImports.mjs'
 
 const source = await readFile(new URL('../src/features/profile/ProfileScreen.vue', import.meta.url), 'utf8')
 const { descriptor } = parse(source)
 const compiled = compileScript(descriptor, { id: 'profile-photo-test' }).content
   .replace(/import (\w+) from ['"][^'"]+\.vue['"]/g, 'const $1 = {}')
   .replace(/from ['"]vue['"]/g, `from ${JSON.stringify(import.meta.resolve('vue'))}`)
-const { default: ProfileScreen } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`)
+const { default: ProfileScreen } = await import(`data:text/javascript;base64,${Buffer.from(rewriteRelativeImports(compiled, new URL('../src/features/profile/ProfileScreen.vue', import.meta.url))).toString('base64')}`)
 ProfileScreen.render = () => null
 
 async function mountProfile(t, hasPhoto = false) {

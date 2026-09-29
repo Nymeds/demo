@@ -1,3 +1,5 @@
+import { formatAverage, roundGrade } from '../../shared/format/grade.js'
+
 // Regras de apresentação da tela Notas. As faixas repetem as do backend (PerformanceBand) para
 // também classificar a média geral, que é calculada aqui a partir das disciplinas.
 
@@ -32,21 +34,33 @@ function averageOf(values) {
   return values.length ? values.reduce((total, value) => total + value, 0) / values.length : null
 }
 
+export { roundGrade }
+
 export function bandInfo(band) {
   return BANDS[band] ?? BANDS.NO_GRADES
 }
 
 export function bandOf(average) {
-  if (average === null || average === undefined) return 'NO_GRADES'
-  if (average >= EXCELLENT_FROM) return 'EXCELLENT'
-  if (average >= GOOD_FROM) return 'GOOD'
-  return average >= REGULAR_FROM ? 'REGULAR' : 'INSUFFICIENT'
+  const rounded = roundGrade(average)
+  if (rounded === null) return 'NO_GRADES'
+  if (rounded >= EXCELLENT_FROM) return 'EXCELLENT'
+  if (rounded >= GOOD_FROM) return 'GOOD'
+  return rounded >= REGULAR_FROM ? 'REGULAR' : 'INSUFFICIENT'
 }
 
-export function formatGrade(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—'
+export const formatGrade = formatAverage
 
-  return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+// Distância até a meta pessoal (Configurações). null quando não há meta ou não há média ainda.
+export function goalMessage(average, goal) {
+  if (goal === null || goal === undefined) return null
+
+  const rounded = roundGrade(average)
+  if (rounded === null) return null
+
+  const diff = roundGrade(goal - rounded)
+  if (diff <= 0) return 'Meta alcançada'
+
+  return `Faltam ${formatGrade(diff)} pontos para sua meta de ${formatGrade(goal)}`
 }
 
 // A cor vem da disciplina; só um hexadecimal válido chega ao estilo da página.
@@ -103,7 +117,7 @@ export function distributionOf(entries) {
   const graded = entries.filter(hasAverage)
 
   return GRADED_BANDS.map(band => {
-    const count = graded.filter(entry => entry.band === band).length
+    const count = graded.filter(entry => bandOf(entry.average) === band).length
     return { band, count, percent: graded.length ? Math.round((count / graded.length) * 100) : 0 }
   })
 }

@@ -36,7 +36,7 @@ A resposta não expõe o hash da senha nem os bytes da foto. Quando há uma foto
 - `GET /api/v1/users/me/profile-photo`: devolve os bytes com o tipo correto da imagem.
 - `DELETE /api/v1/users/me/profile-photo`: remove a foto e responde `204 No Content`.
 
-São aceitos PNG e JPG de até 2 MB. O formato é identificado pela assinatura real do arquivo, sem confiar apenas no cabeçalho enviado pelo cliente.
+São aceitos PNG e JPG de até 2 MB. O formato é identificado pela assinatura real do arquivo, sem confiar apenas no cabeçalho enviado pelo cliente. O servidor regrava a imagem como JPEG com no máximo 512 px no maior lado; `GET` devolve `image/jpeg`.
 
 ## Decisões de privacidade
 

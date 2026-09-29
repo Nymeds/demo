@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import studdy.example.demo.activities.ActivityStatus;
+import studdy.example.demo.activities.ActivityType;
 
 import java.time.LocalDate;
 
@@ -21,7 +22,9 @@ public record UpdateActivityRequest(
         LocalDate dueDate,
 
         @NotNull(message = "O status da atividade é obrigatório.")
-        ActivityStatus status
+        ActivityStatus status,
+
+        ActivityType type
 
 ) {
 }
