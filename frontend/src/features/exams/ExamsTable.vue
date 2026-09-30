@@ -29,20 +29,20 @@ function isExamBusy(id) {
 
 <template>
   <div class="exams-table-wrap">
-    <table class="exams-table">
-      <thead>
-        <tr>
-          <th>Prova</th>
-          <th>Disciplina</th>
-          <th>Data</th>
-          <th>Conteúdo</th>
-          <th>Status</th>
-          <th>Ações</th>
+    <table class="exams-table" role="table">
+      <thead role="rowgroup">
+        <tr role="row">
+          <th role="columnheader">Prova</th>
+          <th role="columnheader">Disciplina</th>
+          <th role="columnheader">Data</th>
+          <th role="columnheader">Conteúdo</th>
+          <th role="columnheader">Status</th>
+          <th role="columnheader">Ações</th>
         </tr>
       </thead>
-      <tbody>
-        <tr v-for="exam in exams" :key="exam.id">
-          <td>
+      <tbody role="rowgroup">
+        <tr v-for="exam in exams" :key="exam.id" role="row">
+          <td role="cell">
             <div class="exam-name">
               <span class="exam-row-icon" :class="`is-${exam.color}`" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 3v3h6V3M8 11h8M8 15h5" /></svg>
@@ -53,22 +53,22 @@ function isExamBusy(id) {
               </div>
             </div>
           </td>
-          <td>
+          <td role="cell" data-label="Disciplina">
             <strong class="discipline-name">{{ exam.disciplineName }}</strong>
           </td>
-          <td>
+          <td role="cell" data-label="Data">
             <strong>{{ formatDate(exam.dueDate) }}</strong>
             <small>{{ formatWeekday(exam.dueDate) }}</small>
           </td>
-          <td class="content-cell">{{ exam.description || 'Conteúdo não informado' }}</td>
-          <td>
+          <td role="cell" class="content-cell" data-label="Conteúdo">{{ exam.description || 'Conteúdo não informado' }}</td>
+          <td role="cell" data-label="Status">
             <span class="status-pill" :class="statusClass(exam, now)">
               <svg v-if="exam.status !== 'COMPLETED'" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 10v5" /><circle cx="12" cy="7.2" r=".7" fill="currentColor" stroke="none" /></svg>
               <svg v-else viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="m8.5 12 2.3 2.4 4.8-5" /></svg>
               {{ statusLabel(exam, now) }}
             </span>
           </td>
-          <td>
+          <td role="cell" class="actions-cell">
             <div class="row-actions">
               <button type="button" aria-label="Visualizar prova" data-tooltip="Visualizar" @click="emit('view', exam)">
                 <svg viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></svg>
@@ -95,8 +95,8 @@ function isExamBusy(id) {
             </div>
           </td>
         </tr>
-        <tr v-if="exams.length === 0">
-          <td colspan="6" class="empty-row">
+        <tr v-if="exams.length === 0" role="row">
+          <td role="cell" colspan="6" class="empty-row">
             <div class="app-state-card is-empty"><span aria-hidden="true">🔎</span><h2>Nenhuma prova encontrada</h2><p>Tente ajustar os filtros ou cadastrar uma nova prova.</p></div>
           </td>
         </tr>

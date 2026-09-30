@@ -53,10 +53,10 @@ defineEmits(['configure'])
                 </span>
               </div>
             </td>
-            <td>{{ formatPercentage(row.minimumPercentage) }}</td>
-            <td>{{ row.lossPerAbsence }}%</td>
-            <td class="absences-cell">{{ row.absences }}</td>
-            <td>
+            <td data-label="Frequência mínima">{{ formatPercentage(row.minimumPercentage) }}</td>
+            <td data-label="Perda por falta">{{ row.lossPerAbsence }}%</td>
+            <td class="absences-cell" data-label="Faltas">{{ row.absences }}</td>
+            <td data-label="Frequência atual">
               <div class="attendance-cell">
                 <span :class="['attendance-value', barClass(row)]">
                   {{ row.attendancePercentage === null ? 'Sem frequência cadastrada' : formatPercentage(row.attendancePercentage) }}
@@ -70,12 +70,12 @@ defineEmits(['configure'])
                 </span>
               </div>
             </td>
-            <td>
+            <td data-label="Situação">
               <span :class="['frequency-status', SITUATION_DETAILS[row.situation].className]">
                 {{ SITUATION_DETAILS[row.situation].label }}
               </span>
             </td>
-            <td>
+            <td class="actions-cell">
               <div class="frequency-actions-cell">
                 <button
                   type="button"

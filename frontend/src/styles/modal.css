@@ -9,7 +9,9 @@
 
 .app-field-error { color: #df3f32; font-size: .68rem; font-weight: 600; line-height: 1.4; margin: 0; }
 
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .app-modal-backdrop { padding: 12px; }
   .app-modal { padding: 22px 18px 20px; }
+  .app-modal-close { height: 44px; width: 44px; }
+  .app-field-error { font-size: .75rem; }
 }

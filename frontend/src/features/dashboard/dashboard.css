@@ -78,6 +78,7 @@
 .dashboard-shell .dashboard-navigation svg,
 .dashboard-shell .dashboard-profile-navigation svg,
 .dashboard-shell .dashboard-logout svg { display: block; fill: none; flex: 0 0 var(--navigation-icon-size); height: var(--navigation-icon-size); stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: var(--navigation-icon-size); }
+.dashboard-shell .dashboard-navigation .dashboard-more-button { display: none; }
 .dashboard-shell .dashboard-navigation button:focus-visible,
 .dashboard-shell .dashboard-profile-navigation button:focus-visible,
 .dashboard-shell .dashboard-logout:focus-visible { outline: 2px solid #947eff; outline-offset: 2px; }
@@ -253,25 +254,73 @@
   .dashboard-shell .dashboard-main { padding: 24px clamp(18px, 3vw, 32px); }
 }
 @media (max-width: 760px) {
-  .dashboard-shell { display: block; }
-  .dashboard-shell .dashboard-sidebar { align-items: stretch; bottom: 0; display: grid; grid-template-columns: minmax(0, 1fr) 48px auto; height: auto; left: 0; padding: 7px 10px max(7px, env(safe-area-inset-bottom)); position: fixed; right: 0; top: auto; z-index: 80; }
-  .dashboard-shell .dashboard-brand, .dashboard-shell .dashboard-user-card { display: none; }
-  .dashboard-shell .dashboard-navigation { display: grid; gap: 3px; grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .dashboard-shell .dashboard-navigation button, .dashboard-shell .dashboard-profile-navigation button, .dashboard-shell .dashboard-logout { flex-direction: column; font-size: .52rem; gap: 3px; justify-content: center; line-height: 1.05; min-width: 0; padding: 7px 2px; text-align: center; }
-  .dashboard-shell .dashboard-navigation button.active { background: rgba(108, 65, 226, .42); box-shadow: none; }
-  .dashboard-shell .dashboard-sidebar { --navigation-icon-size: 18px; }
-  .dashboard-shell .dashboard-sidebar-footer { align-items: stretch; border: 0; display: flex; gap: 4px; margin: 0; padding: 0; }
-  .dashboard-shell .dashboard-profile-navigation { margin: 0; padding: 0; }
-  .dashboard-shell .dashboard-main { padding: 22px 16px 92px; }
+  /* Barra inferior: 4 destinos fixos + "Mais". A altura vem de --mobile-nav-height, que também
+     define o espaço reservado no fim do conteúdo e a posição da folha "Mais". */
+  .dashboard-shell { --mobile-nav-height: 64px; display: block; }
+  .dashboard-shell .dashboard-sidebar { --navigation-icon-size: 20px; bottom: 0; display: block; height: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom)); left: 0; padding: 0 4px env(safe-area-inset-bottom); position: fixed; right: 0; top: auto; z-index: 80; }
+  .dashboard-shell .dashboard-brand,
+  .dashboard-shell .dashboard-profile-navigation,
+  .dashboard-shell .dashboard-sidebar-footer,
+  .dashboard-shell .dashboard-navigation button.is-secondary { display: none; }
+  .dashboard-shell .dashboard-navigation { gap: 0; grid-template-columns: repeat(5, minmax(0, 1fr)); height: var(--mobile-nav-height); padding-block: 5px; position: relative; z-index: 2; }
+  .dashboard-shell .dashboard-navigation button { flex-direction: column; font-size: .75rem; gap: 4px; justify-content: center; letter-spacing: -.01em; line-height: 1.15; min-height: 44px; min-width: 0; padding: 4px 1px; text-align: center; white-space: nowrap; }
+  .dashboard-shell .dashboard-navigation .dashboard-more-button { display: flex; }
+  .dashboard-shell .dashboard-navigation button.active { background: rgba(108, 65, 226, .42); box-shadow: none; font-weight: 700; }
+  .dashboard-shell .dashboard-more-backdrop { background: rgba(6, 10, 22, .45); inset: 0 0 calc(var(--mobile-nav-height) + env(safe-area-inset-bottom)); position: fixed; z-index: 0; }
+  .dashboard-shell .dashboard-more-sheet { background: #18223a; border: 1px solid rgba(255, 255, 255, .09); border-bottom: 0; border-radius: 16px 16px 0 0; bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom)); box-shadow: 0 -18px 40px rgba(3, 8, 20, .35); display: grid; gap: 2px; left: 0; max-height: calc(100svh - var(--mobile-nav-height) - env(safe-area-inset-bottom) - 24px); overflow-y: auto; overscroll-behavior: contain; padding: 10px 10px 8px; position: fixed; right: 0; z-index: 1; }
+  .dashboard-shell .dashboard-more-sheet:focus-visible { outline: none; }
+  .dashboard-shell .dashboard-more-item { align-items: center; background: transparent; border: 0; border-radius: 10px; color: rgba(236, 239, 246, .92); cursor: pointer; display: flex; font-size: .875rem; gap: 12px; min-height: 48px; padding: 10px 14px; text-align: left; width: 100%; }
+  .dashboard-shell .dashboard-more-item:hover { background: rgba(255, 255, 255, .07); color: #fff; }
+  .dashboard-shell .dashboard-more-item:focus-visible { outline: 2px solid #947eff; outline-offset: -2px; }
+  .dashboard-shell .dashboard-more-item.active { background: rgba(108, 65, 226, .42); color: #fff; font-weight: 700; }
+  .dashboard-shell .dashboard-more-item[aria-pressed="true"] { color: #c4b5fd; }
+  .dashboard-shell .dashboard-more-item svg { fill: none; flex: 0 0 20px; height: 20px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 20px; }
+  .dashboard-shell .dashboard-main { padding: 22px 16px calc(var(--mobile-nav-height) + env(safe-area-inset-bottom) + 24px); }
   .dashboard-shell .dashboard-topbar { align-items: flex-start; padding: 24px; }
   .dashboard-shell .dashboard-welcome { max-width: calc(100% - 64px); }
   .dashboard-shell .dashboard-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-shell .dashboard-side-column { grid-template-columns: 1fr; }
+  /* Toque e leitura no celular: fontes a partir de .75rem (12px) e alvos de toque de 44px. */
+  .dashboard-shell .dashboard-welcome-label,
+  .dashboard-shell .dashboard-date,
+  .dashboard-shell .dashboard-summary-card p,
+  .dashboard-shell .dashboard-summary-card small,
+  .dashboard-shell .dashboard-guide-card h3,
+  .dashboard-shell .dashboard-guide-card p,
+  .dashboard-shell .dashboard-tip,
+  .dashboard-shell .dashboard-eyebrow,
+  .dashboard-shell .dashboard-class-info small,
+  .dashboard-shell .dashboard-class-time,
+  .dashboard-shell .dashboard-activity-list time small,
+  .dashboard-shell .dashboard-activity-info small,
+  .dashboard-shell .dashboard-activity-status,
+  .dashboard-shell .dashboard-panel-empty p,
+  .dashboard-shell .dashboard-frequency-ring span,
+  .dashboard-shell .dashboard-frequency-metrics dt,
+  .dashboard-shell .dashboard-frequency-metrics dd,
+  .dashboard-shell .dashboard-frequency-minimum,
+  .dashboard-shell .dashboard-frequency-message,
+  .dashboard-shell .dashboard-side-activities .dashboard-panel-header h2,
+  .dashboard-shell .dashboard-compact-activity-list time,
+  .dashboard-shell .dashboard-compact-empty,
+  .dashboard-shell .dashboard-progress-value span,
+  .dashboard-shell .dashboard-progress-meta { font-size: .75rem; }
+  .dashboard-shell .dashboard-welcome-actions button,
+  .dashboard-shell .dashboard-guide-card button,
+  .dashboard-shell .dashboard-panel-header button,
+  .dashboard-shell .dashboard-reminder-link,
+  .dashboard-shell .dashboard-panel-empty button,
+  .dashboard-shell .dashboard-empty-hero button { font-size: .8125rem; min-height: 44px; }
+  .dashboard-shell .dashboard-reminder-more { min-height: 44px; }
+  .dashboard-shell .dashboard-class-list li { grid-template-columns: 52px minmax(0, 1fr) minmax(170px, auto) 44px; }
+  .dashboard-shell .dashboard-class-open { height: 44px; width: 44px; }
+  .dashboard-shell .dashboard-compact-activity-meta { gap: 16px; grid-template-columns: auto 110px; }
+  .dashboard-shell .dashboard-frequency-select { --app-select-height: 44px; --app-select-font-size: .875rem; }
 }
 @media (max-width: 520px) {
   .dashboard-shell .dashboard-topbar { align-items: flex-start; gap: 15px; padding: 22px 19px; }
   .dashboard-shell .dashboard-topbar h1 { font-size: 1.35rem; }
-  .dashboard-shell .dashboard-topbar p { font-size: .7rem; max-width: 250px; }
+  .dashboard-shell .dashboard-topbar p { font-size: .75rem; max-width: 250px; }
   .dashboard-shell .dashboard-welcome { max-width: 100%; }
   .dashboard-shell .dashboard-welcome-actions { flex-wrap: wrap; }
   .dashboard-shell .dashboard-date { font-size: 0; padding: 9px; position: absolute; right: 16px; top: 16px; }
@@ -284,9 +333,9 @@
   .dashboard-shell .dashboard-empty-illustration { height: auto; }
   .dashboard-shell .dashboard-panel-header { padding-inline: 16px; }
   .dashboard-shell .dashboard-class-list { padding-inline: 16px; }
-  .dashboard-shell .dashboard-class-list li { gap: 10px; grid-template-columns: 44px minmax(0, 1fr) 26px; padding-block: 13px; }
+  .dashboard-shell .dashboard-class-list li { gap: 10px; grid-template-columns: 44px minmax(0, 1fr) 44px; padding-block: 13px; }
   .dashboard-shell .dashboard-class-icon { height: 42px; width: 42px; }
-  .dashboard-shell .dashboard-class-time { grid-column: 2; font-size: .66rem; }
+  .dashboard-shell .dashboard-class-time { grid-column: 2; }
   .dashboard-shell .dashboard-class-open { grid-column: 3; grid-row: 1 / span 2; }
   .dashboard-shell .dashboard-compact-activity-list { padding-inline: 16px; }
   .dashboard-shell .dashboard-compact-activity-list li { align-items: start; grid-template-columns: 36px minmax(0, 1fr); }

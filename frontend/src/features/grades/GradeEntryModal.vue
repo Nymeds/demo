@@ -280,5 +280,19 @@ useFocusTrap(() => true, card, {
 .grade-entry-counter { text-align: right; }
 .grade-entry-link { padding: 0; background: none; border: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }
 .grade-entry-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 22px; }
-@media(max-width: 520px) { .grade-entry-fields { grid-template-columns: 1fr; } .grade-entry-header { gap: 10px; } }
+/* Celular: fontes de pelo menos 12px, campos de 16px (sem zoom no iOS) e alvos de toque de 44px. */
+@media (max-width: 760px) {
+  .grade-entry-overlay { padding: 12px; }
+  .grade-entry-header p { font-size: .75rem; }
+  .grade-entry-close { align-items: center; display: inline-flex; flex: 0 0 44px; font-size: 1.7rem; height: 44px; justify-content: center; width: 44px; }
+  .grade-entry-field { font-size: .875rem; --app-select-height: 44px; --app-select-font-size: 1rem; --app-date-height: 44px; --app-date-font-size: 1rem; }
+  .grade-entry-field input, .grade-entry-field textarea { font-size: 1rem; min-height: 44px; }
+  .grade-entry-link { margin: -14px 0; padding: 14px 0; }
+  .grade-entry-field small, .grade-entry-field .grade-entry-error, .grade-entry-error { font-size: .75rem; }
+}
+@media (max-width: 520px) {
+  .grade-entry-fields { grid-template-columns: 1fr; }
+  .grade-entry-header { gap: 10px; }
+  .grade-entry-actions > button { flex: 1 1 0; }
+}
 </style>

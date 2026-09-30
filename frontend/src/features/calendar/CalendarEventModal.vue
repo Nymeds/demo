@@ -353,6 +353,34 @@ fieldset.form-field { border: 0; padding: 0; }
 .delete-event:hover { background: #fff5f7; }
 .delete-event svg { fill: none; height: 15px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 15px; }
 
+/* Celular: campos com 16px (o iOS amplia a página ao focar campo com fonte menor), alvos de toque
+   de 44px e textos de pelo menos 12px. */
+@media (max-width: 760px) {
+  .form-field {
+    --app-date-height: 44px;
+    --app-date-font-size: 1rem;
+    --app-time-height: 44px;
+    --app-time-font-size: 1rem;
+    --app-select-height: 44px;
+    --app-select-font-size: 1rem;
+  }
+  .form-field input[type="text"],
+  .form-field textarea { font-size: 1rem; }
+  .form-field input[type="text"] { height: 44px; }
+  .form-field > span,
+  .form-field > label,
+  .form-field legend,
+  .modal-title p,
+  .field-clear,
+  .field-warning,
+  .form-hint,
+  .form-error { font-size: .75rem; }
+  .field-clear { min-height: 44px; }
+  .modal-close { min-height: 44px; min-width: 44px; }
+  .category-option { font-size: .75rem; min-height: 44px; }
+  .modal-actions button { font-size: .8rem; min-height: 44px; }
+}
+
 @media (max-width: 560px) {
   .form-row { grid-template-columns: 1fr; }
   .modal-actions { flex-wrap: wrap; }

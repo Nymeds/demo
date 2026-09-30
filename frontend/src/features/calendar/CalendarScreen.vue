@@ -128,6 +128,9 @@ const miniCalendarDays = computed(() => monthGrid.value.map(
 
 const dayViewEvents = computed(() => eventsOfDay(displayedEvents.value, referenceDate.value))
 
+// Título da agenda do dia selecionado, mostrada abaixo da grade do Mês só no celular.
+const selectedDayLabel = computed(() => periodLabelOf('day', referenceDate.value))
+
 function eventsPath(suffix = '') {
   return `/api/v1/dashboards/${dashboardId.value}/calendar/events${suffix}`
 }
@@ -490,6 +493,15 @@ async function confirmDeleteEvent() {
           @create-event="openNewEventModal"
           @edit-event="openEditEventModal"
           @open-day="openDayView"
+          @select-day="selectDay"
+        />
+
+        <CalendarDayView
+          v-if="viewMode === 'month'"
+          class="calendar-month-agenda"
+          :period-label="selectedDayLabel"
+          :events="dayViewEvents"
+          @edit-event="openEditEventModal"
         />
         </template>
 

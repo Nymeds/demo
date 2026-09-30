@@ -317,6 +317,17 @@ defineExpose({ focus: () => trigger.value?.focus() })
 
 .app-select-check { fill: none; flex: 0 0 16px; height: 16px; stroke: #6330e0; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.4; width: 16px; }
 
+/* Celular: gatilho com fonte de 16px e itens com alvo de toque de 44px. As variáveis --app-select-*
+   das telas continuam valendo; só o valor padrão (sem variável) sobe. */
+@media (max-width: 760px) {
+  .app-select-trigger { font-size: var(--app-select-font-size, 16px); min-height: var(--app-select-height, 44px); }
+  .app-select-option { min-height: 44px; }
+  .app-select-empty { font-size: .875rem; }
+  .app-select-value small,
+  .app-select-option-text small { font-size: .75rem; }
+  .app-select-badge { font-size: .75rem; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .app-select-chevron { transition: none; }
 }

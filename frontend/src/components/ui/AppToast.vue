@@ -42,5 +42,5 @@ defineEmits(['close'])
 .app-toast.is-error p { color: #8e302b; }
 .toast-enter-active, .toast-leave-active { transition: opacity .18s ease, transform .18s ease; }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(-10px); }
-@media (max-width: 620px) { .app-toast { left: 16px; right: 16px; top: 16px; max-width: none; } }
+@media (max-width: 760px) { .app-toast { left: 16px; right: 16px; top: 16px; max-width: none; } }
 </style>

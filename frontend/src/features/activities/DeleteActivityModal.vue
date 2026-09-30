@@ -177,7 +177,14 @@ useFocusTrap(() => true, trapRef, {
   outline-offset: 2px;
 }
 
-@media (max-width: 460px) {
+@media (max-width: 760px) {
+  .delete-activity-actions button {
+    font-size: .875rem;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 520px) {
   .delete-activity-modal {
     padding: 25px 20px;
   }

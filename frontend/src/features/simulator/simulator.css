@@ -51,16 +51,13 @@
    PÁGINA
 ========================= */
 
+/* Espaçamento e fundo vêm do shell do dashboard (.dashboard-main), como nas outras telas. */
 .simulator-page {
 
   width: 100%;
-  min-height: 100vh;
+  min-width: 0;
 
   box-sizing: border-box;
-
-  padding: 28px 32px 40px;
-
-  background: #f7f7fb;
 
   color: #202033;
 
@@ -1171,7 +1168,7 @@
 }
 
 
-@media (max-width: 800px) {
+@media (max-width: 760px) {
 
   .simulator-page .filters-card {
 
@@ -1185,9 +1182,192 @@
 
     border-bottom: 1px solid #eceaf2;
 
+    --app-select-height: 44px;
+
+    --app-select-font-size: 16px;
+
+  }
+
+  .simulator-page .filter:last-child {
+
+    border-bottom: none;
+
+  }
+
+  /* "Como funciona?" continua visível no celular: o cabeçalho quebra de linha e o botão ocupa a largura. */
+  .simulator-page .page-header {
+
+    flex-wrap: wrap;
+
+    gap: 14px;
+
+    margin-bottom: 20px;
+
+  }
+
+  .simulator-page .title-area {
+
+    min-width: 0;
+
+  }
+
+  .simulator-page .title-area h1 {
+
+    font-size: 24px;
+
   }
 
   .simulator-page .header-actions {
+
+    width: 100%;
+
+  }
+
+  .simulator-page .help-button {
+
+    width: 100%;
+
+    min-height: 44px;
+
+    justify-content: center;
+
+    cursor: pointer;
+
+  }
+
+  /* Fontes de 10/11 px sobem para 12 px e os alvos de toque para 44 px. */
+  .simulator-page .badge,
+  .simulator-page .status-message span,
+  .simulator-page .result-side span,
+  .simulator-page .result-message,
+  .simulator-page .simulation-local-note,
+  .simulator-page .grades-header,
+  .simulator-page .grade-row,
+  .simulator-page .total-row,
+  .simulator-page .scenario-header,
+  .simulator-page .scenario-row,
+  .simulator-page .evaluation-text small {
+
+    font-size: 12px;
+
+  }
+
+  .simulator-page .edit-button {
+
+    width: 44px;
+    height: 44px;
+
+  }
+
+  .simulator-page .retry-button,
+  .simulator-page .simulate-button,
+  .simulator-page .clear-simulation-button,
+  .simulator-page .add-grade-button {
+
+    min-height: 44px;
+
+  }
+
+  .simulator-page .more-button {
+
+    min-width: 44px;
+    min-height: 44px;
+
+  }
+
+  .simulator-page .field input {
+
+    height: 44px;
+
+    font-size: 16px;
+
+  }
+
+  .simulator-page .scenario-header,
+  .simulator-page .scenario-row {
+
+    min-height: 44px;
+
+  }
+
+  /* Notas lançadas: cada avaliação vira um bloco empilhado; o rótulo de cada valor vem do data-label. */
+  .simulator-page .grades-header {
+
+    display: none;
+
+  }
+
+  .simulator-page .grade-row {
+
+    grid-template-columns: 1fr 1fr;
+
+    gap: 10px 12px;
+
+    padding: 14px 12px;
+
+    font-size: 14px;
+
+  }
+
+  .simulator-page .grade-row .evaluation {
+
+    grid-column: 1 / -1;
+
+    min-width: 0;
+
+    overflow-wrap: anywhere;
+
+  }
+
+  .simulator-page .grade-row > [data-label] {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 2px;
+
+  }
+
+  .simulator-page .grade-row > [data-label]::before {
+
+    content: attr(data-label);
+
+    color: #686579;
+
+    font-size: 12px;
+
+    font-weight: 600;
+
+  }
+
+  .simulator-page .grade-row .more-button {
+
+    grid-column: 1 / -1;
+
+    width: 100%;
+
+    border: 1px solid #dedce8;
+
+    border-radius: 8px;
+
+    color: #6330e0;
+
+    font-size: 14px;
+
+    font-weight: 600;
+
+  }
+
+  .simulator-page .total-row {
+
+    grid-template-columns: 1fr auto;
+
+    font-size: 14px;
+
+  }
+
+  .simulator-page .total-row span {
 
     display: none;
 
@@ -1196,9 +1376,9 @@
 }
 
 
-@media (max-width: 600px) {
+@media (max-width: 520px) {
 
-  .simulator-page {
+  .simulator-page .card {
 
     padding: 18px;
 
@@ -1208,11 +1388,25 @@
 
     flex-direction: column;
 
+    align-items: stretch;
+
+  }
+
+  .simulator-page .average-circle {
+
+    align-self: center;
+
   }
 
   .simulator-page .input-grid {
 
     grid-template-columns: 1fr;
+
+  }
+
+  .simulator-page .result-box {
+
+    padding: 10px 12px;
 
   }
 

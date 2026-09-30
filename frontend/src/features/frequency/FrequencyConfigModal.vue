@@ -458,7 +458,9 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
-@media (max-width: 680px) {
+/* Breakpoint padrão 760 (era 680). Abaixo dele: fontes de 12 px no mínimo, campos de 16 px
+   (sem zoom no iOS) e alvos de toque de 44 px. */
+@media (max-width: 760px) {
   .modal-backdrop {
     align-items: flex-start;
     padding: 12px;
@@ -484,6 +486,40 @@ button:focus-visible {
 
   .save-button {
     justify-content: center;
+  }
+
+  .modal-title p,
+  .info-box,
+  .warning-box,
+  .simulation-label,
+  .simulation-value,
+  .form-error,
+  .input-with-suffix > span {
+    font-size: .75rem;
+  }
+
+  .form-field,
+  .cancel-button,
+  .save-button {
+    font-size: .875rem;
+  }
+
+  .form-field select,
+  .input-with-suffix input {
+    font-size: 1rem;
+    min-height: 44px;
+  }
+
+  .form-field {
+    --app-select-height: 44px;
+    --app-select-font-size: 1rem;
+  }
+
+  .modal-close,
+  .cancel-button,
+  .save-button {
+    min-height: 44px;
+    min-width: 44px;
   }
 }
 </style>

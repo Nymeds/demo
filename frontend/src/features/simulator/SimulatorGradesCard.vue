@@ -105,12 +105,12 @@ defineExpose({ focusAddGradeButton: () => addGradeButton.value?.focus() })
         </div>
 
 
-        <strong>
+        <strong data-label="Nota obtida">
           {{ formatScore(note.value) }}
         </strong>
 
 
-        <span>
+        <span data-label="Nota máxima">
           {{ formatScore(maxGrade) }}
         </span>
 

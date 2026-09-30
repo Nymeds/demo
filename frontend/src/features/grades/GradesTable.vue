@@ -90,15 +90,15 @@ async function toggleGrades(entry) {
                 </div>
               </div>
             </td>
-            <td class="is-number">{{ entry.gradeCount }}</td>
-            <td class="is-number">
+            <td class="is-number" data-label="Avaliações">{{ entry.gradeCount }}</td>
+            <td class="is-number" data-label="Média parcial">
               <strong :class="['grades-average', `is-${bandInfo(bandOf(entry.average)).tone}`]">{{ formatGrade(entry.average) }}</strong>
               <small v-if="goalMessage(entry.average, goal)" class="grades-goal-hint">{{ goalMessage(entry.average, goal) }}</small>
             </td>
-            <td>
+            <td data-label="Situação">
               <span :class="['grades-chip', `is-${bandInfo(bandOf(entry.average)).tone}`]">{{ bandInfo(bandOf(entry.average)).label }}</span>
             </td>
-            <td>
+            <td data-label="Progresso">
               <div class="grades-progress">
                 <span class="grades-progress-track" aria-hidden="true">
                   <span :class="['grades-progress-bar', `is-${bandInfo(bandOf(entry.average)).tone}`]" :style="{ width: `${progressOf(entry)}%` }"></span>
@@ -209,7 +209,7 @@ async function toggleGrades(entry) {
 .is-grid { overflow: visible; }
 .is-grid .grades-table { display: block; min-width: 0; }
 .is-grid thead { display: none; }
-.is-grid tbody { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 18px; padding: 18px; }
+.is-grid tbody { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(280px,100%),1fr)); gap: 18px; padding: 18px; }
 .is-grid tbody > tr { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); border: 1px solid #eeeaf5; border-radius: 12px; padding: 12px; }
 .is-grid .grades-table td { border: 0; padding: 10px; }
 .is-grid td:first-child, .is-grid td:nth-child(5), .is-grid .grades-row-actions { grid-column: 1/-1; }
@@ -218,5 +218,51 @@ async function toggleGrades(entry) {
 .is-grid .grades-row-actions { width: auto; text-align: right; }
 .is-grid .grades-detail-row { grid-column: 1/-1; display: block; }
 .is-grid .grades-detail-row > td { display: block; }
-@media(max-width: 600px) { .is-grid .grades-detail-list li { grid-template-columns: 1fr 40px 32px 32px; } .is-grid .grades-detail-list time { grid-column: 1; } }
+
+/* Celular (padrão do projeto: 760): a tabela vira lista de cards, como em Provas. Sem rolagem horizontal,
+   com as mesmas informações e ações; o cabeçalho fica só para leitores de tela. Fontes de pelo menos 12px
+   e alvos de toque de 44px. O modo "grade" mantém seus cards e ganha só os ajustes de texto e toque. */
+@media (max-width: 760px) {
+  .grades-table-wrap { overflow: visible; }
+  .grades-table,
+  .grades-table tbody { display: block; min-width: 0; width: 100%; }
+  .grades-table thead { clip: rect(0, 0, 0, 0); height: 1px; margin: -1px; overflow: hidden; position: absolute; width: 1px; }
+  .grades-table-wrap:not(.is-grid) .grades-table tbody > tr { border-top: 1px solid #eff0f5; display: grid; gap: 12px 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px; }
+  .grades-table-wrap:not(.is-grid) .grades-table tbody > tr:first-child { border-top: 0; }
+  .grades-table-wrap:not(.is-grid) .grades-table td { border: 0; padding: 0; }
+  .grades-table td { display: block; font-size: .8125rem; min-width: 0; }
+  .grades-table td:first-child,
+  .grades-table td:nth-child(5),
+  .grades-table td.grades-row-actions,
+  .grades-table td.grades-table-empty { grid-column: 1 / -1; }
+  .grades-table td[data-label]::before { color: #858b9e; content: attr(data-label); display: block; font-size: .75rem; font-weight: 700; margin-bottom: 4px; }
+  .is-grid .grades-table tbody { gap: 12px; padding: 12px; }
+  .is-grid .grades-table td { padding: 6px; }
+  .grades-table td.is-number,
+  .grades-table .grades-table-empty { text-align: left; }
+
+  .grades-discipline { min-width: 0; }
+  .grades-discipline > div { min-width: 0; overflow-wrap: anywhere; }
+  .grades-discipline strong { font-size: .875rem; }
+  .grades-discipline small,
+  .grades-goal-hint,
+  .grades-chip,
+  .grades-progress-value,
+  .grades-detail-status,
+  .grades-detail-list time,
+  .grades-observation { font-size: .75rem; }
+  .grades-progress { min-width: 0; }
+  .grades-progress-value { flex-basis: 40px; }
+  .grades-row-actions { width: auto; }
+  .grades-row-actions .grades-icon-button { height: 44px; margin-inline: 0; width: 44px; }
+  .grades-row-actions .grades-icon-button + .grades-icon-button { margin-left: 8px; }
+  .grades-icon-button { height: 44px; width: 44px; }
+
+  .grades-table tbody > tr.grades-detail-row { background: #faf9fd; border-top: 0; display: block; grid-column: 1 / -1; padding: 0 16px 16px; }
+  .grades-table .grades-detail-row > td { background: transparent; padding: 0; }
+  .grades-detail-list li { gap: 4px 10px; grid-template-columns: minmax(0, 1fr) auto 44px 44px; }
+  .grades-detail-list li > span { grid-column: 1 / -1; min-width: 0; overflow-wrap: anywhere; }
+  .grades-detail-list li > time { grid-column: 1; }
+  .grades-detail-list li > strong { grid-column: 2; }
+}
 </style>

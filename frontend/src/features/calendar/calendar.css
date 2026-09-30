@@ -860,6 +860,220 @@
   }
 }
 
+/* Celular (até 760px, o mesmo ponto em que o menu lateral vira barra inferior): com 7 colunas de
+   ~47px as caixas de evento ficam ilegíveis. O Mês vira grade de números com marcadores e agenda
+   do dia selecionado; a Semana vira lista por dia. Os elementos só do celular (botão de selecionar
+   o dia, dia da semana na lista e agenda abaixo da grade) ficam escondidos fora desta faixa. */
+@media not all and (max-width: 760px) {
+  .calendar-screen .calendar-day-select,
+  .calendar-screen .calendar-day-weekday,
+  .calendar-screen .calendar-month-agenda {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  /* Alvos de toque de 44px e fontes de pelo menos 12px. */
+  .calendar-screen .new-event-button,
+  .calendar-screen .today-button,
+  .calendar-screen .view-switch button {
+    min-height: 44px;
+  }
+  .calendar-screen .today-button,
+  .calendar-screen .view-switch button,
+  .calendar-screen .calendar-alert,
+  .calendar-screen .calendar-feedback,
+  .calendar-screen .calendar-section-error,
+  .calendar-screen .legend-item,
+  .calendar-screen .readonly-tag {
+    font-size: .75rem;
+  }
+  .calendar-screen .retry-button {
+    font-size: .75rem;
+    min-height: 44px;
+  }
+  .calendar-screen .period-navigation button {
+    height: 44px;
+    width: 44px;
+  }
+  .calendar-screen .calendar-weekdays span {
+    font-size: .75rem;
+    padding: 10px 0;
+  }
+
+  /* Mês: só o número e um marcador por categoria; tocar seleciona o dia. */
+  .calendar-screen .calendar-grid.is-month .calendar-day {
+    min-height: 0;
+    padding: 0;
+  }
+  .calendar-screen .calendar-grid.is-month .calendar-day-create,
+  .calendar-screen .calendar-grid.is-month .calendar-day-number,
+  .calendar-screen .calendar-grid.is-month .calendar-day-events,
+  .calendar-screen .calendar-grid.is-month .calendar-day-more {
+    display: none;
+  }
+  .calendar-screen .calendar-day-select {
+    align-items: center;
+    background: none;
+    border: 0;
+    color: #2b3149;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    justify-content: center;
+    min-height: 52px;
+    padding: 6px 0;
+    width: 100%;
+  }
+  .calendar-screen .calendar-day-select:focus-visible {
+    outline: 2px solid #6936e0;
+    outline-offset: -2px;
+  }
+  .calendar-screen .calendar-day-select-number {
+    align-items: center;
+    border-radius: 50%;
+    display: flex;
+    font-size: .8rem;
+    font-weight: 700;
+    height: 30px;
+    justify-content: center;
+    width: 30px;
+  }
+  .calendar-screen .calendar-day.is-outside .calendar-day-select-number {
+    color: #b6bac9;
+  }
+  /* Hoje ganha anel e o selecionado, fundo cheio: os dois continuam distinguíveis quando coincidem. */
+  .calendar-screen .calendar-day.is-today .calendar-day-select-number {
+    color: #6429db;
+    font-weight: 800;
+    outline: 2px solid #6429db;
+    outline-offset: 1px;
+  }
+  .calendar-screen .calendar-day.is-selected .calendar-day-select-number {
+    background: linear-gradient(135deg, #7749f7, #5320da);
+    color: #fff;
+  }
+  .calendar-screen .calendar-day-dots {
+    display: flex;
+    gap: 3px;
+    height: 6px;
+    justify-content: center;
+  }
+  .calendar-screen .calendar-day-dot {
+    border-radius: 50%;
+    height: 6px;
+    width: 6px;
+  }
+  .calendar-screen .calendar-day-dot.is-class { background: #2daf68; }
+  .calendar-screen .calendar-day-dot.is-activity { background: #7a4ced; }
+  .calendar-screen .calendar-day-dot.is-exam { background: #3a7fd9; }
+  .calendar-screen .calendar-day-dot.is-assignment { background: #ef8b1f; }
+  .calendar-screen .calendar-day-dot.is-other { background: #e2537c; }
+
+  .calendar-screen .calendar-month-agenda {
+    border-top: 1px solid #eeecf5;
+    padding-top: 16px;
+  }
+
+  /* Semana: um bloco por dia, com a data à esquerda e os eventos à direita. Dia vazio fica só com
+     a data; tocar no espaço livre do bloco continua criando evento naquele dia. */
+  .calendar-screen .calendar-weekdays.is-week {
+    display: none;
+  }
+  .calendar-screen .calendar-grid.is-week {
+    border-top: 1px solid #eeecf5;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .calendar-screen .calendar-grid.is-week .calendar-day {
+    align-items: start;
+    border-right: 0;
+    display: grid;
+    gap: 2px 12px;
+    grid-template-columns: 44px minmax(0, 1fr);
+    /* A sobra de altura de um dia cheio vai para a 2ª linha, e o número fica logo abaixo do dia. */
+    grid-template-rows: auto 1fr;
+    min-height: 0;
+    padding: 10px 16px;
+  }
+  .calendar-screen .calendar-grid.is-week .calendar-day-weekday {
+    color: #666d84;
+    font-size: .75rem;
+    font-weight: 700;
+    grid-column: 1;
+    grid-row: 1;
+    pointer-events: none;
+    position: relative;
+    text-align: center;
+    z-index: 1;
+  }
+  .calendar-screen .calendar-grid.is-week .calendar-day-number {
+    font-size: .85rem;
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: center;
+  }
+  .calendar-screen .calendar-grid.is-week .calendar-day-events {
+    align-self: center;
+    gap: 6px;
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+  .calendar-screen .calendar-grid.is-week .calendar-event {
+    min-height: 44px;
+    padding: 7px 10px;
+  }
+  .calendar-screen .calendar-grid.is-week .calendar-event strong {
+    font-size: .8rem;
+  }
+  .calendar-screen .calendar-grid.is-week .calendar-event small {
+    font-size: .75rem;
+  }
+
+  /* Lista do dia (visão Dia e agenda do dia selecionado no Mês). */
+  .calendar-screen .day-view-time,
+  .calendar-screen .day-view-body small {
+    font-size: .75rem;
+  }
+  .calendar-screen .day-view-body strong {
+    font-size: .85rem;
+  }
+
+  /* Cartões laterais, que no celular ficam abaixo do calendário. */
+  .calendar-screen .side-card-action {
+    font-size: .75rem;
+    min-height: 44px;
+  }
+  .calendar-screen .upcoming-item {
+    min-height: 44px;
+  }
+  .calendar-screen .upcoming-body strong {
+    font-size: .8rem;
+  }
+  .calendar-screen .upcoming-body small,
+  .calendar-screen .upcoming-when strong,
+  .calendar-screen .upcoming-when small,
+  .calendar-screen .upcoming-count-hint,
+  .calendar-screen .mini-calendar-weekdays span {
+    font-size: .75rem;
+  }
+  .calendar-screen .mini-calendar-header strong {
+    font-size: .8rem;
+  }
+  .calendar-screen .mini-calendar-header button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .calendar-screen .mini-calendar-day {
+    font-size: .75rem;
+    height: 44px;
+  }
+  .calendar-screen .filter-chip {
+    font-size: .75rem;
+    min-height: 44px;
+  }
+}
+
 @media (max-width: 520px) {
   .calendar-screen .calendar-topbar {
     align-items: flex-start;
@@ -871,16 +1085,12 @@
     min-width: 130px;
   }
 
-  .calendar-screen .calendar-weekdays span {
-    font-size: .62rem;
+  /* Horário acima do título: lado a lado, o texto do evento ficaria com ~150px em 360px. */
+  .calendar-screen .day-view-event {
+    flex-direction: column;
+    gap: 4px;
   }
-
-  .calendar-screen .calendar-day {
-    min-height: 74px;
-    padding: 5px;
-  }
-
-  .calendar-screen .calendar-event small {
-    display: none;
+  .calendar-screen .day-view-time {
+    flex: none;
   }
 }

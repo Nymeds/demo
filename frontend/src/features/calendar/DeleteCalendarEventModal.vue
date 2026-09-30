@@ -123,6 +123,11 @@ useFocusTrap(() => true, modalRef, {
 .confirm-delete:hover { box-shadow: 0 11px 24px rgba(206, 60, 92, .28); transform: translateY(-1px); }
 .confirm-delete svg { fill: none; height: 16px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 16px; }
 
+@media (max-width: 760px) {
+  .delete-modal-actions button { font-size: .8rem; min-height: 44px; }
+  .delete-error { font-size: .75rem; }
+}
+
 @media (max-width: 420px) {
   .delete-modal-actions { flex-direction: column-reverse; }
 }

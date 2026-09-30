@@ -133,7 +133,15 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
-@media (max-width: 420px) {
+/* Breakpoints padrão 760 (fonte e toque) e 520 (layout; era 420). */
+@media (max-width: 760px) {
+  .delete-absence-modal p,
+  .delete-absence-actions button { font-size: .875rem; }
+  .delete-absence-error { font-size: .75rem; }
+  .delete-absence-actions button { min-height: 44px; }
+}
+
+@media (max-width: 520px) {
   .delete-absence-actions { flex-direction: column-reverse; }
 }
 </style>

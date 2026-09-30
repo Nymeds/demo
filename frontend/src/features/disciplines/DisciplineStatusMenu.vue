@@ -118,4 +118,23 @@ defineExpose({ focusFirstOption: () => menuElement.value?.querySelector('button'
 .status-option-dot.is-success {
   background: #25a65d;
 }
+
+/* Breakpoint padrão 760: fonte mínima de 12 px e itens de toque de 44 px. O menu é compactado para
+   caber nos 156 px que statusMenuPosition reserva: 2 (borda) + 4 (padding) + 16 (título) + 3 × 44 = 154. */
+@media (max-width: 760px) {
+  .discipline-status-menu {
+    padding: 2px;
+  }
+
+  .discipline-status-menu p {
+    font-size: .75rem;
+    line-height: 1;
+    padding: 2px 9px;
+  }
+
+  .discipline-status-menu button {
+    font-size: .875rem;
+    min-height: 44px;
+  }
+}
 </style>

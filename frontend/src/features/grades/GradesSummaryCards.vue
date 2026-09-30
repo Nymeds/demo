@@ -76,4 +76,11 @@ const generalGoalMessage = computed(() => goalMessage(props.summary.generalAvera
 .grades-summary-link:focus-visible { outline: 2px solid rgba(105, 54, 224, .4); outline-offset: 2px; }
 .grades-summary-goal { font-weight: 700; }
 
+/* Celular: fontes de pelo menos 12px e alvo de toque de 44px no link. */
+@media (max-width: 760px) {
+  .grades-summary-card p,
+  .grades-summary-card small { font-size: .75rem; }
+  .grades-summary-link { align-items: center; display: inline-flex; font-size: .75rem; min-height: 44px; }
+}
+
 </style>

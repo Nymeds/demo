@@ -411,4 +411,17 @@ onBeforeUnmount(() => toggleListeners(false))
 .app-date-day:focus-visible,
 .app-date-nav:focus-visible,
 .app-date-link:focus-visible { outline: 2px solid rgba(99, 48, 224, .5); outline-offset: 1px; }
+
+/* Celular: alvos de toque de 44px e fontes de pelo menos 12px. As variáveis --app-date-* das telas
+   continuam valendo; só o valor padrão (sem variável) sobe. */
+@media (max-width: 760px) {
+  .app-date-trigger { font-size: var(--app-date-font-size, 16px); height: var(--app-date-height, 44px); }
+  .app-date-popup { padding: 8px; }
+  .app-date-header strong { font-size: 1rem; }
+  .app-date-nav { height: 44px; width: 44px; }
+  .app-date-grid th { font-size: .75rem; }
+  .app-date-grid td { padding: 0; }
+  .app-date-day { aspect-ratio: auto; font-size: .875rem; height: 44px; }
+  .app-date-link { font-size: .875rem; min-height: 44px; padding: 4px 14px; }
+}
 </style>

@@ -71,6 +71,20 @@ export function dayCreateLabel(date) {
   return `Criar evento em ${formatted}`
 }
 
+// Rótulo do dia na grade compacta do celular, onde só aparecem o número e os marcadores:
+// o leitor de tela precisa ouvir a data inteira e quantos eventos há nela.
+export function daySelectLabel(date, count) {
+  const formatted = capitalize(new Intl.DateTimeFormat('pt-BR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(date))
+
+  if (count === 0) return `${formatted}, nenhum evento`
+  return `${formatted}, ${count} ${count === 1 ? 'evento' : 'eventos'}`
+}
+
 export function formatTime(value) {
   return value ? value.slice(11, 16) : ''
 }
@@ -247,12 +261,20 @@ export function buildCalendarDay(day, events, referenceDate, today, viewMode = '
     isSelected: isSameDay(day, referenceDate),
     events: dayEvents.slice(0, limit),
     hiddenCount: Math.max(dayEvents.length - limit, 0),
+    // Na grade compacta do celular a célula mostra só marcadores, então eles contam o dia inteiro
+    // (e não só os eventos que cabem antes do "mais N").
+    totalCount: dayEvents.length,
+    dots: dotsOf(dayEvents),
   }
 }
 
+// Um marcador por categoria presente no dia, no máximo 3 (o mesmo do mini calendário).
+export function dotsOf(dayEvents) {
+  return [...new Set(dayEvents.map(event => event.category))].slice(0, 3)
+}
+
 export function buildMiniCalendarDay(day, events, referenceDate, today) {
-  const dayEvents = eventsOfDay(events, day)
-  const dots = [...new Set(dayEvents.map(event => event.category))].slice(0, 3)
+  const dots = dotsOf(eventsOfDay(events, day))
 
   return {
     date: day,

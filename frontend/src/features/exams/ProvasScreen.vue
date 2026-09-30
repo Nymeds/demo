@@ -1,6 +1,7 @@
 <script setup>
 import { apiRequest } from '../../shared/http/apiRequest.js'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import AppToast from '../../components/ui/AppToast.vue'
 import { loadActiveDashboard } from '../../shared/dashboards/useActiveDashboard.js'
 import { startOfDay } from '../../shared/date/localDate.js'
 import ExamDeleteModal from './ExamDeleteModal.vue'
@@ -544,9 +545,6 @@ onBeforeUnmount(() => {
       @confirm="confirmDeleteExam"
     />
 
-    <div v-if="toast.message" class="exams-toast" :class="`is-${toast.type}`" role="status">
-      <span>{{ toast.message }}</span>
-      <button type="button" aria-label="Fechar aviso" @click="closeToast">×</button>
-    </div>
+    <AppToast :message="toast.message" :type="toast.type" @close="closeToast" />
   </section>
 </template>

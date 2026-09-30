@@ -45,10 +45,10 @@ const emit = defineEmits(['toggle-status', 'edit', 'delete'])
                 <span class="discipline-name" :data-tooltip="discipline.name">{{ discipline.name }}</span>
               </div>
             </td>
-            <td class="discipline-professor" :data-tooltip="discipline.professorName || 'Sem professor'">
+            <td class="discipline-professor" data-label="Professor" :data-tooltip="discipline.professorName || 'Sem professor'">
               {{ discipline.professorName || 'Sem professor' }}
             </td>
-            <td>
+            <td data-label="Horários">
               <div class="discipline-schedules">
                 <span
                   v-for="(schedule, index) in discipline.schedules"
@@ -60,10 +60,10 @@ const emit = defineEmits(['toggle-status', 'edit', 'delete'])
                 </span>
               </div>
             </td>
-            <td :class="['discipline-average', { 'is-low': typeof discipline.average === 'number' && discipline.average < 7 }]">
+            <td data-label="Média" :class="['discipline-average', { 'is-low': typeof discipline.average === 'number' && discipline.average < 7 }]">
               {{ formatAverage(discipline.average) }}
             </td>
-            <td>
+            <td data-label="Frequência">
               <div :class="['discipline-attendance', 'is-' + disciplineAttendanceSituation(discipline, attendanceAlertMargin)]">
                 <span>{{ attendanceLabel(discipline.attendancePercentage) }}</span>
                 <span class="attendance-track" aria-hidden="true">
@@ -71,12 +71,12 @@ const emit = defineEmits(['toggle-status', 'edit', 'delete'])
                 </span>
               </div>
             </td>
-            <td>
+            <td data-label="Situação">
               <span :class="['discipline-status', statusDetails(discipline.status).className]">
                 {{ statusDetails(discipline.status).label }}
               </span>
             </td>
-            <td>
+            <td class="actions-cell">
               <div class="discipline-actions-cell">
                 <button
                   class="status-menu-trigger"

@@ -578,7 +578,9 @@ button:focus-visible {
   --app-select-radius: 7px;
   --app-select-padding: 0 14px;
 }
-@media (max-width: 680px) {
+/* Breakpoint padrão 760 (era 680). Abaixo dele: fontes de 12 px no mínimo, campos de 16 px
+   (sem zoom no iOS) e alvos de toque de 44 px. */
+@media (max-width: 760px) {
   .modal-backdrop {
     align-items: flex-start;
     padding: 12px;
@@ -598,7 +600,7 @@ button:focus-visible {
   }
 
   .schedule-row {
-    grid-template-columns: 1fr 1fr 43px;
+    grid-template-columns: 1fr 1fr 44px;
   }
 
   .performance-fields {
@@ -620,6 +622,54 @@ button:focus-visible {
 
   .save-button {
     justify-content: center;
+  }
+
+  .modal-title p,
+  .schedule-fieldset > p,
+  .color-fieldset > p,
+  .schedule-separator,
+  .time-error {
+    font-size: .75rem;
+  }
+
+  .form-field,
+  .schedule-fieldset legend,
+  .color-fieldset legend,
+  .add-schedule,
+  .cancel-button,
+  .save-button {
+    font-size: .875rem;
+  }
+
+  .form-field > input {
+    font-size: 1rem;
+    min-height: 44px;
+  }
+
+  .schedule-row,
+  .period-fields {
+    --app-select-height: 44px;
+    --app-select-font-size: 1rem;
+    --app-time-height: 44px;
+    --app-time-font-size: 1rem;
+  }
+
+  .modal-close,
+  .add-schedule,
+  .cancel-button,
+  .save-button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .remove-schedule {
+    height: 44px;
+    width: 44px;
+  }
+
+  .color-options label > span {
+    height: 44px;
+    width: 44px;
   }
 }
 </style>

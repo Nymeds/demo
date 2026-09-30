@@ -430,7 +430,7 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
-@media (max-width: 620px) {
+@media (max-width: 760px) {
   .activity-modal-backdrop {
     align-items: flex-start;
     padding: 12px;
@@ -452,6 +452,46 @@ textarea:focus-visible {
 
   .activity-save-button {
     justify-content: center;
+  }
+
+  /* Fontes de pelo menos 12px, campos de 16px (sem zoom no iOS) e alvos de toque de 44px. */
+  .activity-modal-close {
+    align-items: center;
+    display: inline-flex;
+    flex: 0 0 44px;
+    height: 44px;
+    justify-content: center;
+    width: 44px;
+  }
+
+  .activity-modal-title p,
+  .activity-form-field small,
+  .activity-form-error {
+    font-size: .75rem;
+  }
+
+  .activity-form-field,
+  .activity-type-field legend {
+    font-size: .875rem;
+  }
+
+  .activity-form-field {
+    --app-select-font-size: 1rem;
+    --app-date-font-size: 1rem;
+  }
+
+  .activity-form-field input,
+  .activity-form-field select,
+  .activity-form-field textarea {
+    font-size: 1rem;
+    min-height: 44px;
+  }
+
+  .activity-type-option,
+  .activity-cancel-button,
+  .activity-save-button {
+    font-size: .875rem;
+    min-height: 44px;
   }
 }
 </style>

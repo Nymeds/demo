@@ -1003,6 +1003,83 @@
   }
 }
 
+/* Breakpoints padrão do projeto: 1100 / 760 / 520. Os @container acima ficam como estão: medem a área de
+   conteúdo da tela (que muda com a barra lateral de 252 px, 76 px ou inferior), não a janela, então não
+   equivalem a um breakpoint de viewport. O que depende do aparelho (tabela em cards, toque, fontes) usa @media. */
+@media (max-width: 760px) {
+  /* Fontes de 9–11 px sobem para 12 px; campos para 16 px (sem zoom no iOS); alvos de toque para 44 px. */
+  .disciplines-page .disciplines-heading p,
+  .disciplines-page .disciplines-total-card p,
+  .disciplines-page .disciplines-total-card small,
+  .disciplines-page .disciplines-filters button,
+  .disciplines-page .clear-filters,
+  .disciplines-page .disciplines-sort,
+  .disciplines-page .disciplines-footer,
+  .disciplines-page .disciplines-footer button,
+  .disciplines-page .disciplines-footer span,
+  .disciplines-page .discipline-status,
+  .disciplines-page .disciplines-table-card .discipline-status,
+  .disciplines-page .disciplines-no-results,
+  .disciplines-page .disciplines-save-feedback,
+  .disciplines-page .disciplines-request-error,
+  .disciplines-page .disciplines-card-grid header p,
+  .disciplines-page .grid-card-schedules,
+  .disciplines-page .grid-card-data small { font-size: .75rem; }
+  .disciplines-page .disciplines-add-button,
+  .disciplines-page .disciplines-empty-button { font-size: .875rem; min-height: 44px; }
+  .disciplines-page .disciplines-search input { font-size: 1rem; min-height: 44px; }
+  .disciplines-page .disciplines-sort { --app-select-height: 44px; --app-select-font-size: 1rem; }
+  .disciplines-page .disciplines-filters button,
+  .disciplines-page .clear-filters,
+  .disciplines-page .disciplines-request-error button { min-height: 44px; }
+  .disciplines-page .disciplines-footer button,
+  .disciplines-page .disciplines-footer span { align-items: center; display: inline-flex; justify-content: center; min-height: 44px; min-width: 44px; }
+  .disciplines-page .disciplines-view-buttons button { height: 44px; }
+  .disciplines-page .discipline-actions-cell button { height: 44px; width: 44px; }
+
+  /* Tabela vira lista de cards: uma disciplina por card, com as mesmas informações e ações (mesmo padrão de Provas).
+     Sem rolagem horizontal; o menu de situação é teletransportado para o body e não é cortado. */
+  .disciplines-page .disciplines-table-scroll { overflow: visible; }
+  .disciplines-page .disciplines-table-card table,
+  .disciplines-page .disciplines-table-card tbody { display: block; min-width: 0; width: 100%; }
+  .disciplines-page .disciplines-table-card colgroup { display: none; }
+  .disciplines-page .disciplines-table-card thead { clip: rect(0, 0, 0, 0); height: 1px; margin: -1px; overflow: hidden; position: absolute; width: 1px; }
+  .disciplines-page .disciplines-table-card tbody tr { border-bottom: 1px solid #ececf1; display: grid; gap: 12px 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px; }
+  .disciplines-page .disciplines-table-card tbody tr:last-child { border-bottom: 0; }
+  .disciplines-page .disciplines-table-card tbody td { border: 0; display: block; min-width: 0; padding: 0; }
+  .disciplines-page .disciplines-table-card tbody td:nth-child(n) { text-align: left; }
+  .disciplines-page .disciplines-table-card tbody td:nth-child(-n + 3) { grid-column: 1 / -1; }
+  .disciplines-page .disciplines-table-card tbody td.actions-cell { align-self: end; grid-column: 1 / -1; }
+  /* O rótulo usa ::before; no Professor ele substitui o ::before do tooltip, que não faz sentido com o texto quebrando linha. */
+  .disciplines-page .disciplines-table-card td[data-label]::before {
+    background: none;
+    border: 0;
+    color: #858b9e;
+    content: attr(data-label);
+    display: block;
+    font-size: .75rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    opacity: 1;
+    position: static;
+    transform: none;
+    visibility: visible;
+  }
+  .disciplines-page .disciplines-table-card td[data-tooltip]::after,
+  .disciplines-page .disciplines-table-card .discipline-name[data-tooltip]::after,
+  .disciplines-page .disciplines-table-card .discipline-schedules > span[data-tooltip]::after,
+  .disciplines-page .disciplines-table-card .discipline-schedules > span[data-tooltip]::before,
+  .disciplines-page .disciplines-table-card .discipline-name[data-tooltip]::before { display: none; }
+  .disciplines-page .disciplines-table-card .discipline-name,
+  .disciplines-page .discipline-professor { overflow: visible; overflow-wrap: anywhere; text-overflow: clip; white-space: normal; }
+  .disciplines-page .discipline-schedules { transform: none; }
+  .disciplines-page .discipline-schedules > span { justify-content: flex-start; }
+  .disciplines-page .discipline-schedules > span > span { overflow: visible; overflow-wrap: anywhere; text-overflow: clip; white-space: normal; }
+  .disciplines-page .discipline-attendance { margin-inline: 0; max-width: 140px; width: 100%; }
+  .disciplines-page .attendance-track { width: 100%; }
+  .disciplines-page .discipline-actions-cell { justify-content: flex-end; }
+}
+
 /* Cores da ilustração em classes para o modo noite converter */
 .disciplines-page .de-sca98df0 { stop-color: #a98df0; }
 .disciplines-page .de-sc7650d4 { stop-color: #7650d4; }

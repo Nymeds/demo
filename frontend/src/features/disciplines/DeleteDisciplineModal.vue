@@ -169,7 +169,19 @@ useFocusTrap(() => true, trapRef, {
   outline-offset: 2px;
 }
 
-@media (max-width: 460px) {
+/* Breakpoints padrão 760 (fonte e toque) e 520 (layout; era 460). */
+@media (max-width: 760px) {
+  .delete-modal p,
+  .delete-modal-actions button {
+    font-size: .875rem;
+  }
+
+  .delete-modal-actions button {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 520px) {
   .delete-modal {
     padding: 25px 20px;
   }

@@ -32,3 +32,11 @@ O código atual é uma base Spring Boot; não presuma que funcionalidades de dom
 ## Padrão visual do frontend
 
 - Use Disciplinas e Frequência como referência de dimensões para as demais telas: cards de resumo, filtros, ordenação, botões de adicionar e campos de pesquisa devem manter o mesmo padrão de fontes, ícones, bordas e espaçamentos, com adaptação para telas pequenas.
+
+## Responsividade
+
+- Breakpoints padrão com `max-width`: 1100 px (sidebar compacta), 760 px (celular) e 520 px (celular estreito). Evite criar breakpoints fora desse padrão.
+- Largura mínima alvo: 360 px (conferir também 375 px), sem rolagem horizontal da página; tabelas e listas largas rolam só dentro de um contêiner próprio.
+- No celular (≤ 760 px): alvos de toque com pelo menos 44 px, fontes com pelo menos 12 px (`.75rem`) e campos de formulário com pelo menos 16 px, para o navegador não aplicar zoom.
+- Navegação móvel: barra inferior com 4 destinos fixos + "Mais" (folha com as demais seções, conta e Sair). A altura da barra fica em `--mobile-nav-height`; o conteúdo reserva esse espaço mais `env(safe-area-inset-bottom)`.
+- Sem biblioteca de CSS ou de UI: use o CSS da feature e `<style scoped>`, como no restante do projeto.

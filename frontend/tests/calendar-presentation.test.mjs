@@ -5,7 +5,9 @@ import {
   appendCategoryParams,
   buildCalendarDay,
   buildMiniCalendarDay,
+  daySelectLabel,
   displayedEventsOf,
+  dotsOf,
   eventSaveModeOf,
   eventsOfDay,
   monthGridOf,
@@ -100,6 +102,37 @@ test('visão Mês mostra 3 eventos por dia e o resto vira "mais N"; Semana mostr
   const week = buildCalendarDay(new Date(2026, 8, 24), items, reference, today, 'week')
   assert.equal(week.events.length, 5)
   assert.equal(week.hiddenCount, 0)
+})
+
+test('grade compacta do celular: marcadores e total contam o dia inteiro, além do limite do "mais N"', () => {
+  const reference = new Date(2026, 8, 16)
+  const today = new Date(2026, 8, 15)
+  const items = [
+    event('a', 'CLASS', '2026-09-24T01:00:00'),
+    event('b', 'CLASS', '2026-09-24T02:00:00'),
+    event('c', 'CLASS', '2026-09-24T03:00:00'),
+    event('d', 'EXAM', '2026-09-24T04:00:00'),
+    event('e', 'OTHER', '2026-09-24T05:00:00'),
+    event('f', 'ASSIGNMENT', '2026-09-24T06:00:00'),
+  ]
+
+  const month = buildCalendarDay(new Date(2026, 8, 24), items, reference, today, 'month')
+  assert.equal(month.events.length, 3)
+  assert.equal(month.totalCount, 6)
+  assert.deepEqual(month.dots, ['CLASS', 'EXAM', 'OTHER'])
+
+  const empty = buildCalendarDay(new Date(2026, 8, 25), items, reference, today, 'month')
+  assert.equal(empty.totalCount, 0)
+  assert.deepEqual(empty.dots, [])
+  assert.deepEqual(dotsOf([]), [])
+})
+
+test('rótulo acessível do dia traz a data completa e a quantidade de eventos', () => {
+  const day = new Date(2026, 8, 30)
+
+  assert.equal(daySelectLabel(day, 0), 'Quarta-feira, 30 de setembro de 2026, nenhum evento')
+  assert.equal(daySelectLabel(day, 1), 'Quarta-feira, 30 de setembro de 2026, 1 evento')
+  assert.equal(daySelectLabel(day, 4), 'Quarta-feira, 30 de setembro de 2026, 4 eventos')
 })
 
 test('prova legada duplicada por atividade EXAM é escondida, e a atividade vira item somente leitura', () => {

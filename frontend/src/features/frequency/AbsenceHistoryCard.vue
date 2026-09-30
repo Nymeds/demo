@@ -46,12 +46,12 @@ const visibleHistory = computed(() => visibleHistoryOf(props.entries, props.show
         </thead>
         <tbody>
           <tr v-for="entry in visibleHistory" :key="entry.id">
-            <td>{{ formatDate(entry.date) }}</td>
-            <td>{{ entry.disciplineName }}</td>
-            <td>{{ entry.reason }}</td>
-            <td>{{ entry.note || '—' }}</td>
-            <td><span class="impact-badge">-{{ entry.impact.toLocaleString('pt-BR') }}%</span></td>
-            <td>
+            <td data-label="Data">{{ formatDate(entry.date) }}</td>
+            <td data-label="Disciplina">{{ entry.disciplineName }}</td>
+            <td data-label="Motivo">{{ entry.reason }}</td>
+            <td data-label="Observação">{{ entry.note || '—' }}</td>
+            <td data-label="Impacto"><span class="impact-badge">-{{ entry.impact.toLocaleString('pt-BR') }}%</span></td>
+            <td class="actions-cell">
               <div class="frequency-actions-cell">
                 <button
                   class="undo-action"

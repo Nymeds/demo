@@ -349,43 +349,21 @@
 .exams-page .exam-details-full { grid-column: 1 / -1; }
 .exams-page .exam-delete-text { color: #454b60; font-size: .72rem; line-height: 1.55; margin: 0; }
 
-.exams-page .exams-toast {
-  align-items: center;
-  background: #202538;
-  border-radius: 9px;
-  bottom: 22px;
-  box-shadow: 0 16px 34px rgba(10, 15, 35, .25);
-  color: #fff;
-  display: flex;
-  font-size: .68rem;
-  gap: 14px;
-  justify-content: space-between;
-  padding: 12px 16px;
-  position: fixed;
-  right: 22px;
-  z-index: 200;
-}
-.exams-page .exams-toast.is-error { background: #c0392b; }
-.exams-page .exams-toast button { background: transparent; border: 0; color: inherit; font-size: 1rem; }
-
 .exams-page .sr-only { height: 1px; margin: -1px; overflow: hidden; position: absolute; width: 1px; clip: rect(0,0,0,0); }
 .exams-page button:focus-visible,
 .exams-page a:focus-visible,
 .exams-page input:focus-visible,
 .exams-page textarea:focus-visible { outline: 2px solid #6330e0; outline-offset: 2px; }
-@media (max-width: 1050px) {
+/* Breakpoints padrão do projeto: 1100 / 760 / 520. */
+@media (max-width: 1100px) {
   .exams-page .exams-layout { grid-template-columns: 1fr; }
   .exams-page .exams-side-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 980px) {
   .exams-page .exams-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .exams-page .exams-filters { grid-template-columns: 1fr 1fr; }
 }
-@media (max-width: 650px) {
+@media (max-width: 760px) {
   .exams-page .exams-header { align-items: flex-start; gap: 12px; }
   .exams-page .exams-header-actions { flex-shrink: 0; }
-  .exams-page .exams-summary-grid { grid-template-columns: 1fr; }
-  .exams-page .exams-filters { grid-template-columns: 1fr; }
   .exams-page .exams-side-column { grid-template-columns: 1fr; }
   .exams-page .exam-details-grid { grid-template-columns: 1fr; }
   .exams-page .exam-details-full { grid-column: auto; }
@@ -393,4 +371,90 @@
   .exams-page .exams-tip button { margin-left: 46px; }
   .exams-page .exam-form-grid { grid-template-columns: 1fr; }
   .exams-page .exam-modal-footer { align-items: stretch; flex-direction: column-reverse; }
+
+  /* Fontes de 9–11 px sobem para 12 px; campos para 16 px (sem zoom no iOS); alvos de toque para 44 px. */
+  .exams-page .exams-heading p,
+  .exams-page .exams-request-error,
+  .exams-page .exams-summary-card p,
+  .exams-page .exams-summary-card small,
+  .exams-page .exams-filters label,
+  .exams-page .exams-filter-field,
+  .exams-page .exams-table td,
+  .exams-page .exam-name strong,
+  .exams-page .discipline-name,
+  .exams-page .exam-name small,
+  .exams-page .exams-table td small,
+  .exams-page .status-pill,
+  .exams-page .row-action-menu button,
+  .exams-page .exams-table-footer p,
+  .exams-page .exams-table-footer button,
+  .exams-page .upcoming-card header button,
+  .exams-page .upcoming-empty,
+  .exams-page .upcoming-number,
+  .exams-page .upcoming-details strong,
+  .exams-page .upcoming-details small,
+  .exams-page .upcoming-date small,
+  .exams-page .upcoming-date strong,
+  .exams-page .calendar-weekdays,
+  .exams-page .calendar-day,
+  .exams-page .calendar-legend span,
+  .exams-page .exams-tip strong,
+  .exams-page .exams-tip p,
+  .exams-page .exams-tip button,
+  .exams-page .exam-form-field small,
+  .exams-page .app-field-error,
+  .exams-page .exam-details-grid span,
+  .exams-page .exam-details-grid strong { font-size: .75rem; }
+  .exams-page .exams-button,
+  .exams-page .exam-cancel-button,
+  .exams-page .exam-save-button,
+  .exams-page .exam-form-field,
+  .exams-page .exam-modal-title p,
+  .exams-page .exam-delete-text { font-size: .875rem; }
+  .exams-page .exams-filter-field { --app-select-height: 44px; --app-select-font-size: 1rem; }
+  .exams-page .exam-form-field { --app-select-font-size: 1rem; --app-date-font-size: 1rem; }
+  .exams-page .exams-search,
+  .exams-page .exams-search input { height: 44px; }
+  .exams-page .exams-search input { font-size: 1rem; }
+  .exams-page .exam-form-field input,
+  .exams-page .exam-form-field textarea { font-size: 1rem; }
+  .exams-page .exams-button,
+  .exams-page .exam-cancel-button,
+  .exams-page .exam-save-button,
+  .exams-page .exams-tip button,
+  .exams-page .upcoming-card header button,
+  .exams-page .exams-table-footer button,
+  .exams-page .app-modal-close { min-height: 44px; min-width: 44px; }
+  .exams-page .mini-calendar header button { min-height: 44px; min-width: 44px; }
+  .exams-page .row-actions button { height: 44px; width: 44px; }
+  .exams-page .row-action-menu button { min-height: 44px; }
+  .exams-page .upcoming-item { min-height: 44px; }
+  .exams-page .exams-table-footer { flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .exams-page .exams-table-footer nav { flex-wrap: wrap; justify-content: center; }
+
+  /* Tabela vira lista de cards: uma prova por card, com as mesmas informações e ações.
+     Sem rolagem horizontal; o menu de ações abre para cima, pois o cartão não tem mais rolagem própria. */
+  .exams-page .exams-main-column { overflow: visible; }
+  .exams-page .exams-table-wrap { overflow: visible; }
+  .exams-page .exams-table,
+  .exams-page .exams-table tbody { display: block; min-width: 0; width: 100%; }
+  .exams-page .exams-table thead { clip: rect(0, 0, 0, 0); height: 1px; margin: -1px; overflow: hidden; position: absolute; width: 1px; }
+  .exams-page .exams-table tbody tr { border-top: 1px solid #f0eff4; display: grid; gap: 12px 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px; }
+  .exams-page .exams-table td { border: 0; display: block; min-width: 0; padding: 0; }
+  .exams-page .exams-table td:nth-child(1),
+  .exams-page .exams-table td:nth-child(4),
+  .exams-page .exams-table td.empty-row { grid-column: 1 / -1; }
+  .exams-page .exams-table td[data-label]::before { color: #858b9e; content: attr(data-label); display: block; font-size: .75rem; font-weight: 700; margin-bottom: 4px; }
+  .exams-page .exams-table td.actions-cell { justify-self: end; }
+  .exams-page .exam-name { min-width: 0; }
+  .exams-page .exam-name > div { min-width: 0; overflow-wrap: anywhere; }
+  .exams-page .content-cell { max-width: none; overflow-wrap: anywhere; }
+  .exams-page .row-action-menu { bottom: 48px; top: auto; }
+}
+@media (max-width: 520px) {
+  .exams-page .exams-header { flex-wrap: wrap; }
+  .exams-page .exams-header-actions,
+  .exams-page .exams-header-actions .exams-button { width: 100%; }
+  .exams-page .exams-summary-grid { grid-template-columns: 1fr; }
+  .exams-page .exams-filters { grid-template-columns: 1fr; }
 }

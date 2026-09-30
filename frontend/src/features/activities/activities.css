@@ -627,6 +627,24 @@
   .activities-page .activities-search {
     flex: 1;
   }
+
+  /* Com a sidebar compacta (761–1100 px) a coluna fixa de 328 px deixava o texto do card espremido:
+     a partir daqui as ações ficam abaixo do conteúdo, como no celular. */
+  .activities-page .activity-card {
+    grid-template-columns: 4px minmax(0, 1fr);
+  }
+
+  /* A barra colorida cobre as duas linhas (conteúdo e ações). */
+  .activities-page .activity-discipline-bar {
+    grid-row: 1 / 3;
+  }
+
+  .activities-page .activity-card-actions {
+    flex-wrap: wrap;
+    grid-column: 2;
+    justify-content: flex-start;
+    padding: 0 20px 17px;
+  }
 }
 
 @media (max-width: 760px) {
@@ -653,16 +671,6 @@
   .activities-page .activities-sort {
     justify-content: space-between;
   }
-
-  .activities-page .activity-card {
-    grid-template-columns: 4px minmax(0, 1fr);
-  }
-
-  .activities-page .activity-card-actions {
-    grid-column: 2;
-    justify-content: flex-start;
-    padding: 0 20px 17px;
-  }
 }
 
 @media (max-width: 520px) {
@@ -677,6 +685,11 @@
 
   .activities-page .activity-card-actions {
     flex-wrap: wrap;
+  }
+
+  /* O status ocupa a própria linha; Concluir, editar e excluir cabem juntos na linha de baixo. */
+  .activities-page .activity-status {
+    margin-right: 100%;
   }
 }
 
@@ -698,4 +711,35 @@
 @media (max-width: 760px) {
   .activities-page .activities-view-options { justify-content: flex-start; }
   .activities-page .activities-view-options .activities-sort { flex: 1 1 245px; }
+}
+
+/* Celular: fontes de pelo menos 12px, alvos de toque de 44px e campos de 16px (sem zoom no iOS). */
+@media (max-width: 760px) {
+  .activities-page .activities-search { min-height: 44px; }
+  .activities-page .activities-search input { font-size: 1rem; padding: 12px 0; }
+  .activities-page .activities-add-button,
+  .activities-page .activities-empty-button { font-size: .875rem; min-height: 44px; }
+  .activities-page .activities-summary-card p,
+  .activities-page .activities-summary-card small { font-size: .75rem; }
+  .activities-page .activities-filters button { font-size: .875rem; min-height: 44px; }
+  .activities-page .activities-sort { font-size: .75rem; --app-select-height: 44px; --app-select-font-size: 1rem; }
+  .activities-page .activities-sort .app-select { flex: 1; width: auto; }
+  .activities-page .activities-clear-filters { font-size: .875rem; min-height: 44px; }
+  .activities-page .activities-view-buttons button { height: 44px; }
+  .activities-page .activity-discipline,
+  .activities-page .activity-status,
+  .activities-page .activity-type-badge,
+  .activities-page .activity-meta { font-size: .75rem; }
+  .activities-page .activity-description,
+  .activities-page .activities-state-card p,
+  .activities-page .activities-no-results p,
+  .activities-page .activities-request-error,
+  .activities-page .activities-save-feedback { font-size: .8125rem; }
+  .activities-page .activity-meta { flex-wrap: wrap; }
+  .activities-page .activity-complete { font-size: .8125rem; min-height: 44px; padding: 8px 14px; }
+  .activities-page .activity-icon-button { height: 44px; width: 44px; }
+  .activities-page .activities-no-results button,
+  .activities-page .activities-request-error button { font-size: .875rem; min-height: 44px; }
+  .activities-page .activities-state-card,
+  .activities-page .activities-no-results { padding: 28px 20px; }
 }

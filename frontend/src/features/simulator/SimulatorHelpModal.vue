@@ -284,6 +284,14 @@ useFocusTrap(() => true, dialog, {
   45% { box-shadow: 0 0 0 7px rgba(105, 54, 224, .18); transform: scale(.94); }
 }
 
+@media (max-width: 760px) {
+  .help-eyebrow, .help-example, .mock-field small, .mock-row.is-head, .mock-result small, .help-counter, .mock-chip { font-size: .75rem; }
+  .help-example { position: static; justify-self: end; }
+  .mock-row, .mock-button, .mock-formula, .mock-caption, .help-button { font-size: .8rem; }
+  .help-close { align-items: center; display: inline-flex; justify-content: center; min-height: 44px; min-width: 44px; padding: 4px; }
+  .help-button { min-height: 44px; }
+}
+
 @media (max-width: 520px) {
   .help-modal { padding: 18px 16px; }
   .help-stage { min-height: 210px; padding: 16px 16px 26px; }

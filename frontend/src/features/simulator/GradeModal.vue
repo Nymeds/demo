@@ -380,7 +380,8 @@ useFocusTrap(() => true, card, {
   position: fixed;
   inset: 0;
 
-  z-index: 9999;
+  /* Mesmo nível dos demais modais (styles/modal.css); o AppToast (200) fica acima. */
+  z-index: 100;
 
   display: flex;
   align-items: center;
@@ -396,6 +397,7 @@ useFocusTrap(() => true, card, {
   width: 100%;
   max-width: 460px;
   max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
 
   overflow-y: auto;
 
@@ -624,6 +626,27 @@ useFocusTrap(() => true, card, {
   opacity: 0.6;
 
   cursor: not-allowed;
+}
+
+/* Celular: fonte de 12 px no rótulo, campos de 16 px (evita zoom no iOS) e alvos de toque de 44 px. */
+@media (max-width: 760px) {
+  .modal-card {
+    padding: 22px 18px;
+  }
+
+  .proof-label {
+    font-size: 12px;
+  }
+
+  .field input {
+    height: 44px;
+
+    font-size: 16px;
+  }
+
+  .actions button {
+    min-height: 44px;
+  }
 }
 
 </style>
