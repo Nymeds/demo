@@ -185,6 +185,10 @@ function submitForm() {
           <small v-if="isExamCategory && !isEditing" class="form-hint">
             Provas precisam de uma disciplina e também aparecem na tela Provas.
           </small>
+          <small v-if="isExamCategory && isEditing" class="field-warning" role="status">
+            Ao salvar, este evento vira uma prova: ele sai da lista de eventos e passa a aparecer na tela Provas,
+            onde também pode receber nota.
+          </small>
         </div>
 
         <div class="form-row">
@@ -229,7 +233,7 @@ function submitForm() {
 
           <button class="cancel-action" type="button" :disabled="saving" @click="emit('close')">Cancelar</button>
           <button class="save-action" type="submit" :disabled="saving">
-            {{ saving ? 'Salvando…' : (isEditing ? 'Salvar alterações' : 'Criar evento') }}
+            {{ saving ? 'Salvando…' : (isEditing ? (isExamCategory ? 'Mover para Provas' : 'Salvar alterações') : 'Criar evento') }}
           </button>
         </footer>
       </form>

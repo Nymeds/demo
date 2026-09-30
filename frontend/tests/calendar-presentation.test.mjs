@@ -6,6 +6,7 @@ import {
   buildCalendarDay,
   buildMiniCalendarDay,
   displayedEventsOf,
+  eventSaveModeOf,
   eventsOfDay,
   monthGridOf,
   periodLabelOf,
@@ -18,6 +19,13 @@ import {
 
 const ALL = CATEGORIES.map(category => category.value)
 const DISCIPLINES = [{ id: 'calc', name: 'Cálculo' }]
+
+test('prova sempre vira atividade: nova é criada, e evento editado para prova é convertido', () => {
+  assert.equal(eventSaveModeOf(false, 'EXAM'), 'create-exam')
+  assert.equal(eventSaveModeOf(true, 'EXAM'), 'convert-to-exam')
+  assert.equal(eventSaveModeOf(false, 'CLASS'), 'event')
+  assert.equal(eventSaveModeOf(true, 'ASSIGNMENT'), 'event')
+})
 
 function event(id, category, startsAt, extra = {}) {
   return { id, title: id, category, startsAt, endsAt: null, disciplineId: null, ...extra }

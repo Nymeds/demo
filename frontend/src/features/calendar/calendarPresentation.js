@@ -18,6 +18,14 @@ export const UPCOMING_DISPLAY_LIMIT = 5
 // Quantos eventos cabem na célula da visão Mês antes de virar "mais N".
 export const MONTH_EVENTS_PER_DAY = 3
 
+// O que o "salvar" do modal faz. A prova de verdade é a Atividade do tipo EXAM (é ela que aparece
+// em Provas e em Notas): prova nova vira atividade, e um evento que passa a ser prova (ou um evento
+// de prova antigo, salvo de novo) também vira atividade e deixa de ser evento do calendário.
+export function eventSaveModeOf(isEditing, category) {
+  if (category !== 'EXAM') return 'event'
+  return isEditing ? 'convert-to-exam' : 'create-exam'
+}
+
 export function pad(value) {
   return String(value).padStart(2, '0')
 }

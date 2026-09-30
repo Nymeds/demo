@@ -20,6 +20,7 @@ import {
   categoryClass,
   displayedEventsOf,
   endOfDay,
+  eventSaveModeOf,
   eventsOfDay,
   monthGridOf,
   monthLabelOf,
@@ -318,9 +319,22 @@ function closeEventModal() {
   modalServerError.value = ''
 }
 
-// Prova nova (sem edição em andamento) vira Atividade do tipo EXAM, não um CalendarEvent —
-// assim ela passa a ser a mesma prova mostrada na tela Provas. Editar/excluir eventos EXAM
-// já existentes continua no fluxo antigo, pois esses registros continuam sendo CalendarEvents.
+function createExamActivity(formData) {
+  return apiRequest(`/api/v1/dashboards/${dashboardId.value}/disciplines/${formData.disciplineId}/activities`, {
+    method: 'POST',
+    body: JSON.stringify({
+      title: formData.title,
+      description: formData.description,
+      dueDate: formData.startsAt.slice(0, 10),
+      status: 'PENDING',
+      type: 'EXAM',
+    }),
+  })
+}
+
+// Prova é sempre uma Atividade do tipo EXAM, não um CalendarEvent — assim ela é a mesma prova
+// mostrada na tela Provas. Isso vale para prova nova e para evento que passa a ser prova ao ser
+// editado (inclusive eventos de prova antigos): a atividade é criada e o evento sai do calendário.
 async function saveEvent(formData) {
   if (savingEvent.value) return
 
@@ -328,26 +342,29 @@ async function saveEvent(formData) {
   savingEvent.value = true
 
   const eventId = editingEvent.value?.id
+  const mode = eventSaveModeOf(Boolean(eventId), formData.category)
 
-  if (!eventId && formData.category === 'EXAM') {
+  if (mode !== 'event') {
+    let created = false
     try {
-      await apiRequest(`/api/v1/dashboards/${dashboardId.value}/disciplines/${formData.disciplineId}/activities`, {
-        method: 'POST',
-        body: JSON.stringify({
-          title: formData.title,
-          description: formData.description,
-          dueDate: formData.startsAt.slice(0, 10),
-          status: 'PENDING',
-          type: 'EXAM',
-        }),
-      })
+      await createExamActivity(formData)
+      created = true
+      // Só apaga o evento depois que a prova existe. Se esta exclusão falhar, a tela já esconde o
+      // evento de prova repetido (withoutDuplicateExamEvents), então nada some nem aparece em dobro.
+      if (mode === 'convert-to-exam') await apiRequest(eventsPath(`/${eventId}`), { method: 'DELETE' })
 
-      feedback.value = 'Prova criada com sucesso.'
+      feedback.value = mode === 'convert-to-exam' ? 'Evento movido para Provas.' : 'Prova criada com sucesso.'
       closeEventModal()
-      await loadExamActivities()
+      await Promise.all([loadExamActivities(), loadEvents(), loadUpcoming()])
     } catch (error) {
-      // Erro fica visível dentro do modal (perto do formulário) e o modal continua aberto.
-      modalServerError.value = error.message || 'Não foi possível criar a prova.'
+      if (created) {
+        feedback.value = 'A prova foi criada, mas o evento antigo não pôde ser removido do calendário.'
+        closeEventModal()
+        await Promise.all([loadExamActivities(), loadEvents(), loadUpcoming()])
+      } else {
+        // Erro fica visível dentro do modal (perto do formulário) e o modal continua aberto.
+        modalServerError.value = error.message || 'Não foi possível criar a prova.'
+      }
     } finally {
       savingEvent.value = false
     }
