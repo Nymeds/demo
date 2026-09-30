@@ -89,6 +89,11 @@ const maximumBirthDate = computed(() => {
   ].join('-')
 })
 
+const minimumBirthDate = computed(() => `${Number(maximumBirthDate.value.slice(0, 4)) - 100}${maximumBirthDate.value.slice(4)}`)
+
+// Sem data preenchida, o calendário abre 20 anos atrás em vez do mês atual.
+const initialBirthView = computed(() => `${Number(maximumBirthDate.value.slice(0, 4)) - 20}-01-01`)
+
 const userInitials = computed(() => {
   const parts = (profile.value.name || props.user.name || 'Usuário')
     .trim()
@@ -560,7 +565,10 @@ onBeforeUnmount(() => {
             <span id="profile-birth-label">Data de nascimento <small>(opcional)</small></span>
             <AppDatePicker
               v-model="form.birthDate"
+              :min="minimumBirthDate"
               :max="maximumBirthDate"
+              :initial-view="initialBirthView"
+              year-navigation
               labelledby="profile-birth-label"
               :invalid="Boolean(fieldErrors.birthDate)"
             />
