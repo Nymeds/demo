@@ -50,40 +50,57 @@ O perfil `seed` só existe para o init (e para quem o ativar de propósito): o p
 
 ## Estrutura
 
+O backend e o frontend ficam em pastas separadas, e cada um pode ser aberto e analisado sozinho: o backend na IDE Java pelo `backend/pom.xml` e o frontend pelo `frontend/package.json`. Cada pasta tem o próprio README ([backend](backend/README.md), [frontend](frontend/README.md)).
+
 ```text
-src/main/java/studdy/example/demo/
-  activities/   Atividades e provas (tipo ACTIVITY ou EXAM)
-  auth/         Cadastro, login, refresh tokens, limitador de tentativas de login
-  calendar/     Eventos do calendário
-  config/       Relógio, validação, seed de demonstração (perfis dev e seed)
-  dashboard/    Dashboards e correção de dashboards ativos na inicialização
-  discipline/   Disciplinas, frequência, faltas, desempenho acadêmico
-  grade/        Notas
-  gradebook/    Visão consolidada da tela Notas
-  legal/        Versões vigentes dos Termos e da Política de Privacidade
-  security/     Configuração de segurança e JWT
-  settings/     Preferências, senha, exclusão de conta
-  simulator/    Simulador de notas (cálculo no servidor)
-  user/         Usuário, perfil e foto de perfil
-src/main/resources/                  application.properties e application-dev.properties
-scripts/init.mjs e scripts/init/     Pipeline "init" (Node, sem dependências)
-src/test/java/studdy/example/demo/   Testes automatizados (espelham os pacotes acima)
-src/test/resources/application.properties   Configuração dos testes (H2)
-frontend/src/
-  features/     activities, auth, calendar, dashboard, disciplines, exams, frequency,
-                grades, legal, profile, settings, simulator
-  shared/http/apiRequest.js     Cliente HTTP único (Bearer, erros padronizados, renovação de sessão)
-  shared/auth/session.js        Sessão (localStorage com "Lembrar de mim", senão sessionStorage)
-  shared/dashboards, shared/settings, api/, composables/, components/, styles/
-frontend/tests/                      Testes de lógica do frontend (node:test)
-docs/                                Regras de negócio, API de perfil e migrações
+backend/                               API Spring Boot (Java 21)
+  pom.xml                              Dependências e build do backend
+  mvnw, mvnw.cmd, .mvn/                Maven Wrapper (não precisa instalar o Maven)
+  src/main/java/studdy/example/demo/   Código-fonte, um pacote por funcionalidade:
+    activities/                        Atividades e provas (tipo ACTIVITY ou EXAM)
+    auth/                              Cadastro, login, refresh tokens, limitador de tentativas de login
+    calendar/                          Eventos do calendário
+    config/                            Relógio, validação, seed de demonstração (perfis dev e seed)
+    dashboard/                         Dashboards e correção de dashboards ativos na inicialização
+    discipline/                        Disciplinas, frequência, faltas, desempenho acadêmico
+    grade/                             Notas
+    gradebook/                         Visão consolidada da tela Notas
+    legal/                             Versões vigentes dos Termos e da Política de Privacidade
+    security/                          Configuração de segurança e JWT
+    settings/                          Preferências, senha, exclusão de conta
+    simulator/                         Simulador de notas (cálculo no servidor)
+    user/                              Usuário, perfil e foto de perfil
+  src/main/resources/                  application.properties e application-dev.properties
+  src/test/java/studdy/example/demo/   Testes automatizados (espelham os pacotes acima)
+  src/test/resources/                  Configuração dos testes (H2)
+frontend/                              Interface Vue 3 + Vite
+  package.json                         Dependências e scripts do frontend
+  src/features/<feature>/              Uma pasta por funcionalidade: tela + modais + CSS da feature
+  src/components/ui/                   Componentes compartilhados (AppSelect, AppDatePicker...)
+  src/components/misc/                 Componentes avulsos
+  src/api/                             Adaptador de compatibilidade (apiClient.js) sobre o cliente HTTP único, src/shared/http/apiRequest.js
+  src/composables/                     Composables compartilhados (useTheme.js)
+  src/shared/                          Código compartilhado (cliente HTTP, sessão, datas, formatação...)
+  src/styles/                          CSS global
+  src/assets/images/                   Imagens usadas pelas telas
+  public/                              Arquivos estáticos usados pela interface
+  tests/                               Testes de lógica do frontend (node:test)
+scripts/                               Pipeline "init" (init.mjs e init/, Node sem dependências)
+docs/                                  Regras de negócio, API de perfil e migrações SQL
+README.md                              Este arquivo: visão geral, como rodar, domínio e API
+AGENTS.md                              Orientações para agentes de IA
+compose.yaml                           PostgreSQL 16 para desenvolvimento (Docker)
+.env.example                           Modelo do .env, que fica na raiz (usado pelo init e pelo Docker Compose)
+package.json                           Só o script "init" (npm run init)
+.vscode/tasks.json                     Tarefa "init" do VS Code
+.gitignore, .gitattributes             Regras do Git (arquivos ignorados e fins de linha)
 ```
 
 ## Como rodar
 
 ### Pré-requisitos
 
-Veja a tabela de pré-requisitos do [Início rápido](#início-rápido-init). Docker só é necessário para o PostgreSQL; para o perfil `dev` bastam Java 21 e Node.js. No PowerShell, use `./mvnw.cmd` ou `.\mvnw.cmd`; no Linux/macOS, `./mvnw`.
+Veja a tabela de pré-requisitos do [Início rápido](#início-rápido-init). Docker só é necessário para o PostgreSQL; para o perfil `dev` bastam Java 21 e Node.js. Os comandos do backend rodam dentro da pasta `backend/` (`cd backend` a partir da raiz). No PowerShell, use `./mvnw.cmd` ou `.\mvnw.cmd`; no Linux/macOS, `./mvnw`.
 
 ### Backend, perfil padrão (PostgreSQL)
 
@@ -133,15 +150,17 @@ O antigo perfil `postgres` foi removido: use o perfil padrão com as variáveis 
    # PowerShell
    $env:DB_PASSWORD = "sua-senha-escolhida"
    $env:JWT_SECRET = "uma-chave-com-pelo-menos-32-bytes-................................"
+   cd backend
    ./mvnw.cmd spring-boot:run
    ```
-   ou via `.env`:
+   ou via `.env` (o `.env` fica na raiz; rode a partir dela):
    ```bash
    set -a && source .env && set +a  # Linux/macOS
+   cd backend
    ./mvnw spring-boot:run
    ```
 
-5. **Pare o container** quando terminar:
+5. **Pare o container** quando terminar (na raiz do projeto, onde está o `compose.yaml`):
    ```bash
    docker compose down
    ```
@@ -162,14 +181,22 @@ Nunca exponha a porta `5432` publicamente.
 Não exige PostgreSQL. O banco é H2 em memória: **os dados são perdidos a cada reinicialização**. O perfil cria o usuário demo `desenvolvedor@dev.com` (senha idêntica ao e-mail) com dashboard, disciplinas, atividades, notas e faltas de exemplo. Use somente em desenvolvimento local, nunca em produção.
 
 ```powershell
+# PowerShell
+cd backend
 ./mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=dev"
+```
+
+```bash
+# Linux/macOS
+cd backend
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 Nesse perfil `JWT_SECRET` é opcional (há um segredo exclusivo de desenvolvimento; se definido, tem prioridade). A API fica em `http://localhost:8080`.
 
 ### Backend, perfil `seed` (PostgreSQL com dados de demonstração)
 
-É o perfil usado pelo `init`. Combine-o com as variáveis do perfil padrão (`DB_PASSWORD`, `JWT_SECRET`, ...): `./mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=seed"`. Ele reaproveita o mesmo seed do perfil `dev` (`DemoDataSeed`), mas grava no PostgreSQL configurado, e é idempotente: se `desenvolvedor@dev.com` já existe, nada é criado. Nunca ative em produção.
+É o perfil usado pelo `init`. Combine-o com as variáveis do perfil padrão (`DB_PASSWORD`, `JWT_SECRET`, ...) e rode em `backend/`: `./mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=seed"` (no Linux/macOS, `./mvnw spring-boot:run -Dspring-boot.run.profiles=seed`). Ele reaproveita o mesmo seed do perfil `dev` (`DemoDataSeed`), mas grava no PostgreSQL configurado, e é idempotente: se `desenvolvedor@dev.com` já existe, nada é criado. Nunca ative em produção.
 
 ### Frontend
 
@@ -184,8 +211,10 @@ Abra `http://localhost:5173`. O Vite encaminha as requisições de `/api` para o
 ### Testes e build
 
 ```powershell
-./mvnw.cmd test        # backend: H2 em memória, configuração em src/test/resources/application.properties
-cd frontend
+cd backend
+./mvnw.cmd test        # backend: H2 em memória, configuração em backend/src/test/resources/application.properties
+                       # (no Linux/macOS: ./mvnw test)
+cd ../frontend
 npm run build          # build de produção do frontend
 npm test               # testes de lógica do frontend (node:test; cobertura ainda pequena)
 ```

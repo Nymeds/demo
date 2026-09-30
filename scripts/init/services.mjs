@@ -27,12 +27,15 @@ export function resolveEndpoints(env) {
 
 /** Inicia o backend com o perfil `seed` (cria o usuário demo no PostgreSQL se ele ainda não existir). */
 export function startBackend({ root, env, log }) {
+  // O mvnw fica em backend/; o caminho relativo é resolvido a partir desse cwd. O .env continua na raiz
+  // e chega ao processo pelas variáveis de `env`.
+  const backendDir = join(root, 'backend');
   const mvn = IS_WINDOWS ? '.\\mvnw.cmd' : './mvnw';
-  log.info('Iniciando o backend (mvnw spring-boot:run, perfil "seed")...');
+  log.info('Iniciando o backend (mvnw spring-boot:run em backend/, perfil "seed")...');
   return startStreamed(
     mvn,
     ['spring-boot:run', '-Dspring-boot.run.profiles=seed', '-Dspring-boot.run.jvmArguments=-Dstdout.encoding=UTF-8'],
-    { cwd: root, env, log },
+    { cwd: backendDir, env, log },
   );
 }
 
