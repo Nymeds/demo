@@ -352,18 +352,19 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
       </div>
     </header>
 
-    <div v-if="loading" class="grades-status" role="status">
+    <div v-if="loading" class="grades-status app-state-card is-loading" role="status">
+      <span class="app-spinner" aria-hidden="true"></span>
       <h2>Carregando suas notas…</h2>
       <p>Estamos reunindo as médias das suas disciplinas.</p>
     </div>
 
-    <div v-else-if="loadError" class="grades-status" role="alert">
+    <div v-else-if="loadError" class="grades-status app-state-card is-error" role="alert">
       <h2>Não foi possível carregar suas notas</h2>
       <p>{{ loadError }}</p>
       <button class="grades-button is-primary" type="button" @click="load">Tentar novamente</button>
     </div>
 
-    <div v-else-if="entries.length === 0" class="grades-status">
+    <div v-else-if="entries.length === 0" class="grades-status app-state-card is-empty">
       <h2>Nenhuma disciplina cadastrada ainda</h2>
       <p>Cadastre suas disciplinas e lance as notas para acompanhar seu desempenho aqui.</p>
       <button class="grades-button is-primary" type="button" @click="emit('navigate', 'disciplines')">Cadastrar disciplina</button>

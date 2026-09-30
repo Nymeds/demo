@@ -1,11 +1,16 @@
 <script setup>
-defineProps({
+import { computed } from 'vue'
+import AppSelect from '../../components/ui/AppSelect.vue'
+
+const props = defineProps({
   details: { type: Object, required: true },
   disciplines: { type: Array, required: true },
   selectedDisciplineId: { type: String, default: '' },
 })
 
 const emit = defineEmits(['navigate', 'select'])
+
+const disciplineOptions = computed(() => props.disciplines.map(discipline => ({ value: discipline.id, label: discipline.name })))
 </script>
 
 <template>
@@ -23,16 +28,14 @@ const emit = defineEmits(['navigate', 'select'])
     </header>
 
     <div class="dashboard-frequency-content" aria-live="polite">
-      <select
+      <AppSelect
         class="dashboard-frequency-select"
         aria-label="Selecionar disciplina para consultar a frequência"
-        :value="selectedDisciplineId"
-        @change="emit('select', $event.target.value)"
-      >
-        <option v-for="discipline in disciplines" :key="discipline.id" :value="discipline.id">
-          {{ discipline.name }}
-        </option>
-      </select>
+        :model-value="selectedDisciplineId"
+        :options="disciplineOptions"
+        placeholder="Selecione uma disciplina"
+        @update:model-value="emit('select', $event)"
+      />
 
       <div class="dashboard-frequency-details">
         <div

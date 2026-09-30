@@ -5,6 +5,7 @@ defineProps({
   thisMonthExams: { type: Number, required: true },
   completedExams: { type: Number, required: true },
   monthLabel: { type: String, required: true },
+  monthTitle: { type: String, default: 'Neste mês' },
 })
 </script>
 
@@ -37,7 +38,7 @@ defineProps({
         <svg viewBox="0 0 24 24"><path class="hourglass-shape" d="M6.5 3h11M6.5 21h11M8 3h8c0 4-1.6 5.7-4 7.5-2.4 1.8-4 3.5-4 7.5h8c0-4-1.6-5.7-4-7.5C9.6 8.7 8 7 8 3z" /><path class="hourglass-sand" d="M9.1 5.1h5.8c-.5 1.9-1.4 2.8-2.9 4-.4-.3-.8-.6-1.2-.9-1-.8-1.5-1.6-1.7-3.1zM9.1 18.9h5.8c-.5-1.9-1.4-2.8-2.9-4-.4.3-.8.6-1.2.9-1 .8-1.5 1.6-1.7 3.1z" /></svg>
       </span>
       <div>
-        <p>Este mês</p>
+        <p>{{ monthTitle }}</p>
         <strong>{{ thisMonthExams }}</strong>
         <small>{{ monthLabel }}</small>
       </div>

@@ -65,8 +65,19 @@ public class SimulatorService {
                 clampToGradeRange(requiredScoreRaw),
                 status != SimulationStatus.IMPOSSIBLE,
                 requiredScoreRaw,
-                status
+                status,
+                calculateMaxAchievableAverage(grades)
         );
+    }
+
+    // (soma das notas + 10) / (quantidade + 1): média se a próxima nota for 10.
+    private BigDecimal calculateMaxAchievableAverage(List<Grade> grades) {
+        BigDecimal sum = grades.stream()
+                .map(Grade::getScore)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return sum.add(BigDecimal.TEN)
+                .divide(BigDecimal.valueOf(grades.size() + 1L), OUTPUT_SCALE, RoundingMode.HALF_UP);
     }
 
     /*

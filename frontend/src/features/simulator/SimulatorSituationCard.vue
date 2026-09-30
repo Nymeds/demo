@@ -113,7 +113,7 @@ const emit = defineEmits(['retry-grades', 'edit-target'])
             <button
               type="button"
               class="edit-button"
-              title="Editar meta desejada"
+              data-tooltip="Editar meta desejada"
               aria-label="Editar meta desejada"
               @click="emit('edit-target')"
             >

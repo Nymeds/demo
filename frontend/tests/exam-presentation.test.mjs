@@ -64,3 +64,9 @@ test('calendário de outro mês não marca hoje', () => {
   const days = buildCalendarDays([], new Date(2026, 6, 1), today, false, now)
   assert.ok(days.every(day => day.state === ''))
 })
+
+test('título do card do mês segue o mês visualizado', async () => {
+  const { formatMonthCardTitle } = await import('../src/features/exams/examPresentation.js')
+  assert.equal(formatMonthCardTitle(new Date(2026, 9, 1), true), 'Neste mês')
+  assert.equal(formatMonthCardTitle(new Date(2026, 10, 1), false), 'Em novembro de 2026')
+})

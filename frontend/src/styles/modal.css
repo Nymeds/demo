@@ -1,0 +1,15 @@
+/* Modal padrão (mesmo visual de DisciplineModal/ActivityModal). Erro de campo: .app-field-error. */
+.app-modal-backdrop { align-items: center; background: rgba(16, 20, 34, .58); display: flex; inset: 0; justify-content: center; overflow-y: auto; padding: 30px 18px; position: fixed; z-index: 100; }
+.app-modal { background: #ffffff; border-radius: 16px; box-shadow: 0 24px 70px rgba(15, 18, 35, .28); color: #202538; max-height: calc(100dvh - 32px); max-width: 720px; overflow-y: auto; overscroll-behavior: contain; padding: 28px 32px 25px; width: 100%; }
+.app-modal-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: 25px; }
+.app-modal-close { align-items: center; background: transparent; border: 0; border-radius: 8px; color: #4e5569; cursor: pointer; display: inline-flex; font-size: 1.7rem; height: 36px; justify-content: center; line-height: 1; padding: 6px; width: 36px; }
+.app-modal-close:hover:not(:disabled) { background: #f4f0ff; color: #5726ce; }
+.app-modal-close:focus-visible { outline: 2px solid rgba(99, 48, 224, .5); outline-offset: 1px; }
+.app-modal-close:disabled { cursor: not-allowed; opacity: .5; }
+
+.app-field-error { color: #df3f32; font-size: .68rem; font-weight: 600; line-height: 1.4; margin: 0; }
+
+@media (max-width: 640px) {
+  .app-modal-backdrop { padding: 12px; }
+  .app-modal { padding: 22px 18px 20px; }
+}

@@ -57,7 +57,7 @@ const visibleHistory = computed(() => visibleHistoryOf(props.entries, props.show
                   class="undo-action"
                   type="button"
                   aria-label="Desfazer lançamento de falta"
-                  title="Desfazer lançamento"
+                  data-tooltip="Desfazer lançamento"
                   @click="$emit('delete', entry)"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10h10a5 5 0 0 1 0 10H9" /><path d="m8 6-4 4 4 4" /></svg>

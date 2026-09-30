@@ -80,7 +80,7 @@ defineEmits(['configure'])
                 <button
                   type="button"
                   aria-label="Configurar frequência da disciplina"
-                  title="Configurar frequência"
+                  data-tooltip="Configurar frequência"
                   @click="$emit('configure', row.id)"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4-1 11-11-3-3L5 16l-1 4Z" /><path d="m14 7 3 3" /></svg>

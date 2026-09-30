@@ -1,4 +1,6 @@
 <script setup>
+import AppSelect from '../../components/ui/AppSelect.vue'
+import AppDatePicker from '../../components/ui/AppDatePicker.vue'
 import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { todayIso } from '../../shared/date/localDate.js'
@@ -55,6 +57,8 @@ watch(maxDate, limit => {
   else if (formError.value === FUTURE_DATE_ERROR) formError.value = ''
 })
 
+const disciplineOptions = computed(() => props.rows.map(row => ({ value: row.id, label: row.name })))
+const reasonOptions = computed(() => reasons.map(option => ({ value: option, label: option })))
 const selected = computed(() => props.rows.find(row => row.id === selectedId.value) ?? null)
 
 watch(selected, () => {
@@ -145,20 +149,21 @@ function submitForm() {
 
       <form @submit.prevent="submitForm">
         <fieldset :disabled="submitting" class="absence-fieldset">
-          <label class="form-field">
-            <span>Data da falta <strong>*</strong></span>
-            <input v-model="date" type="date" :max="maxDate" required>
-          </label>
+          <div class="form-field">
+            <label for="absence-date">Data da falta <strong>*</strong></label>
+            <AppDatePicker id="absence-date" v-model="date" :max="maxDate" aria-label="Data da falta" />
+          </div>
 
-          <label class="form-field">
-            <span>Disciplina <strong>*</strong></span>
-            <select v-model="selectedId" required>
-              <option value="" disabled>Selecione uma disciplina</option>
-              <option v-for="row in rows" :key="row.id" :value="row.id">
-                {{ row.name }}
-              </option>
-            </select>
-          </label>
+          <div class="form-field">
+            <label for="absence-discipline">Disciplina <strong>*</strong></label>
+            <AppSelect
+              id="absence-discipline"
+              v-model="selectedId"
+              :options="disciplineOptions"
+              placeholder="Selecione uma disciplina"
+              aria-label="Disciplina"
+            />
+          </div>
 
           <div class="paired-fields">
             <label class="form-field">
@@ -166,12 +171,15 @@ function submitForm() {
               <input v-model.number="quantity" type="number" min="1" step="1" required>
             </label>
 
-            <label class="form-field">
-              <span>Motivo <strong>*</strong></span>
-              <select v-model="reason" required>
-                <option v-for="option in reasons" :key="option" :value="option">{{ option }}</option>
-              </select>
-            </label>
+            <div class="form-field">
+              <label for="absence-reason">Motivo <strong>*</strong></label>
+              <AppSelect
+                id="absence-reason"
+                v-model="reason"
+                :options="reasonOptions"
+                aria-label="Motivo"
+              />
+            </div>
           </div>
 
           <label class="form-field">

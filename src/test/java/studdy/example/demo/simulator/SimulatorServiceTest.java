@@ -144,6 +144,8 @@ class SimulatorServiceTest {
         assertEquals(new BigDecimal("10.00"), response.requiredGrade());
         assertFalse(response.achievable());
         assertEquals(new BigDecimal("15.00"), response.requiredScoreRaw());
+        // (3 + 3 + 10) / 3 = 5.33
+        assertEquals(new BigDecimal("5.33"), response.maxAchievableAverage());
         assertEquals(SimulationStatus.IMPOSSIBLE, response.status());
     }
 
@@ -358,7 +360,51 @@ class SimulatorServiceTest {
         assertEquals(new BigDecimal("6.00"), response.requiredScoreRaw());
         assertEquals(SimulationStatus.ACHIEVABLE, response.status());
         assertTrue(response.achievable());
+        // (4 + 10) / 2 = 7.00
+        assertEquals(new BigDecimal("7.00"), response.maxAchievableAverage());
     }
+
+    @Test
+    void maxAchievableAverageUsesRawGradesRoundedHalfUp() {
+        UUID userId = UUID.randomUUID();
+        UUID dashboardId = UUID.randomUUID();
+        UUID disciplineId = UUID.randomUUID();
+        Discipline discipline = mock(Discipline.class);
+        when(discipline.getPassingAverage()).thenReturn(new BigDecimal("6.00"));
+        when(disciplineAccessService.findOwnedDiscipline(userId, dashboardId, disciplineId))
+                .thenReturn(discipline);
+        when(gradeRepository.findAllByDiscipline_IdOrderByRecordedAtDescCreatedAtDesc(disciplineId))
+                .thenReturn(List.of(
+                        new Grade(null, "P1", new BigDecimal("4.00"), LocalDate.of(2026, 8, 1)),
+                        new Grade(null, "P2", new BigDecimal("5.00"), LocalDate.of(2026, 8, 10))
+                ));
+
+        SimulatorResponse response = service.simulate(
+                userId, dashboardId, disciplineId, new SimulatorRequest(new BigDecimal("9.00")));
+
+        // (4 + 5 + 10) / 3 = 6.333... -> 6.33
+        assertEquals(new BigDecimal("6.33"), response.maxAchievableAverage());
+        assertEquals(SimulationStatus.IMPOSSIBLE, response.status());
+    }
+
+    @Test
+    void maxAchievableAverageIsTenWithoutGrades() {
+        UUID userId = UUID.randomUUID();
+        UUID dashboardId = UUID.randomUUID();
+        UUID disciplineId = UUID.randomUUID();
+        Discipline discipline = mock(Discipline.class);
+        when(discipline.getPassingAverage()).thenReturn(new BigDecimal("6.00"));
+        when(disciplineAccessService.findOwnedDiscipline(userId, dashboardId, disciplineId))
+                .thenReturn(discipline);
+        when(gradeRepository.findAllByDiscipline_IdOrderByRecordedAtDescCreatedAtDesc(disciplineId))
+                .thenReturn(List.of());
+
+        SimulatorResponse response = service.simulate(
+                userId, dashboardId, disciplineId, new SimulatorRequest(new BigDecimal("8.00")));
+
+        assertEquals(new BigDecimal("10.00"), response.maxAchievableAverage());
+    }
+
 @Test
 void returnsNotFoundWhenDisciplineBelongsToAnotherUser() {
     UUID userId = UUID.randomUUID();

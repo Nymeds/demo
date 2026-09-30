@@ -42,10 +42,10 @@ const emit = defineEmits(['toggle-status', 'edit', 'delete'])
                 <span class="discipline-color" :style="{ backgroundColor: `${disciplineColor(discipline)}1f`, color: disciplineColor(discipline) }" aria-hidden="true">
                   <svg viewBox="0 0 24 24"><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M8 7h8M8 10h6" /></svg>
                 </span>
-                <span class="discipline-name" :title="discipline.name">{{ discipline.name }}</span>
+                <span class="discipline-name" :data-tooltip="discipline.name">{{ discipline.name }}</span>
               </div>
             </td>
-            <td class="discipline-professor" :title="discipline.professorName || 'Sem professor'">
+            <td class="discipline-professor" :data-tooltip="discipline.professorName || 'Sem professor'">
               {{ discipline.professorName || 'Sem professor' }}
             </td>
             <td>
@@ -53,7 +53,7 @@ const emit = defineEmits(['toggle-status', 'edit', 'delete'])
                 <span
                   v-for="(schedule, index) in discipline.schedules"
                   :key="index"
-                  :title="`${dayLabels[schedule.dayOfWeek]} ${schedule.startTime} – ${schedule.endTime}`"
+                  :data-tooltip="`${dayLabels[schedule.dayOfWeek]} ${schedule.startTime} – ${schedule.endTime}`"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4m10-4v4M3 10h18" /></svg>
                   <span>{{ dayLabels[schedule.dayOfWeek] }} {{ schedule.startTime }} – {{ schedule.endTime }}</span>
@@ -84,15 +84,16 @@ const emit = defineEmits(['toggle-status', 'edit', 'delete'])
                   :aria-label="`Alterar situação de ${discipline.name}`"
                   aria-haspopup="menu"
                   :aria-expanded="openMenuId === discipline.id"
-                  title="Alterar situação"
+                  data-tooltip="Alterar situação"
+                  data-tooltip-position="left"
                   @click.stop="emit('toggle-status', discipline, $event)"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="19" cy="12" r="1.7" /></svg>
                 </button>
-                <button type="button" aria-label="Editar disciplina" title="Editar" @click="emit('edit', discipline)">
+                <button type="button" aria-label="Editar disciplina" data-tooltip="Editar" data-tooltip-position="left" @click="emit('edit', discipline)">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4-1 11-11-3-3L5 16l-1 4Z" /><path d="m14 7 3 3" /></svg>
                 </button>
-                <button class="delete-action" type="button" aria-label="Excluir disciplina" title="Excluir" @click="emit('delete', discipline)">
+                <button class="delete-action" type="button" aria-label="Excluir disciplina" data-tooltip="Excluir" data-tooltip-position="left" @click="emit('delete', discipline)">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" /></svg>
                 </button>
               </div>

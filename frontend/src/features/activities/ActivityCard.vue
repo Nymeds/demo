@@ -68,7 +68,8 @@ const emit = defineEmits(['complete', 'edit', 'delete'])
         v-if="activity.status !== 'COMPLETED'"
         class="activity-complete"
         type="button"
-        title="Marcar como concluída"
+        data-tooltip="Marcar como concluída"
+        aria-label="Marcar como concluída"
         :disabled="busy"
         @click="emit('complete', activity)"
       >
@@ -81,7 +82,7 @@ const emit = defineEmits(['complete', 'edit', 'delete'])
       <button
         class="activity-icon-button"
         type="button"
-        title="Editar atividade"
+        data-tooltip="Editar atividade"
         aria-label="Editar atividade"
         @click="emit('edit', activity)"
       >
@@ -94,7 +95,7 @@ const emit = defineEmits(['complete', 'edit', 'delete'])
       <button
         class="activity-icon-button is-delete"
         type="button"
-        title="Excluir atividade"
+        data-tooltip="Excluir atividade"
         aria-label="Excluir atividade"
         @click="emit('delete', activity)"
       >

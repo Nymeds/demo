@@ -70,14 +70,14 @@ function isExamBusy(id) {
           </td>
           <td>
             <div class="row-actions">
-              <button type="button" aria-label="Visualizar prova" title="Visualizar prova" @click="emit('view', exam)">
+              <button type="button" aria-label="Visualizar prova" data-tooltip="Visualizar" @click="emit('view', exam)">
                 <svg viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></svg>
               </button>
               <div class="row-action-menu-wrap">
                 <button
                   type="button"
                   aria-label="Mais opções"
-                  title="Mais opções"
+                  data-tooltip="Mais opções"
                   :aria-expanded="openActionMenu === exam.id"
                   @click="emit('toggle-menu', exam.id)"
                 >
@@ -97,9 +97,7 @@ function isExamBusy(id) {
         </tr>
         <tr v-if="exams.length === 0">
           <td colspan="6" class="empty-row">
-            <span aria-hidden="true">🔎</span>
-            <strong>Nenhuma prova encontrada</strong>
-            <small>Tente ajustar os filtros ou cadastrar uma nova prova.</small>
+            <div class="app-state-card is-empty"><span aria-hidden="true">🔎</span><h2>Nenhuma prova encontrada</h2><p>Tente ajustar os filtros ou cadastrar uma nova prova.</p></div>
           </td>
         </tr>
       </tbody>

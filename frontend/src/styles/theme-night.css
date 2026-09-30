@@ -32,3 +32,10 @@
    dia (a troca automática os escurecia e o subtítulo sumia no roxo). */
 :root[data-theme="night"] #app .dashboard-welcome-label { color: #ded3ff; }
 :root[data-theme="night"] #app .dashboard-topbar p { color: #e5ddfa; }
+
+/* Barras de rolagem no modo noite */
+:root[data-theme="night"] {
+  --scrollbar-thumb: #3b4463;
+  --scrollbar-thumb-hover: #8b6cf0;
+  --scrollbar-track: transparent;
+}

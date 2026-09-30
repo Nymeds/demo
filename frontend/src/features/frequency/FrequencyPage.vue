@@ -1,6 +1,7 @@
 <script setup>
 import { apiRequest } from '../../shared/http/apiRequest.js'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import AppSelect from '../../components/ui/AppSelect.vue'
 import AppToast from '../../components/ui/AppToast.vue'
 import FrequencyConfigModal from './FrequencyConfigModal.vue'
 import RegisterAbsenceModal from './RegisterAbsenceModal.vue'
@@ -35,6 +36,10 @@ const requestError = ref('')
 const dashboardId = ref('')
 const disciplines = ref([])
 const searchTerm = ref('')
+const periodSelectOptions = computed(() => [
+  { value: 'all', label: 'Todos' },
+  ...periodOptions.value.map(period => ({ value: period, label: period }))
+])
 const periodFilter = ref('all')
 const situationFilter = ref('all')
 const showConfigModal = ref(false)
@@ -440,13 +445,15 @@ async function confirmDeleteAbsence() {
       </div>
 
       <div class="frequency-filter-options">
-        <label class="frequency-period-filter">
-          <span>Período:</span>
-          <select v-model="periodFilter" aria-label="Filtrar frequência por período">
-            <option value="all">Todos</option>
-            <option v-for="period in periodOptions" :key="period" :value="period">{{ period }}</option>
-          </select>
-        </label>
+        <div class="frequency-period-filter">
+          <span id="frequency-period-label">Período:</span>
+          <AppSelect
+            id="frequency-period-filter"
+            v-model="periodFilter"
+            :options="periodSelectOptions"
+            aria-label="Filtrar frequência por período"
+          />
+        </div>
 
         <button class="clear-filters" type="button" @click="clearFilters">Limpar filtros</button>
       </div>

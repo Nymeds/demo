@@ -174,7 +174,8 @@
 .dashboard-shell .dashboard-activity-status.is-progress { background: #eaf2ff; color: #3471c7; }
 .dashboard-shell .dashboard-activity-status.is-pending { background: #fff2e5; color: #b76315; }
 .dashboard-shell .dashboard-reminder-link { background: #f1ecff; border: 0; border-radius: 999px; box-sizing: border-box; color: #5f2bd5; cursor: pointer; font-size: .61rem; font-weight: 800; justify-self: stretch; padding: 6px 10px; text-align: center; white-space: nowrap; width: 100%; }
-.dashboard-shell .dashboard-reminder-link:hover, .dashboard-shell .dashboard-reminder-link:focus-visible { background: #e2d6ff; }
+.dashboard-shell .dashboard-reminder-link:hover { background: #e2d6ff; }
+.dashboard-shell .dashboard-reminder-link:focus-visible { background: #f1ecff; outline: 2px solid #6832df; outline-offset: 2px; }
 .dashboard-shell .dashboard-panel-empty { align-items: center; display: flex; gap: 12px; min-height: 180px; padding: 24px; }
 .dashboard-shell .dashboard-panel-empty > span { align-items: center; background: #e9f8ef; border-radius: 50%; color: #249255; display: flex; flex: 0 0 42px; height: 42px; justify-content: center; }
 .dashboard-shell .dashboard-panel-empty div { flex: 1; }
@@ -186,8 +187,8 @@
 .dashboard-shell .dashboard-main-column, .dashboard-shell .dashboard-side-column { display: grid; gap: 17px; min-width: 0; }
 .dashboard-shell .dashboard-frequency-panel { overflow: hidden; }
 .dashboard-shell .dashboard-frequency-content { display: grid; gap: 15px; padding: 17px 18px 18px; }
-.dashboard-shell .dashboard-frequency-select { appearance: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23575e73' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center; border: 1px solid #dfe2ea; border-radius: 8px; color: #252b40; font-size: .72rem; height: 40px; outline: none; overflow: hidden; padding: 0 38px 0 12px; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
-.dashboard-shell .dashboard-frequency-select:focus { border-color: #7544eb; box-shadow: 0 0 0 3px rgba(117, 68, 235, .11); }
+.dashboard-shell .dashboard-frequency-select { --app-select-height: 40px; --app-select-font-size: .72rem; --app-select-radius: 8px; width: 100%; }
+.dashboard-shell { --frequency-ring-neutral: #c7cbd8; }
 .dashboard-shell .dashboard-frequency-details { align-items: center; display: grid; gap: 15px; grid-template-columns: 108px minmax(0, 1fr); }
 .dashboard-shell .dashboard-frequency-ring { align-items: center; background: conic-gradient(from -90deg, var(--frequency-color) 0 var(--frequency-angle), #e7e9ef var(--frequency-angle) 360deg); border-radius: 50%; display: flex; height: 108px; justify-content: center; width: 108px; }
 .dashboard-shell .dashboard-frequency-ring > div { align-items: center; background: #fff; border-radius: 50%; display: flex; flex-direction: column; height: 78px; justify-content: center; width: 78px; }
@@ -299,3 +300,26 @@
   .dashboard-shell .dashboard-panel-empty { align-items: flex-start; flex-wrap: wrap; padding: 20px 16px; }
   .dashboard-shell .dashboard-panel-empty button { margin-left: 54px; }
 }
+
+/* Cores da ilustração em classes para o modo noite converter */
+.dashboard-shell .dh-scf3efff { stop-color: #f3efff; }
+.dashboard-shell .dh-sce3dcff { stop-color: #e3dcff; }
+.dashboard-shell .dh-sc8b6cf1 { stop-color: #8b6cf1; }
+.dashboard-shell .dh-sc6642d8 { stop-color: #6642d8; }
+.dashboard-shell .dh-se5dfff { stroke: #e5dfff; }
+.dashboard-shell .dh-sd7cefb { stroke: #d7cefb; }
+.dashboard-shell .dh-fddd5ff { fill: #ddd5ff; }
+.dashboard-shell .dh-fdcd4fb { fill: #dcd4fb; }
+.dashboard-shell .dh-fe5dffd { fill: #e5dffd; }
+.dashboard-shell .dh-fd7cff8 { fill: #d7cff8; }
+.dashboard-shell .dh-fe3dcfc { fill: #e3dcfc; }
+.dashboard-shell .dh-ff9f8ff { fill: #f9f8ff; }
+.dashboard-shell .dh-sddd6fb { stroke: #ddd6fb; }
+.dashboard-shell .dh-s9d84ed { stroke: #9d84ed; }
+.dashboard-shell .dh-f8567e6 { fill: #8567e6; }
+.dashboard-shell .dh-fb9a7f0 { fill: #b9a7f0; }
+.dashboard-shell .dh-f8062dc { fill: #8062dc; }
+.dashboard-shell .dh-f7655dc { fill: #7655dc; }
+.dashboard-shell .dh-fa78eea { fill: #a78eea; }
+.dashboard-shell .dh-fc1aff3 { fill: #c1aff3; }
+.dashboard-shell .dh-fc6b4f8 { fill: #c6b4f8; }

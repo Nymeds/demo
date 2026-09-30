@@ -1,5 +1,6 @@
 <script setup>
 import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
+import AppSelect from '../../components/ui/AppSelect.vue'
 import { computed, ref, watch } from 'vue'
 import { LOSS_PER_ABSENCE, attendanceAfterAbsences, maximumAbsencesFor } from './frequencyRules.js'
 
@@ -23,6 +24,7 @@ const selectedId = ref(props.initialDisciplineId || props.rows[0]?.id || '')
 const minimumAttendance = ref(DEFAULT_MINIMUM)
 const formError = ref('')
 
+const disciplineOptions = computed(() => props.rows.map(row => ({ value: row.id, label: row.name })))
 const selected = computed(() => props.rows.find(row => row.id === selectedId.value) ?? null)
 
 function applySelected(row) {
@@ -92,13 +94,16 @@ function submitForm() {
       </header>
 
       <form @submit.prevent="submitForm">
-        <label class="form-field">
-          <span>Disciplina <strong>*</strong></span>
-          <select v-model="selectedId" required autofocus>
-            <option value="" disabled>Selecione uma disciplina</option>
-            <option v-for="row in rows" :key="row.id" :value="row.id">{{ row.name }}</option>
-          </select>
-        </label>
+        <div class="form-field">
+          <label for="config-discipline">Disciplina <strong>*</strong></label>
+          <AppSelect
+            id="config-discipline"
+            v-model="selectedId"
+            :options="disciplineOptions"
+            placeholder="Selecione uma disciplina"
+            aria-label="Disciplina"
+          />
+        </div>
 
         <label class="form-field">
           <span>Frequência mínima exigida <strong>*</strong></span>

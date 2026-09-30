@@ -16,26 +16,31 @@ useFocusTrap(() => true, modalRef, { onClose: () => emit('close'), closeOnEscape
 </script>
 
 <template>
-  <div class="exam-modal-overlay" @click.self="emit('close')">
-    <section ref="modalRef" class="exam-modal exam-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-exam-title" tabindex="-1">
-      <header>
-        <div>
-          <span class="modal-kicker">Excluir prova</span>
-          <h2 id="delete-exam-title">Confirmar exclusão</h2>
+  <div class="app-modal-backdrop" @mousedown.self="!deleting && emit('close')">
+    <section ref="modalRef" class="app-modal exam-modal exam-delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-exam-title" tabindex="-1">
+      <header class="app-modal-header">
+        <div class="exam-modal-title">
+          <span class="exam-modal-icon is-danger" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" /></svg>
+          </span>
+          <div>
+            <h2 id="delete-exam-title">Excluir prova</h2>
+            <p>Confirme a exclusão da avaliação.</p>
+          </div>
         </div>
-        <button type="button" aria-label="Fechar" :disabled="deleting" @click="emit('close')">×</button>
+        <button class="app-modal-close" type="button" aria-label="Fechar modal" data-tooltip="Fechar" data-tooltip-position="bottom" :disabled="deleting" @click="emit('close')">×</button>
       </header>
 
       <p class="exam-delete-text">
         Tem certeza que deseja excluir a prova <strong>{{ exam.title }}</strong>? Esta ação não pode ser desfeita.
       </p>
 
-      <p v-if="errorMessage" class="exams-request-error" role="alert">{{ errorMessage }}</p>
+      <p v-if="errorMessage" class="app-field-error" role="alert">{{ errorMessage }}</p>
 
-      <footer>
-        <button class="exams-button is-secondary" type="button" :disabled="deleting" @click="emit('close')">Cancelar</button>
-        <button class="exams-button is-danger" type="button" :disabled="deleting" @click="emit('confirm')">
-          {{ deleting ? 'Excluindo...' : 'Excluir' }}
+      <footer class="exam-modal-footer">
+        <button class="exam-cancel-button" type="button" :disabled="deleting" @click="emit('close')">Cancelar</button>
+        <button class="exam-save-button is-danger" type="button" :disabled="deleting" @click="emit('confirm')">
+          {{ deleting ? 'Excluindo…' : 'Excluir' }}
         </button>
       </footer>
     </section>

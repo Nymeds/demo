@@ -16,14 +16,19 @@ useFocusTrap(() => true, modalRef, { onClose: () => emit('close') })
 </script>
 
 <template>
-  <div class="exam-modal-overlay" @click.self="emit('close')">
-    <section ref="modalRef" class="exam-modal exam-details-modal" role="dialog" aria-modal="true" aria-labelledby="exam-details-title" tabindex="-1">
-      <header>
-        <div>
-          <span class="modal-kicker">Detalhes da prova</span>
-          <h2 id="exam-details-title">{{ exam.title }}</h2>
+  <div class="app-modal-backdrop" @mousedown.self="emit('close')">
+    <section ref="modalRef" class="app-modal exam-modal exam-details-modal" role="dialog" aria-modal="true" aria-labelledby="exam-details-title" tabindex="-1">
+      <header class="app-modal-header">
+        <div class="exam-modal-title">
+          <span class="exam-modal-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 3v3h6V3M8 11h8M8 15h5" /></svg>
+          </span>
+          <div>
+            <h2 id="exam-details-title">{{ exam.title }}</h2>
+            <p>Detalhes da prova</p>
+          </div>
         </div>
-        <button type="button" aria-label="Fechar" @click="emit('close')">×</button>
+        <button class="app-modal-close" type="button" aria-label="Fechar modal" data-tooltip="Fechar" data-tooltip-position="bottom" @click="emit('close')">×</button>
       </header>
 
       <div class="exam-details-grid">
@@ -45,9 +50,9 @@ useFocusTrap(() => true, modalRef, { onClose: () => emit('close') })
         </div>
       </div>
 
-      <footer>
-        <button class="exams-button is-secondary" type="button" @click="emit('edit', exam)">Editar</button>
-        <button class="exams-button is-primary" type="button" @click="emit('close')">Fechar</button>
+      <footer class="exam-modal-footer">
+        <button class="exam-cancel-button" type="button" @click="emit('edit', exam)">Editar</button>
+        <button class="exam-save-button" type="button" @click="emit('close')">Fechar</button>
       </footer>
     </section>
   </div>

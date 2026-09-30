@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { filterExams } from '../src/features/exams/examFilters.js'
+import { countExamsInMonth, filterExams } from '../src/features/exams/examFilters.js'
 
 const today = new Date(2026, 5, 10)
 const exam = (id, dueDate, extra = {}) => ({
@@ -27,4 +27,11 @@ test('filtros de status, disciplina e busca combinam', () => {
   assert.deepEqual(ids(filterExams(exams, { status: 'completed', today })), ['a'])
   assert.deepEqual(ids(filterExams(exams, { status: 'scheduled', discipline: 'd2', today })), ['b'])
   assert.deepEqual(ids(filterExams(exams, { search: 'físi', today })), ['b'])
+})
+
+test('contagem do mês visualizado considera mês e ano', () => {
+  const exams = [exam('out', '2026-10-05'), exam('out-antigo', '2025-10-05'), exam('nov', '2026-11-02')]
+  assert.equal(countExamsInMonth(exams, new Date(2026, 9, 1)), 1)
+  assert.equal(countExamsInMonth(exams, new Date(2026, 11, 1)), 0)
+  assert.equal(countExamsInMonth(exams, new Date(2025, 9, 1)), 1)
 })

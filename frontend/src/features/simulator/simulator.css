@@ -685,7 +685,7 @@
 
   outline: none;
 
-  box-shadow: 0 0 0 2px rgba(99, 48, 224, .08);
+  box-shadow: 0 0 0 3px rgba(99, 48, 224, .22);
 
 }
 
@@ -822,6 +822,21 @@
   font-size: 11px;
 
   text-align: center;
+
+}
+
+
+.simulator-page .result-message.result-warning {
+
+  padding: 9px 12px;
+
+  border-radius: 10px;
+
+  background: #fff7e8;
+
+  color: #a56c00 !important;
+
+  font-weight: 600;
 
 }
 

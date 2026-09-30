@@ -36,7 +36,7 @@ const emit = defineEmits(['toggle-status', 'edit', 'delete'])
             :aria-label="`Alterar situação de ${discipline.name}`"
             aria-haspopup="menu"
             :aria-expanded="openMenuId === discipline.id"
-            title="Alterar situação"
+            data-tooltip="Alterar situação"
             @click.stop="emit('toggle-status', discipline, $event)"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.7" /><circle cx="12" cy="12" r="1.7" /><circle cx="19" cy="12" r="1.7" /></svg>

@@ -2,6 +2,9 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   currentAverageOf,
+  impossibleMessage,
+  requiredScoreLabel,
+  scenarioRequiredLabel,
   filterDisciplinesByPeriod,
   linkedActivityLabel,
   notesFromGrades,
@@ -82,4 +85,26 @@ test('validação da média desejada explica o que corrigir', () => {
 
 test('chave de armazenamento local é por painel e disciplina', () => {
   assert.equal(simulationStorageKey('d1', 'x2'), 'studdy:simulator:d1:x2')
+})
+
+test('meta impossível nunca exibe a nota necessária e mostra a média máxima', () => {
+  const result = { status: 'IMPOSSIBLE', requiredScoreRaw: '12.50', maxAchievableAverage: '6.33' }
+  assert.equal(requiredScoreLabel(result), 'Inalcançável')
+  const message = impossibleMessage(result)
+  assert.equal(message, 'Essa média não é alcançável na próxima avaliação. Mesmo tirando 10, sua média chega a 6,3.')
+  assert.ok(!message.includes('12'))
+})
+
+test('servidor antigo sem maxAchievableAverage mostra a mensagem sem número', () => {
+  assert.equal(impossibleMessage({ status: 'IMPOSSIBLE', requiredScoreRaw: '12.50' }), 'Essa média não é alcançável na próxima avaliação.')
+})
+
+test('nota necessária válida e meta já alcançada mantêm o rótulo', () => {
+  assert.equal(requiredScoreLabel({ status: 'ACHIEVABLE', requiredScoreRaw: '9.00' }), '9,00')
+  assert.equal(requiredScoreLabel({ status: 'ALREADY_REACHED', requiredScoreRaw: '-3.00' }), 'Meta já alcançada')
+})
+
+test('cenário que exige mais que a nota máxima é inalcançável', () => {
+  assert.equal(scenarioRequiredLabel(12.5), 'Inalcançável')
+  assert.equal(scenarioRequiredLabel(10), '10,00')
 })

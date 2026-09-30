@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { formatAverage, formatScore } from '../../shared/format/grade.js'
+import { impossibleMessage, requiredScoreLabel } from './simulatorRules.js'
 
 const props = defineProps({
   gradesStatus: { type: String, required: true },
@@ -155,15 +156,11 @@ defineExpose({ focusDesiredAverageInput: () => desiredAverageInput.value?.focus(
       <div class="result-side">
 
         <span>
-          {{ simulationResult.status === 'ALREADY_REACHED' ? 'Situação' : 'Você precisa tirar' }}
+          {{ ['ALREADY_REACHED', 'IMPOSSIBLE'].includes(simulationResult.status) ? 'Situação' : 'Você precisa tirar' }}
         </span>
 
         <strong>
-          {{
-            simulationResult.status === 'ALREADY_REACHED'
-              ? 'Meta já alcançada'
-              : formatScore(simulationResult.requiredScoreRaw)
-          }}
+          {{ requiredScoreLabel(simulationResult, maxGrade) }}
         </strong>
 
       </div>
@@ -191,6 +188,8 @@ defineExpose({ focusDesiredAverageInput: () => desiredAverageInput.value?.focus(
     <p
       v-if="showResult && simulationResult && simulationStatus !== 'error' && gradesStatus !== 'error'"
       class="result-message"
+      :class="{ 'result-warning': simulationResult.status === 'IMPOSSIBLE' }"
+      :role="simulationResult.status === 'IMPOSSIBLE' ? 'status' : undefined"
     >
 
       <template v-if="simulationResult.status === 'ALREADY_REACHED'">
@@ -201,8 +200,7 @@ defineExpose({ focusDesiredAverageInput: () => desiredAverageInput.value?.focus(
 
       <template v-else-if="simulationResult.status === 'IMPOSSIBLE'">
 
-        Você precisaria de {{ formatScore(simulationResult.requiredScoreRaw) }} —
-        acima da nota máxima {{ formatScore(maxGrade) }}.
+        {{ impossibleMessage(simulationResult) }}
 
       </template>
 

@@ -1,0 +1,22 @@
+/* Cartão de estado (carregando / erro / vazio), no visual de Perfil, Disciplinas e Frequência.
+   <article class="app-state-card is-loading" aria-live="polite"><span class="app-spinner" aria-hidden="true"></span><p>...</p></article>
+   Erro: <article class="app-state-card is-error" role="alert"><span aria-hidden="true">!</span><div><h2/><p/><button/></div></article> */
+.app-state-card { align-items: center; background: #ffffff; border: 1px solid #e6e7ef; border-radius: 14px; box-shadow: 0 8px 28px rgba(29, 35, 63, .045); color: #5f6678; display: flex; gap: 13px; justify-content: center; min-height: 230px; padding: 30px; }
+.app-state-card p { font-size: .78rem; margin: 0; }
+.app-state-card h2 { color: #292f43; font-size: .9rem; margin: 0 0 5px; }
+.app-state-card button { background: #6832df; border: 0; border-radius: 7px; color: #ffffff; cursor: pointer; font-size: .68rem; margin-top: 12px; padding: 8px 11px; }
+.app-state-card button:focus-visible { outline: 2px solid rgba(104, 50, 223, .5); outline-offset: 2px; }
+
+.app-state-card.is-error { justify-content: flex-start; }
+.app-state-card.is-error > span { align-items: center; background: #fff0ef; border-radius: 50%; color: #c4433b; display: flex; flex: 0 0 42px; font-weight: 900; height: 42px; justify-content: center; }
+
+.app-state-card.is-empty { flex-direction: column; text-align: center; }
+.app-state-card.is-empty > span { font-size: 2rem; }
+.app-state-card.is-empty p { color: #777e91; font-size: .7rem; line-height: 1.5; max-width: 380px; }
+
+.app-spinner { animation: app-spin .7s linear infinite; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; display: inline-block; height: 15px; width: 15px; }
+@keyframes app-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-spinner { animation-duration: 1.6s; }
+}

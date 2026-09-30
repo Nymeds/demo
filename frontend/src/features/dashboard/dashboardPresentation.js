@@ -192,7 +192,7 @@ export function frequencyDetailsOf(discipline, attendanceAlertMargin) {
       remainingAbsences,
       message: 'Sem frequência cadastrada para esta disciplina.',
       messageClass: 'is-neutral',
-      ringColor: '#c7cbd8',
+      ringColor: 'var(--frequency-ring-neutral)',
     }
   }
 

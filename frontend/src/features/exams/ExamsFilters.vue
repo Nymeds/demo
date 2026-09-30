@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import AppSelect from '../../components/ui/AppSelect.vue'
 
 const props = defineProps({
   search: { type: String, required: true },
@@ -10,6 +11,21 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:search', 'update:discipline', 'update:status', 'update:period', 'filter-change'])
+
+const disciplineOptions = computed(() => [
+  { value: 'all', label: 'Todas' },
+  ...props.disciplines.map(discipline => ({ value: discipline.id, label: discipline.name })),
+])
+const statusOptions = [
+  { value: 'all', label: 'Todos' },
+  { value: 'scheduled', label: 'Agendadas' },
+  { value: 'completed', label: 'Concluídas' },
+]
+const periodOptions = [
+  { value: 'all', label: 'Todos' },
+  { value: 'next7', label: 'Próximos 7 dias' },
+  { value: 'month', label: 'Este mês' },
+]
 
 const searchModel = computed({
   get: () => props.search,
@@ -37,30 +53,19 @@ const periodModel = computed({
       <input v-model="searchModel" type="search" placeholder="Buscar prova..." @input="emit('filter-change')">
     </label>
 
-    <label>
+    <div class="exams-filter-field">
       <span>Disciplinas</span>
-      <select v-model="disciplineModel" @change="emit('filter-change')">
-        <option value="all">Todas</option>
-        <option v-for="discipline in disciplines" :key="discipline.id" :value="discipline.id">{{ discipline.name }}</option>
-      </select>
-    </label>
+      <AppSelect v-model="disciplineModel" :options="disciplineOptions" aria-label="Filtrar por disciplina" @update:model-value="emit('filter-change')" />
+    </div>
 
-    <label>
+    <div class="exams-filter-field">
       <span>Status</span>
-      <select v-model="statusModel" @change="emit('filter-change')">
-        <option value="all">Todos</option>
-        <option value="scheduled">Agendadas</option>
-        <option value="completed">Concluídas</option>
-      </select>
-    </label>
+      <AppSelect v-model="statusModel" :options="statusOptions" aria-label="Filtrar por status" @update:model-value="emit('filter-change')" />
+    </div>
 
-    <label>
+    <div class="exams-filter-field">
       <span>Período</span>
-      <select v-model="periodModel" @change="emit('filter-change')">
-        <option value="all">Todos</option>
-        <option value="next7">Próximos 7 dias</option>
-        <option value="month">Este mês</option>
-      </select>
-    </label>
+      <AppSelect v-model="periodModel" :options="periodOptions" aria-label="Filtrar por período" @update:model-value="emit('filter-change')" />
+    </div>
   </div>
 </template>

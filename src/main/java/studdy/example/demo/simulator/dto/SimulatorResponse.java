@@ -18,6 +18,9 @@ import java.math.BigDecimal;
  *                          atingida) ou maior que 10 (meta impossível).
  * @param status          classificação da simulação: ALREADY_REACHED,
  *                        ACHIEVABLE ou IMPOSSIBLE.
+ * @param maxAchievableAverage maior média possível após a próxima avaliação
+ *                        (tirando 10): (soma das notas + 10) / (quantidade + 1),
+ *                        escala 2, HALF_UP. Sem notas, 10.00.
  */
 public record SimulatorResponse(
         BigDecimal currentAverage,
@@ -25,6 +28,7 @@ public record SimulatorResponse(
         BigDecimal requiredGrade,
         boolean achievable,
         BigDecimal requiredScoreRaw,
-        SimulationStatus status
+        SimulationStatus status,
+        BigDecimal maxAchievableAverage
 ) {
 }

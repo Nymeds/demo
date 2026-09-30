@@ -1,4 +1,5 @@
 import { periodKeyOf } from '../grades/gradesPresentation.js'
+import { formatAverage, formatScore } from '../../shared/format/grade.js'
 
 export const MIN_AVERAGE = 0
 export const MAX_AVERAGE = 10
@@ -130,4 +131,32 @@ export function validateDesiredAverage(value, maxGrade) {
 
 export function simulationStorageKey(dashboardId, disciplineId) {
   return `studdy:simulator:${dashboardId}:${disciplineId}`
+}
+
+export const UNREACHABLE_LABEL = 'Inalcançável'
+
+// Nota necessária para exibição: nunca mostra valor acima da nota máxima.
+export function requiredScoreLabel(result, maxGrade = MAX_AVERAGE) {
+  if (!result) return '—'
+  if (result.status === 'ALREADY_REACHED') return 'Meta já alcançada'
+  const required = Number(result.requiredScoreRaw)
+  if (result.status === 'IMPOSSIBLE' || (Number.isFinite(required) && required > maxGrade)) {
+    return UNREACHABLE_LABEL
+  }
+  return formatScore(result.requiredScoreRaw)
+}
+
+// Mensagem exibida quando a meta não pode ser alcançada na próxima avaliação.
+export function impossibleMessage(result) {
+  const base = 'Essa média não é alcançável na próxima avaliação.'
+  const max = result?.maxAchievableAverage
+  if (max === null || max === undefined || max === '' || !Number.isFinite(Number(max))) return base
+  return `${base} Mesmo tirando 10, sua média chega a ${formatAverage(max)}.`
+}
+
+// Rótulo de uma nota necessária de cenário: acima da nota máxima é inalcançável.
+export function scenarioRequiredLabel(value, maxGrade = MAX_AVERAGE) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '—'
+  return number > maxGrade ? UNREACHABLE_LABEL : formatScore(number)
 }

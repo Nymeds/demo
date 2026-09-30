@@ -72,7 +72,7 @@ class UserProfileServiceTest {
         assertEquals("Gabriel Souza", response.name());
         assertEquals("gabriel.novo@example.com", response.email());
         assertEquals("gabriel.souza", response.username());
-        assertEquals("(62) 99999-9999", response.phone());
+        assertEquals("62999999999", response.phone());
         assertEquals(LocalDate.of(2005, 3, 18), response.birthDate());
         assertEquals(Gender.PREFER_NOT_TO_SAY, response.gender());
         assertEquals("Goiânia - GO", response.location());

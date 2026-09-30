@@ -425,7 +425,7 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
           />
         </div>
 
-        <div v-else class="activities-no-results">
+        <div v-else class="activities-no-results app-state-card is-empty">
           <h2>Nenhuma atividade encontrada</h2>
           <p>Altere a busca ou os filtros para visualizar outros resultados.</p>
           <button type="button" @click="clearFilters">Limpar filtros</button>

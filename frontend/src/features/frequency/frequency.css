@@ -209,19 +209,18 @@
   font-size: .68rem;
   gap: 8px;
   min-width: 0;
-  padding: 0 9px 0 14px;
+  padding: 0 4px 0 14px;
 }
 
 .frequency-page .frequency-period-filter span {
   font-weight: 700;
 }
 
-.frequency-page .frequency-period-filter select {
-  background: transparent;
-  border: 0;
-  color: #43495e;
-  outline: none;
-  padding: 10px 4px;
+.frequency-page .frequency-period-filter .app-select {
+  --app-select-height: 38px;
+  --app-select-font-size: .68rem;
+  --app-select-padding: 0 8px;
+  min-width: 110px;
 }
 
 .frequency-page .clear-filters {

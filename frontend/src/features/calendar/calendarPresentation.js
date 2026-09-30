@@ -171,11 +171,13 @@ export function withoutDuplicateExamEvents(events, examActivities) {
   return events.filter(event => !duplicateIds.has(event.id))
 }
 
-export function displayedEventsOf(events, examActivities, disciplines) {
+// Aplica o filtro de categorias também no cliente: as provas (Atividades EXAM) vêm de outra rota
+// e não passam pelo filtro da API, e a lista de eventos pode estar desatualizada até a resposta chegar.
+export function displayedEventsOf(events, examActivities, disciplines, selectedCategories = CATEGORIES.map(category => category.value)) {
   return [
     ...withoutDuplicateExamEvents(events, examActivities),
     ...examActivities.map(activity => examActivityToEvent(activity, disciplines)),
-  ]
+  ].filter(event => selectedCategories.includes(event.category))
 }
 
 // "Próximos eventos": a API já filtra os eventos pelas categorias marcadas, mas as provas

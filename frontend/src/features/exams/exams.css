@@ -146,42 +146,8 @@
   padding-left: 34px;
   width: 100%;
 }
-.exams-page .exams-filters select {
-  appearance: auto;
-  background: #fff;
-  border: 1px solid #dedfe5;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(32, 37, 56, .06);
-  box-sizing: border-box;
-  height: 32px;
-  min-height: 32px;
-  padding: 0 10px;
-}
-.exams-page .exams-filters select:focus,
 .exams-page .exams-search input:focus { border-color: #8b6cf1; box-shadow: 0 0 0 3px rgba(99, 48, 224, .08); }
 
-.exams-page .exams-state-card {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  justify-content: center;
-  min-height: 280px;
-  padding: 35px;
-  text-align: center;
-}
-.exams-page .exams-state-card span { font-size: 2rem; }
-.exams-page .exams-state-card h2 { color: #202538; font-size: 1rem; font-weight: 800; margin: 10px 0 4px; }
-.exams-page .exams-state-card p { color: #777e91; font-size: .7rem; line-height: 1.5; margin: 0 0 14px; max-width: 380px; }
-.exams-page .exams-loader {
-  animation: exams-spin .8s linear infinite;
-  border: 3px solid #e7e0fb;
-  border-radius: 50%;
-  border-top-color: #6b37df;
-  height: 34px;
-  width: 34px;
-}
-@keyframes exams-spin { to { transform: rotate(360deg); } }
 
 .exams-page .exams-table-wrap { overflow-x: auto; overflow-y: visible; }
 .exams-page .exams-table { border-collapse: collapse; min-width: 870px; width: 100%; }
@@ -325,27 +291,38 @@
 .exams-page .exams-tip p { color: #6c7287; font-size: .59rem; margin: 3px 0 0; }
 .exams-page .exams-tip button { background: #fff; border: 1px solid #ddd7ee; border-radius: 6px; color: #6330e0; font-size: .59rem; font-weight: 750; margin-left: auto; padding: 8px 11px; white-space: nowrap; }
 
-.exams-page .exam-modal-overlay { align-items: center; background: rgba(8, 13, 27, .58); display: flex; inset: 0; justify-content: center; padding: 20px; position: fixed; z-index: 100; }
-.exams-page .exam-modal { background: #fff; border-radius: 14px; box-shadow: 0 24px 70px rgba(10, 15, 35, .25); max-width: 620px; padding: 22px; width: 100%; }
-.exams-page .exam-modal > header { align-items: flex-start; display: flex; justify-content: space-between; margin-bottom: 18px; }
-.exams-page .modal-kicker { color: #6330e0; font-size: .6rem; font-weight: 800; text-transform: uppercase; }
-.exams-page .exam-modal h2 { color: #181d30; font-size: 1.2rem; margin: 4px 0 0; }
-.exams-page .exam-modal > header button { background: #f4f2f8; border: 0; border-radius: 7px; color: #646a7b; font-size: 1.3rem; height: 32px; width: 32px; }
-.exams-page .exam-modal form { display: grid; gap: 13px; }
-.exams-page .exam-modal label { color: #555b6e; display: grid; font-size: .65rem; font-weight: 700; gap: 6px; }
-.exams-page .exam-modal input,
-.exams-page .exam-modal select,
-.exams-page .exam-modal textarea { border: 1px solid #dedfe7; border-radius: 7px; color: #272c40; font: inherit; font-size: .72rem; outline: none; padding: 10px 11px; }
-.exams-page .exam-modal textarea { resize: vertical; }
-.exams-page .exam-modal input:disabled,
-.exams-page .exam-modal select:disabled,
-.exams-page .exam-modal textarea:disabled { background: #f6f5f9; color: #8e93a4; cursor: not-allowed; }
-.exams-page .field-hint { color: #858b9e; font-size: .58rem; font-weight: 500; margin-top: -1px; }
-.exams-page .exam-modal input:focus,
-.exams-page .exam-modal select:focus,
-.exams-page .exam-modal textarea:focus { border-color: #8b6cf1; box-shadow: 0 0 0 3px rgba(99, 48, 224, .08); }
-.exams-page .modal-grid { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); }
-.exams-page .exam-modal footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.exams-page .exams-filter-field { color: #596078; display: grid; font-size: .61rem; font-weight: 700; gap: 6px; min-width: 0; --app-select-height: 32px; --app-select-font-size: .68rem; --app-select-radius: 6px; --app-select-padding: 0 10px; }
+.exams-page .exams-filter-field > span { height: 15px; line-height: 15px; }
+
+.exams-page .exam-modal { max-width: 650px; }
+.exams-page .exam-modal-title { align-items: center; display: flex; gap: 14px; }
+.exams-page .exam-modal-icon { align-items: center; background: #f0eaff; border-radius: 9px; color: #6932df; display: flex; flex: 0 0 50px; height: 50px; justify-content: center; width: 50px; }
+.exams-page .exam-modal-icon.is-danger { background: #fff0ef; color: #c4433b; }
+.exams-page .exam-modal-icon svg { fill: none; height: 25px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 25px; }
+.exams-page .exam-modal-title h2 { color: #303548; font-size: 1.22rem; font-weight: 800; letter-spacing: -.03em; margin: 0 0 5px; }
+.exams-page .exam-modal-title p { color: #70778b; font-size: .73rem; margin: 0; }
+.exams-page .exam-modal form { display: grid; gap: 20px; }
+.exams-page .exam-form-field { color: #282d40; display: grid; font-size: .74rem; font-weight: 700; gap: 8px; --app-select-height: 44px; --app-select-font-size: .74rem; --app-select-radius: 7px; --app-select-padding: 0 14px; --app-date-height: 44px; --app-date-font-size: .74rem; --app-date-radius: 7px; --app-date-padding: 0 14px; }
+.exams-page .exam-form-field strong { color: #e84260; }
+.exams-page .exam-form-field small { color: #777e91; font-size: .63rem; font-weight: 450; }
+.exams-page .exam-form-field input,
+.exams-page .exam-form-field textarea { background: #fff; border: 1px solid #dfe1e8; border-radius: 7px; box-sizing: border-box; color: #242a3d; font: inherit; font-weight: 400; outline: none; padding: 12px 14px; resize: vertical; width: 100%; }
+.exams-page .exam-form-field input:focus,
+.exams-page .exam-form-field textarea:focus { border-color: #7544eb; box-shadow: 0 0 0 3px rgba(117, 68, 235, .11); }
+.exams-page .exam-form-field input:disabled,
+.exams-page .exam-form-field textarea:disabled { background: #f6f5f9; color: #8e93a4; cursor: not-allowed; }
+.exams-page .exam-form-field input::placeholder,
+.exams-page .exam-form-field textarea::placeholder { color: #aaa7b5; opacity: 1; }
+.exams-page .exam-form-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.exams-page .exam-modal-footer { align-items: center; border-top: 1px solid #ececf1; display: flex; gap: 12px; justify-content: flex-end; margin-top: 3px; padding-top: 20px; }
+.exams-page .exam-cancel-button,
+.exams-page .exam-save-button { border-radius: 7px; cursor: pointer; font-size: .72rem; font-weight: 700; padding: 11px 18px; }
+.exams-page .exam-cancel-button { background: #fff; border: 1px solid #dfe1e8; color: #343a4e; }
+.exams-page .exam-save-button { background: linear-gradient(100deg, #5d20df, #7419f5); border: 0; box-shadow: 0 8px 18px rgba(101, 31, 225, .2); color: #fff; }
+.exams-page .exam-save-button.is-danger { background: #e0433c; box-shadow: 0 8px 18px rgba(224, 67, 60, .2); }
+.exams-page .exam-cancel-button:disabled,
+.exams-page .exam-save-button:disabled { cursor: not-allowed; opacity: .6; }
+.exams-page .exam-modal .app-field-error { margin-top: -8px; }
 .exams-page .exam-details-grid {
   display: grid;
   gap: 12px;
@@ -395,7 +372,6 @@
 .exams-page button:focus-visible,
 .exams-page a:focus-visible,
 .exams-page input:focus-visible,
-.exams-page select:focus-visible,
 .exams-page textarea:focus-visible { outline: 2px solid #6330e0; outline-offset: 2px; }
 @media (max-width: 1050px) {
   .exams-page .exams-layout { grid-template-columns: 1fr; }
@@ -415,5 +391,6 @@
   .exams-page .exam-details-full { grid-column: auto; }
   .exams-page .exams-tip { align-items: flex-start; flex-wrap: wrap; }
   .exams-page .exams-tip button { margin-left: 46px; }
-  .exams-page .modal-grid { grid-template-columns: 1fr; }
+  .exams-page .exam-form-grid { grid-template-columns: 1fr; }
+  .exams-page .exam-modal-footer { align-items: stretch; flex-direction: column-reverse; }
 }

@@ -112,7 +112,8 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOnOutside
       aria-haspopup="menu"
       :aria-expanded="open"
       :aria-controls="open ? 'sidebar-user-menu' : undefined"
-      :title="name"
+      :data-tooltip="name"
+      :aria-label="`Menu do usuário ${name}`"
       @click="toggleMenu"
     >
       <span class="user-menu-avatar" aria-hidden="true">

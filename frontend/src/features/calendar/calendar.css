@@ -781,36 +781,54 @@
 .calendar-screen .filter-options {
   display: flex;
   flex-wrap: wrap;
-  gap: 9px 14px;
-}
-.calendar-screen .filter-option {
-  align-items: center;
-  color: #4a5066;
-  cursor: pointer;
-  display: flex;
-  font-size: .71rem;
-  font-weight: 650;
   gap: 8px;
 }
-.calendar-screen .filter-option input {
-  accent-color: #6429db;
-  height: 15px;
-  width: 15px;
+.calendar-screen .filter-chip {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e2e0ec;
+  border-radius: 999px;
+  color: #a0a5b8;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: .71rem;
+  font-weight: 650;
+  gap: 7px;
+  padding: 8px 13px;
+  transition: background-color .15s, border-color .15s, color .15s;
 }
-.calendar-screen .filter-option.is-class input {
-  accent-color: #2daf68;
+.calendar-screen .filter-chip-dot {
+  background: #6429db;
+  border-radius: 50%;
+  flex: 0 0 9px;
+  height: 9px;
+  width: 9px;
 }
-.calendar-screen .filter-option.is-activity input {
-  accent-color: #7a4ced;
+.calendar-screen .filter-chip.is-class .filter-chip-dot { background: #2daf68; }
+.calendar-screen .filter-chip.is-activity .filter-chip-dot { background: #7a4ced; }
+.calendar-screen .filter-chip.is-exam .filter-chip-dot { background: #3a7fd9; }
+.calendar-screen .filter-chip.is-assignment .filter-chip-dot { background: #ef8b1f; }
+.calendar-screen .filter-chip.is-other .filter-chip-dot { background: #e2537c; }
+.calendar-screen .filter-chip:hover {
+  background: #f7f5fd;
+  border-color: #c9bdf2;
+  color: #4a5066;
 }
-.calendar-screen .filter-option.is-exam input {
-  accent-color: #3a7fd9;
+.calendar-screen .filter-chip.selected {
+  --chip-color: #6429db;
+  background: color-mix(in srgb, var(--chip-color) 12%, #fff);
+  border-color: color-mix(in srgb, var(--chip-color) 55%, #fff);
+  color: color-mix(in srgb, var(--chip-color) 75%, #1a1f36);
 }
-.calendar-screen .filter-option.is-assignment input {
-  accent-color: #ef8b1f;
-}
-.calendar-screen .filter-option.is-other input {
-  accent-color: #e2537c;
+.calendar-screen .filter-chip.selected.is-class { --chip-color: #2daf68; }
+.calendar-screen .filter-chip.selected.is-activity { --chip-color: #7a4ced; }
+.calendar-screen .filter-chip.selected.is-exam { --chip-color: #3a7fd9; }
+.calendar-screen .filter-chip.selected.is-assignment { --chip-color: #ef8b1f; }
+.calendar-screen .filter-chip.selected.is-other { --chip-color: #e2537c; }
+.calendar-screen .filter-chip:focus-visible {
+  outline: 2px solid rgba(105, 54, 224, .45);
+  outline-offset: 2px;
 }
 
 @media (max-width: 1180px) {

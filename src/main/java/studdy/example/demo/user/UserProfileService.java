@@ -66,7 +66,7 @@ public class UserProfileService {
                 request.name().trim(),
                 email,
                 username,
-                normalizeOptional(request.phone()),
+                normalizePhone(request.phone()),
                 request.birthDate(),
                 request.gender(),
                 normalizeOptional(request.location())
@@ -178,6 +178,10 @@ public class UserProfileService {
     private String normalizeUsername(String username) {
         String normalized = normalizeOptional(username);
         return normalized == null ? null : normalized.toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizePhone(String value) {
+        return value == null || value.isBlank() ? null : PhoneNumbers.digitsOf(value);
     }
 
     private String normalizeOptional(String value) {

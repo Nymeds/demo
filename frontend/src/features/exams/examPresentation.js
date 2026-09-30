@@ -60,6 +60,12 @@ export function formatMonthLabel(date) {
   }).format(date).replace(/^./, value => value.toUpperCase())
 }
 
+export function formatMonthCardTitle(date, isCurrentMonth) {
+  if (isCurrentMonth) return 'Neste mês'
+  const label = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(date)
+  return `Em ${label}`
+}
+
 export function isOverdue(exam, now) {
   if (exam.status === 'COMPLETED') return false
   return isDateOverdue(exam.dueDate, now)

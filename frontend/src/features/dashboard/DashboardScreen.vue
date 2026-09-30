@@ -345,6 +345,7 @@ onBeforeUnmount(() => {
       />
       <ProvasScreen
         v-if="activeSection === 'exams'"
+        @navigate="activeSection = $event"
       />
       <FrequencyPage
         v-if="activeSection === 'frequency'"

@@ -375,9 +375,11 @@ function updateAuthenticatedUser(profile) {
 <style scoped>
 .auth-helper { color: #77728a; display: block; font-size: .7rem; margin-top: 2px; }
 .auth-forgot { display: flex; flex-direction: column; }
+.auth-forgot-button:disabled { color: #8b87a0; cursor: not-allowed; opacity: 1; }
+.auth-forgot-button:focus-visible { border-radius: 4px; outline: 2px solid rgba(99, 48, 224, .5); outline-offset: 2px; }
 .auth-forgot-button { background: none; border: 0; font: inherit; font-size: .74rem; padding: 0; text-align: left; }
 .auth-link-button { background: none; border: 0; color: #6849d7; cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
 .auth-link-button:focus-visible { outline: 3px solid #b9a7f5; outline-offset: 2px; }
-.auth-field-error { color: #9a402d; font-size: .74rem; margin: 6px 0 0; }
+.auth-field-error { color: #df3f32; font-size: .74rem; margin: 6px 0 0; }
 .auth-form-panel .auth-terms label { color: #646171; cursor: default; display: block; font-size: .75rem; font-weight: 450; }
 </style>

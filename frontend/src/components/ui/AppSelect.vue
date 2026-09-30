@@ -1,4 +1,7 @@
 <script setup>
+// Props: modelValue, options [{ value, label, meta?, disabled?, badge?, badgeTone? }], placeholder, id,
+// ariaLabel (campos sem rótulo visível), describedby, invalid, disabled, variant ('default' | 'ghost').
+// A lista é position: fixed (z-index 1100), então não é cortada por modais com overflow.
 // Lista de escolha no visual do site. O <select> nativo abre uma lista desenhada pelo sistema
 // operacional, com cores que não seguem a página nem o modo noite.
 // Altura, fonte, arredondamento e espaçamento vêm das variáveis --app-select-*, definidas por
@@ -299,7 +302,7 @@ defineExpose({ focus: () => trigger.value?.focus() })
 .app-select-chevron { fill: none; flex: 0 0 16px; height: 16px; margin-left: auto; stroke: #6b6880; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; transition: transform .15s ease; width: 16px; }
 .app-select.is-open .app-select-chevron { transform: rotate(180deg); }
 
-.app-select-list { background: #ffffff; border: 1px solid #e3dff0; border-radius: 10px; box-shadow: 0 16px 40px rgba(20, 18, 35, .18); box-sizing: border-box; list-style: none; margin: 0; overflow-y: auto; padding: 6px; position: fixed; z-index: 1000; }
+.app-select-list { background: #ffffff; border: 1px solid #e3dff0; border-radius: 10px; box-shadow: 0 16px 40px rgba(20, 18, 35, .18); box-sizing: border-box; list-style: none; margin: 0; overflow-y: auto; padding: 6px; position: fixed; z-index: 1100; }
 .app-select-empty { color: #7a7790; font-size: 13px; padding: 10px; }
 
 .app-select-option { align-items: center; border-radius: 7px; color: #252338; cursor: pointer; display: flex; font-size: max(13px, var(--app-select-font-size, 14px)); font-weight: 400; gap: 10px; justify-content: space-between; padding: 9px 10px; }

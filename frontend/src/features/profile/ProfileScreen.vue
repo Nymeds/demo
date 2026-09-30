@@ -1,7 +1,10 @@
 <script setup>
 import { saveSession } from '../../shared/auth/session.js'
+import { caretAfterDigits, formatPhoneBR, validatePhoneBR } from '../../shared/format/phone.js'
 import { apiRequest } from '../../shared/http/apiRequest.js'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import AppDatePicker from '../../components/ui/AppDatePicker.vue'
+import AppSelect from '../../components/ui/AppSelect.vue'
 import AppToast from '../../components/ui/AppToast.vue'
 import AvatarCropModal from '../settings/AvatarCropModal.vue'
 
@@ -29,6 +32,29 @@ const photoRemoved = ref(false)
 const photoPreviewUrl = ref('')
 const pageError = ref('')
 const fieldErrors = ref({})
+const phoneInput = ref(null)
+const phoneSubmitError = ref('')
+const savedPhone = ref('')
+const phoneError = computed(() => {
+  if (fieldErrors.value.phone) return fieldErrors.value.phone
+  if (form.phone === savedPhone.value) return ''
+  const result = validatePhoneBR(form.phone)
+  return !result.valid && result.code !== 'incomplete' ? result.message : phoneSubmitError.value
+})
+
+function onPhoneInput(event) {
+  const input = event.target
+  const caretIndex = input.selectionStart ?? input.value.length
+  const digitsBeforeCaret = (input.value.slice(0, caretIndex).match(/\d/g) || []).length
+  const formatted = formatPhoneBR(input.value)
+  form.phone = formatted
+  phoneSubmitError.value = ''
+  const { phone, ...otherErrors } = fieldErrors.value
+  fieldErrors.value = otherErrors
+  input.value = formatted
+  const caret = caretAfterDigits(formatted, digitsBeforeCaret)
+  input.setSelectionRange?.(caret, caret)
+}
 const toast = ref({ message: '', type: 'success' })
 const form = reactive({
   name: '',
@@ -106,11 +132,13 @@ function fillForm(userProfile) {
   form.name = userProfile.name ?? ''
   form.username = userProfile.username ?? ''
   form.email = userProfile.email ?? ''
-  form.phone = userProfile.phone ?? ''
+  form.phone = formatPhoneBR(userProfile.phone ?? '')
   form.birthDate = userProfile.birthDate ?? ''
   form.gender = userProfile.gender ?? ''
   form.location = userProfile.location ?? ''
   savedForm.value = formSnapshot()
+  savedPhone.value = form.phone
+  phoneSubmitError.value = ''
   fieldErrors.value = {}
 }
 
@@ -166,7 +194,7 @@ async function saveData() {
     name: form.name,
     username: form.username || null,
     email: form.email,
-    phone: form.phone || null,
+    phone: form.phone ? formatPhoneBR(form.phone).replace(/\D/g, '') : null,
     birthDate: form.birthDate || null,
     gender: form.gender || null,
     location: form.location || null,
@@ -217,6 +245,15 @@ async function saveProfile() {
     formError.value = message
     await nextTick()
     currentPasswordInput.value?.focus()
+    return
+  }
+
+  // Telefones antigos fora do padrão só são revalidados quando o usuário os altera.
+  const phoneCheck = form.phone === savedPhone.value ? { valid: true } : validatePhoneBR(form.phone)
+  if (!phoneCheck.valid) {
+    phoneSubmitError.value = phoneCheck.message
+    await nextTick()
+    phoneInput.value?.focus()
     return
   }
 
@@ -505,38 +542,41 @@ onBeforeUnmount(() => {
           <label>
             <span>Telefone <small>(opcional)</small></span>
             <input
-              v-model="form.phone"
+              ref="phoneInput"
+              :value="form.phone"
               type="tel"
               inputmode="tel"
               autocomplete="tel"
-              maxlength="20"
-              placeholder="(00) 00000-0000"
-              :aria-invalid="Boolean(fieldErrors.phone)"
+              maxlength="15"
+              placeholder="(11) 91234-5678"
+              :aria-describedby="phoneError ? 'profile-phone-error' : undefined"
+              :aria-invalid="Boolean(phoneError)"
+              @input="onPhoneInput"
             >
-            <small v-if="fieldErrors.phone" class="profile-field-error">{{ fieldErrors.phone }}</small>
+            <small v-if="phoneError" id="profile-phone-error" class="profile-field-error" role="alert">{{ phoneError }}</small>
           </label>
 
-          <label>
-            <span>Data de nascimento <small>(opcional)</small></span>
-            <input
+          <div class="profile-field">
+            <span id="profile-birth-label">Data de nascimento <small>(opcional)</small></span>
+            <AppDatePicker
               v-model="form.birthDate"
-              type="date"
-              autocomplete="bday"
               :max="maximumBirthDate"
-              :aria-invalid="Boolean(fieldErrors.birthDate)"
-            >
+              labelledby="profile-birth-label"
+              :invalid="Boolean(fieldErrors.birthDate)"
+            />
             <small v-if="fieldErrors.birthDate" class="profile-field-error">{{ fieldErrors.birthDate }}</small>
-          </label>
+          </div>
 
-          <label>
-            <span>Gênero <small>(opcional)</small></span>
-            <select v-model="form.gender" :aria-invalid="Boolean(fieldErrors.gender)">
-              <option v-for="option in genderOptions" :key="option.value" :value="option.value">
-                {{ option.label }}
-              </option>
-            </select>
+          <div class="profile-field">
+            <span id="profile-gender-label">Gênero <small>(opcional)</small></span>
+            <AppSelect
+              v-model="form.gender"
+              :options="genderOptions"
+              aria-label="Gênero"
+              :invalid="Boolean(fieldErrors.gender)"
+            />
             <small v-if="fieldErrors.gender" class="profile-field-error">{{ fieldErrors.gender }}</small>
-          </label>
+          </div>
 
           <label class="profile-location-field">
             <span>Localização <small>(opcional)</small></span>
@@ -612,9 +652,12 @@ onBeforeUnmount(() => {
 .profile-remove-photo:hover { background: #fff5f4; }
 .profile-divider { background: #eceef3; height: 1px; margin: 28px 0; }
 .profile-fields { display: grid; gap: 21px 24px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.profile-fields label { display: grid; gap: 7px; min-width: 0; }
-.profile-fields label > span { color: #35405b; font-size: .72rem; font-weight: 700; }
-.profile-fields label > span small { color: #8b91a2; font-size: .62rem; font-weight: 500; }
+.profile-fields label,
+.profile-fields .profile-field { --app-select-height: 43px; --app-select-font-size: .78rem; --app-select-radius: 8px; --app-select-padding: 0 12px; --app-date-height: 43px; --app-date-font-size: .78rem; --app-date-radius: 8px; --app-date-padding: 0 12px; display: grid; gap: 7px; min-width: 0; }
+.profile-fields label > span,
+.profile-fields .profile-field > span { color: #35405b; font-size: .72rem; font-weight: 700; }
+.profile-fields label > span small,
+.profile-fields .profile-field > span small { color: #8b91a2; font-size: .62rem; font-weight: 500; }
 .profile-fields input,
 .profile-fields select { background: #fff; border: 1px solid #dfe2ea; border-radius: 8px; color: #20263a; font-size: .78rem; height: 43px; outline: none; padding: 0 12px; transition: border-color .18s, box-shadow .18s; width: 100%; }
 .profile-fields input::placeholder { color: #a5a9b5; }

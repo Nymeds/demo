@@ -177,3 +177,36 @@ test('rótulo do dia usa o relógio recebido: hoje, amanhã e data curta', () =>
   // Depois da meia-noite o mesmo evento deixa de ser "Hoje".
   assert.equal(upcomingDayLabel('2026-09-15T23:00:00', new Date(2026, 8, 16)), '15/09')
 })
+
+test('displayedEventsOf esconde provas (atividades EXAM) quando Provas está desmarcado', () => {
+  const events = [{ id: 1, title: 'Aula', category: 'CLASS', startsAt: '2026-05-10T09:00:00' }]
+  const exams = [{ id: 7, title: 'P1', dueDate: '2026-05-12', disciplineId: 1 }]
+
+  const withExam = displayedEventsOf(events, exams, [], ALL)
+  assert.equal(withExam.length, 2)
+
+  const withoutExam = displayedEventsOf(events, exams, [], ALL.filter(value => value !== 'EXAM'))
+  assert.deepEqual(withoutExam.map(event => event.category), ['CLASS'])
+
+  assert.deepEqual(displayedEventsOf(events, exams, [], []), [])
+})
+
+test('displayedEventsOf filtra eventos de categoria desmarcada mesmo com lista antiga', () => {
+  const events = [
+    { id: 1, title: 'Aula', category: 'CLASS', startsAt: '2026-05-10T09:00:00' },
+    { id: 2, title: 'Outro', category: 'OTHER', startsAt: '2026-05-10T10:00:00' },
+  ]
+
+  assert.deepEqual(displayedEventsOf(events, [], [], ['OTHER']).map(event => event.id), [2])
+})
+
+test('upcomingCombinedOf respeita o filtro para eventos e provas', () => {
+  const today = new Date(2026, 4, 10)
+  const upcoming = [{ id: 1, title: 'Aula', category: 'CLASS', startsAt: '2026-05-11T09:00:00' }]
+  const exams = [{ id: 7, title: 'P1', dueDate: '2026-05-12', disciplineId: 1 }]
+
+  assert.equal(upcomingCombinedOf(upcoming, exams, [], ALL, today).length, 2)
+  assert.deepEqual(upcomingCombinedOf(upcoming, exams, [], ['CLASS'], today).map(e => e.category), ['CLASS'])
+  assert.deepEqual(upcomingCombinedOf(upcoming, exams, [], ['EXAM'], today).map(e => e.category), ['EXAM'])
+  assert.deepEqual(upcomingCombinedOf(upcoming, exams, [], [], today), [])
+})

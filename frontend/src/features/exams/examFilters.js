@@ -16,6 +16,10 @@ export function isInMonthOf(dateString, reference) {
     && date.getFullYear() === reference.getFullYear()
 }
 
+export function countExamsInMonth(exams, reference) {
+  return exams.filter(exam => isInMonthOf(exam.dueDate, reference)).length
+}
+
 export function filterExams(exams, { search = '', discipline = 'all', status = 'all', period = 'all', today }) {
   const term = search.trim().toLowerCase()
 

@@ -100,7 +100,7 @@ const periodLabel = computed(() => periodLabelOf(viewMode.value, referenceDate.v
 
 const miniMonthLabel = computed(() => monthLabelOf(referenceDate.value))
 
-const displayedEvents = computed(() => displayedEventsOf(events.value, examActivities.value, disciplines.value))
+const displayedEvents = computed(() => displayedEventsOf(events.value, examActivities.value, disciplines.value, selectedCategories.value))
 
 // "Próximos eventos" também respeita o filtro de categorias e inclui as provas
 // (Atividades do tipo EXAM), que antes só apareciam no grid do calendário.
@@ -463,7 +463,7 @@ async function confirmDeleteEvent() {
           @change-view="viewMode = $event"
         />
 
-        <p v-if="loading" class="calendar-loading">Carregando seu calendário…</p>
+        <article v-if="loading" class="app-state-card is-loading" aria-live="polite"><span class="app-spinner" aria-hidden="true"></span><p>Carregando seu calendário…</p></article>
 
         <div v-else-if="eventsError && !events.length && !eventsStale" class="calendar-section-error" role="alert">
           <p>{{ eventsError }}</p>

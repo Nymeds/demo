@@ -118,7 +118,7 @@ defineExpose({ focusAddGradeButton: () => addGradeButton.value?.focus() })
         <button
           type="button"
           class="more-button"
-          title="Editar em Notas"
+          data-tooltip="Editar em Notas"
           aria-label="Editar esta nota na tela Notas"
           @click="emit('navigate', 'grades')"
         >

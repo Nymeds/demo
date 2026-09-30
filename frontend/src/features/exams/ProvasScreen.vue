@@ -11,8 +11,8 @@ import ExamsFilters from './ExamsFilters.vue'
 import ExamsSummaryCards from './ExamsSummaryCards.vue'
 import ExamsTable from './ExamsTable.vue'
 import ExamsUpcomingCard from './ExamsUpcomingCard.vue'
-import { NEXT_DAYS_WINDOW, filterExams, isInMonthOf, isWithinNextDays } from './examFilters.js'
-import { buildCalendarDays, formatMonthLabel, normalizeExam } from './examPresentation.js'
+import { NEXT_DAYS_WINDOW, countExamsInMonth, filterExams, isWithinNextDays } from './examFilters.js'
+import { buildCalendarDays, formatMonthCardTitle, formatMonthLabel, normalizeExam } from './examPresentation.js'
 import './exams.css'
 
 const emit = defineEmits(['navigate'])
@@ -141,7 +141,8 @@ const upcomingExams = computed(() => [...scheduledExams.value]
   .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
   .slice(0, 3))
 
-const thisMonthExams = computed(() => exams.value.filter(exam => isInMonthOf(exam.dueDate, today.value)).length)
+const viewedMonthExams = computed(() => countExamsInMonth(exams.value, viewedMonthDate.value))
+const monthCardTitle = computed(() => formatMonthCardTitle(viewedMonthDate.value, isViewingCurrentMonth.value))
 
 const filteredExams = computed(() => filterExams(exams.value, {
   search: search.value,
@@ -423,7 +424,8 @@ onBeforeUnmount(() => {
     <ExamsSummaryCards
       :total-exams="totalExams"
       :upcoming-count="upcomingExams.length"
-      :this-month-exams="thisMonthExams"
+      :this-month-exams="viewedMonthExams"
+      :month-title="monthCardTitle"
       :completed-exams="completedExams"
       :month-label="monthLabel"
     />
@@ -440,20 +442,21 @@ onBeforeUnmount(() => {
             @filter-change="resetPage"
           />
 
-          <div v-if="loading" class="exams-state-card">
-            <span class="exams-loader" aria-hidden="true"></span>
-            <h2>Carregando provas...</h2>
-            <p>Aguarde enquanto buscamos os dados.</p>
+          <div v-if="loading" class="app-state-card is-loading" aria-live="polite">
+            <span class="app-spinner" aria-hidden="true"></span>
+            <p>Carregando provas...</p>
           </div>
 
-          <div v-else-if="loadFailed" class="exams-state-card">
-            <span aria-hidden="true">⚠️</span>
-            <h2>Não foi possível carregar as provas</h2>
-            <p>{{ requestError || 'Ocorreu um erro ao buscar os dados. Tente novamente.' }}</p>
-            <button class="exams-button is-primary" type="button" @click="loadExams">Tentar novamente</button>
+          <div v-else-if="loadFailed" class="app-state-card is-error" role="alert">
+            <span aria-hidden="true">!</span>
+            <div>
+              <h2>Não foi possível carregar as provas</h2>
+              <p>{{ requestError || 'Ocorreu um erro ao buscar os dados. Tente novamente.' }}</p>
+              <button type="button" @click="loadExams">Tentar novamente</button>
+            </div>
           </div>
 
-          <div v-else-if="disciplines.length === 0" class="exams-state-card">
+          <div v-else-if="disciplines.length === 0" class="app-state-card is-empty">
             <span aria-hidden="true">📚</span>
             <h2>Cadastre uma disciplina primeiro</h2>
             <p>As provas precisam estar vinculadas a uma disciplina.</p>
@@ -463,7 +466,7 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
-          <div v-else-if="exams.length === 0" class="exams-state-card">
+          <div v-else-if="exams.length === 0" class="app-state-card is-empty">
             <span aria-hidden="true">📝</span>
             <h2>Nenhuma prova cadastrada</h2>
             <p>Cadastre sua primeira prova para começar a organizar seus estudos.</p>

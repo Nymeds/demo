@@ -41,9 +41,10 @@
         </div>
       </div>
 
-      <p v-else-if="activitiesStatus === 'loading' || activitiesStatus === 'idle'" class="modal-status" role="status">
-        Carregando as avaliações de {{ disciplineName }}…
-      </p>
+      <div v-else-if="activitiesStatus === 'loading' || activitiesStatus === 'idle'" class="app-state-card is-loading" role="status">
+        <span class="app-spinner" aria-hidden="true"></span>
+        <div><h2>Carregando avaliações…</h2><p>Buscando as avaliações de {{ disciplineName }}.</p></div>
+      </div>
 
       <div v-else-if="activitiesStatus === 'error'" class="modal-empty" role="alert">
         <p>Não foi possível carregar as avaliações desta disciplina.</p>

@@ -14,19 +14,18 @@ const emit = defineEmits(['toggle'])
       <h2>Filtros</h2>
     </header>
 
-    <div class="filter-options">
-      <label
+    <div class="filter-options" role="group" aria-label="Filtrar por categoria">
+      <button
         v-for="category in CATEGORIES"
         :key="category.value"
-        :class="['filter-option', categoryClass(category.value)]"
+        type="button"
+        :class="['filter-chip', categoryClass(category.value), { selected: selected.includes(category.value) }]"
+        :aria-pressed="selected.includes(category.value)"
+        @click="emit('toggle', category.value)"
       >
-        <input
-          type="checkbox"
-          :checked="selected.includes(category.value)"
-          @change="emit('toggle', category.value)"
-        >
+        <span aria-hidden="true" class="filter-chip-dot"></span>
         {{ category.label }}
-      </label>
+      </button>
     </div>
   </section>
 </template>

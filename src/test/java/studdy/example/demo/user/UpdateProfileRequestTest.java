@@ -66,7 +66,29 @@ class UpdateProfileRequestTest {
     @Test
     void rejectsInvalidPhone() {
         assertRejects(validRequest("Gabriel", "gabriel@example.com", "gabrielsilva", "123", null),
-                "Informe um telefone válido com pelo menos 8 números.");
+                "Informe um celular válido com DDD: (DD) 9XXXX-XXXX, começando com 9 após o DDD.");
+    }
+
+    @Test
+    void rejectsPhoneNotStartingWithNineAfterAreaCode() {
+        assertRejects(validRequest("Gabriel", "gabriel@example.com", "gabrielsilva", "(11) 81234-5678", null),
+                "Informe um celular válido com DDD: (DD) 9XXXX-XXXX, começando com 9 após o DDD.");
+    }
+
+    @Test
+    void rejectsIncompletePhoneAndInvalidAreaCode() {
+        String message = "Informe um celular válido com DDD: (DD) 9XXXX-XXXX, começando com 9 após o DDD.";
+        assertRejects(validRequest("Gabriel", "gabriel@example.com", "gabrielsilva", "(11) 91234-567", null), message);
+        assertRejects(validRequest("Gabriel", "gabriel@example.com", "gabrielsilva", "(01) 91234-5678", null), message);
+        assertRejects(validRequest("Gabriel", "gabriel@example.com", "gabrielsilva", "119123456789", null), message);
+    }
+
+    @Test
+    void acceptsDigitsOnlyAndCountryCodePhones() {
+        for (String phone : new String[] {"11912345678", "+55 11 91234-5678", "(11) 91234-5678"}) {
+            assertTrue(validator.validate(validRequest("Gabriel", "gabriel@example.com", "gabrielsilva", phone, null))
+                    .isEmpty(), phone);
+        }
     }
 
     @Test

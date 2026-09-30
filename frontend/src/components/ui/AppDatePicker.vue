@@ -1,7 +1,13 @@
 <script setup>
-// Calendário no visual do site. O calendário nativo do <input type="date"> é desenhado pelo
+// Calendário no visual do site.
+// Props: modelValue ("AAAA-MM-DD"), min/max ("AAAA-MM-DD", opcionais; dias fora ficam desabilitados
+// e o mês não navega para fora dos limites), id (associa <label for>), ariaLabel, labelledby,
+// describedby, invalid, disabled, placeholder. Emite update:modelValue com "AAAA-MM-DD".
+// O calendário é position: fixed (z-index 1100), então não é cortado por modais.
+// O calendário nativo do <input type="date"> é desenhado pelo
 // navegador, com cores e layout diferentes de cada navegador e do modo noite.
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
+import { clampToBounds, isIsoDate, isOutOfBounds, monthHasDaysInBounds } from '../../shared/date/dateBounds.js'
 
 const WEEKDAYS = Object.freeze([
   { short: 'D', long: 'domingo' },
@@ -16,7 +22,6 @@ const DAYS_IN_WEEK = 7
 const POPUP_WIDTH = 300
 const POPUP_GAP = 6
 const VIEWPORT_MARGIN = 12
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 const props = defineProps({
   // Datas no formato "AAAA-MM-DD", o mesmo que o backend recebe.
@@ -27,6 +32,8 @@ const props = defineProps({
   invalid: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
   describedby: { type: String, default: undefined },
+  ariaLabel: { type: String, default: undefined },
+  labelledby: { type: String, default: undefined },
   placeholder: { type: String, default: 'Selecione a data' },
 })
 
@@ -35,9 +42,7 @@ const emit = defineEmits(['update:modelValue'])
 const monthFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' })
 const dayLabelFormatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
-function isIso(value) {
-  return ISO_DATE.test(value ?? '')
-}
+const isIso = isIsoDate
 
 function toIso(date) {
   return [
@@ -82,13 +87,11 @@ const viewMonth = ref(monthStartOf(todayIso))
 const focusedIso = ref(todayIso)
 
 function isOutOfRange(iso) {
-  return (isIso(props.min) && iso < props.min) || (isIso(props.max) && iso > props.max)
+  return isOutOfBounds(iso, props.min, props.max)
 }
 
 function clampIso(iso) {
-  if (isIso(props.min) && iso < props.min) return props.min
-  if (isIso(props.max) && iso > props.max) return props.max
-  return iso
+  return clampToBounds(iso, props.min, props.max)
 }
 
 const displayValue = computed(() => {
@@ -131,10 +134,10 @@ const weeks = computed(() => {
 })
 
 const canGoPrevious = computed(() => (
-  !isIso(props.min) || toIso(new Date(viewMonth.value.getFullYear(), viewMonth.value.getMonth(), 0)) >= props.min
+  monthHasDaysInBounds(viewMonth.value.getFullYear(), viewMonth.value.getMonth() - 1, props.min, props.max)
 ))
 const canGoNext = computed(() => (
-  !isIso(props.max) || toIso(new Date(viewMonth.value.getFullYear(), viewMonth.value.getMonth() + 1, 1)) <= props.max
+  monthHasDaysInBounds(viewMonth.value.getFullYear(), viewMonth.value.getMonth() + 1, props.min, props.max)
 ))
 const canPickToday = computed(() => !isOutOfRange(todayIso))
 
@@ -294,6 +297,8 @@ onBeforeUnmount(() => toggleListeners(false))
       :aria-controls="open ? dialogId : undefined"
       :aria-invalid="invalid"
       :aria-describedby="describedby"
+      :aria-label="ariaLabel"
+      :aria-labelledby="labelledby"
       :disabled="disabled"
       @click="toggle"
       @keydown="onTriggerKeydown"
@@ -346,6 +351,7 @@ onBeforeUnmount(() => toggleListeners(false))
                 :data-iso="cell.iso"
                 :tabindex="cell.iso === focusedIso ? 0 : -1"
                 :disabled="cell.disabled"
+                :aria-disabled="cell.disabled || undefined"
                 :aria-label="cell.label"
                 :aria-pressed="cell.isSelected"
                 :aria-current="cell.isToday ? 'date' : undefined"
@@ -377,7 +383,7 @@ onBeforeUnmount(() => toggleListeners(false))
 .app-date-placeholder { color: #8a879b; }
 .app-date-icon { fill: none; flex: 0 0 18px; height: 18px; stroke: #6330e0; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 18px; }
 
-.app-date-popup { background: #ffffff; border: 1px solid #e3dff0; border-radius: 12px; box-shadow: 0 18px 44px rgba(20, 18, 35, .2); box-sizing: border-box; padding: 12px; position: fixed; z-index: 1000; }
+.app-date-popup { background: #ffffff; border: 1px solid #e3dff0; border-radius: 12px; box-shadow: 0 18px 44px rgba(20, 18, 35, .2); box-sizing: border-box; padding: 12px; position: fixed; z-index: 1100; }
 
 .app-date-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: 8px; }
 .app-date-header strong { color: #202033; font-size: 14px; }
