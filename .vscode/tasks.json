@@ -1,0 +1,19 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "init",
+      "detail": "Sobe o PostgreSQL, garante tabelas e dados de demonstração e inicia backend e frontend.",
+      "type": "shell",
+      "command": "node scripts/init.mjs",
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "focus": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

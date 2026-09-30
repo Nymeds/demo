@@ -31,4 +31,6 @@ build/
 !**/src/test/**/build/
 
 ### VS Code ###
-.vscode/
+# Só a tarefa "init" (tasks.json) é versionada; o restante das configurações do editor é pessoal.
+.vscode/*
+!.vscode/tasks.json

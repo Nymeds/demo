@@ -8,6 +8,31 @@ O acesso é isolado por usuário: toda requisição parte do dashboard do usuár
 
 O projeto segue um processo centrado no usuário (IHC): entender necessidades, definir requisitos, projetar fluxos acessíveis e validar com usuários. Um endpoint pronto não significa que o fluxo de interface foi validado.
 
+## Início rápido (init)
+
+Um único comando sobe o banco, cria as tabelas, insere dados de demonstração e inicia backend e frontend.
+
+**Pré-requisitos:** Docker Desktop aberto e em execução, Java 21 e Node.js 20.19 ou superior (com npm).
+
+1. **Crie o `.env`** copiando `.env.example` (`Copy-Item .env.example .env` no PowerShell, `cp .env.example .env` no Git Bash/Linux/macOS) e **preencha `DB_PASSWORD` e `JWT_SECRET`** (o secret precisa ter pelo menos 32 bytes). O init nunca gera segredos por você; se o `.env` não existir ou esses valores estiverem vazios, ele para e avisa.
+2. **Rode o init:** no VS Code, `Terminal > Run Task... > init` (ou `npm run init` na raiz do projeto).
+
+**O que acontece:** valida o `.env`, Docker, Java e Node; sobe o PostgreSQL (`docker compose up -d postgres`) e espera o healthcheck; consulta as tabelas no banco; inicia o backend com o perfil `seed` (o Hibernate cria as tabelas e o usuário demo é inserido); confere o resultado no banco; roda `npm install` em `frontend/` só se faltar `node_modules` e inicia o frontend. No fim, mostra um resumo com as URLs.
+
+**Cores do terminal:** cada linha começa com a origem. `[INIT]` (branco) é o pipeline, `[DB]` (ciano) é o banco, `[BACK]` (verde) é o backend e `[FRONT]` (magenta) é o frontend. Linhas de erro (saída de erro ou com ERROR/Exception/failed) ficam em vermelho, mantendo o prefixo de quem as gerou; avisos (WARN) ficam em amarelo.
+
+**Segunda execução:** se as tabelas e o usuário demo já existem, o init avisa "Tabelas e dados de demonstração já existem: nada será recriado" e segue direto para backend e frontend. Nada é apagado ou duplicado.
+
+**Acesso:** frontend em `http://localhost:5173` e API em `http://localhost:8080`. Login demo: `desenvolvedor@dev.com`, senha `desenvolvedor@dev.com`. Esse usuário tem senha conhecida: use o init só para avaliação e desenvolvimento local.
+
+**Para parar:** `Ctrl+C` no terminal da tarefa encerra backend e frontend. O PostgreSQL continua rodando; para pará-lo, `docker compose down`.
+
+**Para zerar o banco** (apaga todos os dados): `docker compose down -v` e rode o init de novo.
+
+**Se algo falhar:** porta ocupada (8080 ou 5173)? Defina `SERVER_PORT` e/ou `FRONTEND_PORT` no `.env` ou no shell. Erro de autenticação no banco depois de trocar `DB_PASSWORD`? O volume antigo guarda a senha anterior; recrie com `docker compose down -v`.
+
+O perfil `seed` só existe para o init (e para quem o ativar de propósito): o perfil padrão nunca insere dados de demonstração.
+
 ## Tecnologias
 
 - Java 21, Spring Boot 4.1, Spring Web MVC, Spring Data JPA, Bean Validation, Spring Security com JWT, Lombok
@@ -22,7 +47,7 @@ src/main/java/studdy/example/demo/
   activities/   Atividades e provas (tipo ACTIVITY ou EXAM)
   auth/         Cadastro, login, refresh tokens, limitador de tentativas de login
   calendar/     Eventos do calendário
-  config/       Relógio, validação, seed do perfil dev
+  config/       Relógio, validação, seed de demonstração (perfis dev e seed)
   dashboard/    Dashboards e correção de dashboards ativos na inicialização
   discipline/   Disciplinas, frequência, faltas, desempenho acadêmico
   grade/        Notas
@@ -33,6 +58,7 @@ src/main/java/studdy/example/demo/
   simulator/    Simulador de notas (cálculo no servidor)
   user/         Usuário, perfil e foto de perfil
 src/main/resources/                  application.properties e application-dev.properties
+scripts/init.mjs e scripts/init/     Pipeline "init" (Node, sem dependências)
 src/test/java/studdy/example/demo/   Testes automatizados (espelham os pacotes acima)
 src/test/resources/application.properties   Configuração dos testes (H2)
 frontend/src/
@@ -49,7 +75,7 @@ docs/                                Regras de negócio, API de perfil e migraç
 
 ### Pré-requisitos
 
-Java 21 e Node.js com npm. Não é preciso instalar o Maven (há o Maven Wrapper). No PowerShell, use `./mvnw.cmd` ou `.\mvnw.cmd`.
+Java 21 e Node.js com npm (para o caminho automático, veja o [Início rápido](#início-rápido-init)). Não é preciso instalar o Maven (há o Maven Wrapper). No PowerShell, use `./mvnw.cmd` ou `.\mvnw.cmd`.
 
 ### Backend, perfil padrão (PostgreSQL)
 
@@ -127,6 +153,10 @@ Não exige PostgreSQL. O banco é H2 em memória: **os dados são perdidos a cad
 ```
 
 Nesse perfil `JWT_SECRET` é opcional (há um segredo exclusivo de desenvolvimento; se definido, tem prioridade). A API fica em `http://localhost:8080`.
+
+### Backend, perfil `seed` (PostgreSQL com dados de demonstração)
+
+É o perfil usado pelo `init`. Combine-o com as variáveis do perfil padrão (`DB_PASSWORD`, `JWT_SECRET`, ...): `./mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=seed"`. Ele reaproveita o mesmo seed do perfil `dev` (`DemoDataSeed`), mas grava no PostgreSQL configurado, e é idempotente: se `desenvolvedor@dev.com` já existe, nada é criado. Nunca ative em produção.
 
 ### Frontend
 
