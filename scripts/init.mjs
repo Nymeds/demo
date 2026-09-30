@@ -77,7 +77,7 @@ function printSummary({ frontendUrl, apiUrl }) {
 }
 
 async function run() {
-  init.info('Pipeline de inicialização do Studdy.');
+  init.info('Pipeline de inicialização do AcadOrganize.');
 
   const { env, problems: envProblems } = loadEnv(root);
   const endpoints = resolveEndpoints(env);

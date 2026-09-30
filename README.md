@@ -1,4 +1,4 @@
-# Sistema de Organização Acadêmica (Studdy)
+# AcadOrganize — Sistema de Organização Acadêmica
 
 ## Visão geral
 

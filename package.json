@@ -1,7 +1,7 @@
 {
   "name": "demo",
   "private": true,
-  "description": "Scripts da raiz do projeto Studdy. O frontend tem o próprio package.json em frontend/.",
+  "description": "Scripts da raiz do projeto AcadOrganize. O frontend tem o próprio package.json em frontend/.",
   "scripts": {
     "init": "node scripts/init.mjs"
   },
