@@ -14,7 +14,7 @@ class DevSeedProfileTest {
     private ApplicationContext context;
 
     @Test
-    void seedBeanIsAbsentWithoutDevProfile() {
-        assertThat(context.getBeansOfType(H2DevelopmentDataSeed.class)).isEmpty();
+    void seedBeanIsAbsentWithoutDevOrSeedProfile() {
+        assertThat(context.getBeansOfType(DemoDataSeed.class)).isEmpty();
     }
 }

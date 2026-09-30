@@ -15,7 +15,7 @@ import studdy.example.demo.user.UserRepository;
 
 @SpringBootTest
 @ActiveProfiles("dev")
-class H2DevelopmentDataSeedTest {
+class DemoDataSeedDevProfileTest {
 
     @Autowired
     private UserRepository userRepository;
@@ -31,11 +31,11 @@ class H2DevelopmentDataSeedTest {
 
     @Test
     void createsDeveloperAccountAndSampleAcademicData() {
-        AppUser developer = userRepository.findByEmail(H2DevelopmentDataSeed.DEVELOPER_EMAIL)
+        AppUser developer = userRepository.findByEmail(DemoDataSeed.DEVELOPER_EMAIL)
                 .orElseThrow();
 
         assertThat(passwordEncoder.matches(
-                H2DevelopmentDataSeed.DEVELOPER_PASSWORD,
+                DemoDataSeed.DEVELOPER_PASSWORD,
                 developer.getPasswordHash()
         )).isTrue();
 

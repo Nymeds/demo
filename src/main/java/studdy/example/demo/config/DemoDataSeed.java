@@ -15,6 +15,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,16 +37,29 @@ import studdy.example.demo.grade.GradeRepository;
 import studdy.example.demo.user.AppUser;
 import studdy.example.demo.user.UserRepository;
 
+/**
+ * Cria o usuario demo com dados academicos de exemplo. So existe nos perfis {@code dev} e {@code seed}.
+ *
+ * <ul>
+ *   <li>{@code dev}: apenas em H2 em memoria (nunca toca um banco real, mesmo se o perfil for ligado por engano).</li>
+ *   <li>{@code seed}: ativado explicitamente pelo pipeline de init, tambem em PostgreSQL.</li>
+ * </ul>
+ *
+ * Idempotente: se o usuario demo ja existe, nada e criado. Nunca roda no perfil padrao.
+ */
 @Component
-@Profile("dev")
-public class H2DevelopmentDataSeed implements ApplicationRunner {
+@Profile({"dev", "seed"})
+public class DemoDataSeed implements ApplicationRunner {
 
-    private static final Logger log = LoggerFactory.getLogger(H2DevelopmentDataSeed.class);
+    public static final String SEED_PROFILE = "seed";
+
+    private static final Logger log = LoggerFactory.getLogger(DemoDataSeed.class);
 
     public static final String DEVELOPER_EMAIL = "desenvolvedor@dev.com";
     public static final String DEVELOPER_PASSWORD = "desenvolvedor@dev.com";
 
     private final DataSource dataSource;
+    private final Environment environment;
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final DashboardRepository dashboardRepository;
@@ -53,8 +68,9 @@ public class H2DevelopmentDataSeed implements ApplicationRunner {
     private final GradeRepository gradeRepository;
     private final FrequencyRepository frequencyRepository;
 
-    public H2DevelopmentDataSeed(
+    public DemoDataSeed(
             DataSource dataSource,
+            Environment environment,
             PasswordEncoder passwordEncoder,
             UserRepository userRepository,
             DashboardRepository dashboardRepository,
@@ -64,6 +80,7 @@ public class H2DevelopmentDataSeed implements ApplicationRunner {
             FrequencyRepository frequencyRepository
     ) {
         this.dataSource = dataSource;
+        this.environment = environment;
         this.passwordEncoder = passwordEncoder;
         this.userRepository = userRepository;
         this.dashboardRepository = dashboardRepository;
@@ -76,11 +93,15 @@ public class H2DevelopmentDataSeed implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) throws Exception {
-        if (!isH2Database() || userRepository.existsByEmail(DEVELOPER_EMAIL)) {
+        if (!isSeedAllowed()) {
+            return;
+        }
+        if (userRepository.existsByEmail(DEVELOPER_EMAIL)) {
+            log.info("Usuario demo {} ja existe; seed ignorado.", DEVELOPER_EMAIL);
             return;
         }
 
-        log.warn("PERFIL DEV: criando usuario demo {} com senha conhecida. Nunca use o perfil dev em producao.",
+        log.warn("SEED DEMO: criando usuario demo {} com senha conhecida. Nunca use os perfis dev/seed em producao.",
                 DEVELOPER_EMAIL);
         AppUser developer = userRepository.save(new AppUser(
                 "Desenvolvedor",
@@ -198,6 +219,10 @@ public class H2DevelopmentDataSeed implements ApplicationRunner {
                 new Frequency(databases, 1),
                 new Frequency(ux, 2)
         ));
+    }
+
+    private boolean isSeedAllowed() throws Exception {
+        return environment.acceptsProfiles(Profiles.of(SEED_PROFILE)) || isH2Database();
     }
 
     private boolean isH2Database() throws Exception {
