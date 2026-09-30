@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
@@ -101,6 +102,14 @@ class FrequencyServiceTest {
                 owner.getId(), dashboard.getId(), discipline.getId()).attendancePercentage());
         assertEquals(new BigDecimal("70.00"), disciplineService.findById(
                 owner.getId(), dashboard.getId(), discipline.getId()).attendancePercentage());
+    }
+
+    @Test
+    void recordsCreationAndUpdateTimestamps() {
+        Frequency saved = frequencyRepository.saveAndFlush(new Frequency(discipline, 1));
+
+        assertNotNull(saved.getCreatedAt());
+        assertNotNull(saved.getUpdatedAt());
     }
 
     @Test

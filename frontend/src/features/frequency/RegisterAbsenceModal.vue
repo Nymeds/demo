@@ -9,7 +9,7 @@ import { attendanceAfterAbsences } from './frequencyRules.js'
 const CLOCK_REFRESH_MS = 60_000
 
 const props = defineProps({
-  // Linhas montadas na FrequencyPage: id, name, configured,
+  // Linhas montadas na FrequencyScreen: id, name, configured,
   // absences, attendancePercentage e minimumPercentage.
   rows: { type: Array, required: true },
   initialDisciplineId: { type: String, default: '' },

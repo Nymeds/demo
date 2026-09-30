@@ -1,5 +1,6 @@
 package studdy.example.demo.dashboard;
 
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +15,7 @@ import studdy.example.demo.user.UserRepository;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SpringBootTest
 @Transactional
@@ -27,6 +29,9 @@ class DashboardServiceTest {
 
     @Autowired
     private DashboardService dashboardService;
+
+    @Autowired
+    private EntityManager entityManager;
 
     private AppUser owner;
 
@@ -59,6 +64,38 @@ class DashboardServiceTest {
         assertEquals(DashboardStatus.INACTIVE, firstDashboard.getStatus());
         assertEquals(DashboardStatus.ACTIVE, secondDashboard.getStatus());
         assertEquals(DashboardStatus.ACTIVE, second.status());
+    }
+
+    @Test
+    void persistsThePreviousDashboardAsInactiveBeforeTheNewActiveOneIsInserted() {
+        DashboardResponse first = dashboardService.create(
+                owner.getId(),
+                new CreateDashboardRequest("Semestre 2026.1", DashboardStatus.ACTIVE)
+        );
+
+        DashboardResponse second = dashboardService.create(
+                owner.getId(),
+                new CreateDashboardRequest("Semestre 2026.2", DashboardStatus.ACTIVE)
+        );
+        entityManager.flush();
+        entityManager.clear();
+
+        assertEquals(DashboardStatus.INACTIVE, dashboardRepository.findById(first.id()).orElseThrow().getStatus());
+        assertEquals(DashboardStatus.ACTIVE, dashboardRepository.findById(second.id()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void recordsCreationAndUpdateTimestamps() {
+        DashboardResponse created = dashboardService.create(
+                owner.getId(),
+                new CreateDashboardRequest("Semestre 2026.1", DashboardStatus.ACTIVE)
+        );
+        entityManager.flush();
+
+        Dashboard dashboard = dashboardRepository.findById(created.id()).orElseThrow();
+
+        assertNotNull(dashboard.getCreatedAt());
+        assertNotNull(dashboard.getUpdatedAt());
     }
 
     @Test

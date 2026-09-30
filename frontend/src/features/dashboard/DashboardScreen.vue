@@ -3,10 +3,10 @@ import { apiRequest as sharedApiRequest } from '../../shared/http/apiRequest.js'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ActivitiesScreen from '../activities/ActivitiesScreen.vue'
 import ProvasScreen from '../exams/ProvasScreen.vue'
-import DisciplinesEmpty from '../disciplines/DisciplinesEmpty.vue'
-import FrequencyPage from '../frequency/FrequencyPage.vue'
+import DisciplinesScreen from '../disciplines/DisciplinesScreen.vue'
+import FrequencyScreen from '../frequency/FrequencyScreen.vue'
 import ProfileScreen from '../profile/ProfileScreen.vue'
-import SimulatorNotes from '../simulator/SimulatorNotes.vue'
+import SimulatorScreen from '../simulator/SimulatorScreen.vue'
 import CalendarScreen from '../calendar/CalendarScreen.vue'
 import GradesScreen from '../grades/GradesScreen.vue'
 import SettingsScreen from '../settings/SettingsScreen.vue'
@@ -335,7 +335,7 @@ onBeforeUnmount(() => {
         </p>
       </section>
 
-      <DisciplinesEmpty
+      <DisciplinesScreen
         v-if="activeSection === 'disciplines'"
       />
 
@@ -347,7 +347,7 @@ onBeforeUnmount(() => {
         v-if="activeSection === 'exams'"
         @navigate="activeSection = $event"
       />
-      <FrequencyPage
+      <FrequencyScreen
         v-if="activeSection === 'frequency'"
       />
       <GradesScreen
@@ -355,7 +355,7 @@ onBeforeUnmount(() => {
         @navigate="activeSection = $event"
         @session-expired="emit('logout', 'session-expired')"
       />
-      <SimulatorNotes
+      <SimulatorScreen
         v-if="activeSection === 'simulator'"
         @navigate="activeSection = $event"
       />

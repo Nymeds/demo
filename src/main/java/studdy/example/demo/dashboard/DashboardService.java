@@ -31,22 +31,26 @@ public class DashboardService {
                 owner
         );
 
-        Dashboard saved = dashboardRepository.save(dashboard);
-
-        if (saved.getStatus() == DashboardStatus.ACTIVE) {
-            deactivateOtherActiveDashboards(userId, saved.getId());
+        // Desativa os outros antes do save: o índice único parcial ux_dashboards_one_active_per_owner
+        // rejeita dois ACTIVE do mesmo dono, e o auto-flush da consulta inseriria o novo primeiro.
+        if (dashboard.getStatus() == DashboardStatus.ACTIVE) {
+            deactivateOtherActiveDashboards(userId);
         }
+
+        Dashboard saved = dashboardRepository.save(dashboard);
 
         return DashboardResponse.from(saved);
     }
 
-    private void deactivateOtherActiveDashboards(UUID ownerId, UUID keepDashboardId) {
+    private void deactivateOtherActiveDashboards(UUID ownerId) {
         List<Dashboard> otherActiveDashboards = dashboardRepository
-                .findAllByOwner_IdAndStatusAndIdNot(ownerId, DashboardStatus.ACTIVE, keepDashboardId);
+                .findAllByOwner_IdAndStatus(ownerId, DashboardStatus.ACTIVE);
 
         otherActiveDashboards.forEach(Dashboard::deactivate);
 
-        dashboardRepository.saveAll(otherActiveDashboards);
+        // Flush explícito: o Hibernate executa INSERTs antes de UPDATEs, então sem ele o novo ACTIVE
+        // entraria antes de os antigos virarem INACTIVE.
+        dashboardRepository.saveAllAndFlush(otherActiveDashboards);
     }
 
     @Transactional(readOnly = true)

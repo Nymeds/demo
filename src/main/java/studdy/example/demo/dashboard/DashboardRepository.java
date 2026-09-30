@@ -26,8 +26,6 @@ public interface DashboardRepository extends JpaRepository<Dashboard, UUID> {
 
     List<Dashboard> findAllByOwner_IdOrderByNameAsc(UUID ownerId);
 
-    List<Dashboard> findAllByOwner_IdAndStatusAndIdNot(UUID ownerId, DashboardStatus status, UUID id);
-
     List<Dashboard> findAllByOwner_IdAndStatus(UUID ownerId, DashboardStatus status);
 
     @Query("select d.owner.id from Dashboard d where d.status = :status group by d.owner.id having count(d) > 1")

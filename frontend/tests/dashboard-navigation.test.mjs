@@ -125,16 +125,16 @@ ${rewriteRelativeImports(code, sfcUrl)}`,
 
   const frequencyButton = button('Frequência')
   assert.ok(frequencyButton, 'Frequência deve estar disponível no menu')
-  assert.equal(all(root).some(item => item.type === 'FrequencyPage'), false)
+  assert.equal(all(root).some(item => item.type === 'FrequencyScreen'), false)
   frequencyButton.props.onClick()
   await nextTick()
   assert.equal(frequencyButton.props['aria-current'], 'page')
-  assert.ok(all(root).find(item => item.type === 'FrequencyPage'), 'FrequencyPage deve ser exibida')
+  assert.ok(all(root).find(item => item.type === 'FrequencyScreen'), 'FrequencyScreen deve ser exibida')
   assert.equal(all(root).some(item => item.props.class === 'dashboard-overview'), false)
 
   button('Dashboard').props.onClick()
   await nextTick()
-  assert.equal(all(root).some(item => item.type === 'FrequencyPage'), false)
+  assert.equal(all(root).some(item => item.type === 'FrequencyScreen'), false)
   assert.equal(button('Dashboard').props['aria-current'], 'page')
 
   button('Notas').props.onClick()

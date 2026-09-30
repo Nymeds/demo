@@ -10,12 +10,15 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import studdy.example.demo.user.AppUser;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
@@ -39,6 +42,14 @@ public class Dashboard {
     @JoinColumn(name = "owner_id", nullable = false)
     private AppUser owner;
 
+    // Anuláveis (ao contrário das outras entidades): com ddl-auto=update, as linhas que já
+    // existem não têm valor para as colunas novas e um NOT NULL faria o ALTER TABLE falhar.
+    @Column(updatable = false)
+    private Instant createdAt;
+
+    @Column
+    private Instant updatedAt;
+
     public Dashboard(String name, DashboardStatus status, AppUser owner) {
         this.name = name;
         this.status = status;
@@ -47,5 +58,16 @@ public class Dashboard {
 
     public void deactivate() {
         this.status = DashboardStatus.INACTIVE;
+    }
+
+    @PrePersist
+    void onCreate() {
+        createdAt = Instant.now();
+        updatedAt = createdAt;
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = Instant.now();
     }
 }

@@ -5,7 +5,7 @@ import { computed, ref, watch } from 'vue'
 import { LOSS_PER_ABSENCE, attendanceAfterAbsences, maximumAbsencesFor } from './frequencyRules.js'
 
 const props = defineProps({
-  // Linhas montadas na FrequencyPage: id, name, color, minimumPercentage,
+  // Linhas montadas na FrequencyScreen: id, name, color, minimumPercentage,
   // configured e absences.
   rows: { type: Array, required: true },
   initialDisciplineId: { type: String, default: '' },

@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ${DB_USERNAME:-academic_organizer}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - studdy_postgres_data:/var/lib/postgresql/data
     healthcheck:

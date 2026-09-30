@@ -12,9 +12,17 @@ O projeto segue um processo centrado no usuário (IHC): entender necessidades, d
 
 Um único comando sobe o banco, cria as tabelas, insere dados de demonstração e inicia backend e frontend.
 
-**Pré-requisitos:** Docker Desktop aberto e em execução, Java 21 e Node.js 20.19 ou superior (com npm).
+**Pré-requisitos** (todos precisam estar instalados antes do init):
 
-1. **Crie o `.env`** copiando `.env.example` (`Copy-Item .env.example .env` no PowerShell, `cp .env.example .env` no Git Bash/Linux/macOS) e **preencha `DB_PASSWORD` e `JWT_SECRET`** (o secret precisa ter pelo menos 32 bytes). O init nunca gera segredos por você; se o `.env` não existir ou esses valores estiverem vazios, ele para e avisa.
+| Ferramenta | Versão | Observação |
+| --- | --- | --- |
+| Java | 21 | O Maven não precisa ser instalado: há o Maven Wrapper |
+| Node.js (com npm) | 20.19 ou superior | Usado pelo init e pelo frontend |
+| Docker com Compose v2 | comando `docker compose` | Docker Desktop aberto e em execução (no Windows) |
+
+O Docker é usado **só para o banco**: o `npm run init` sobe o PostgreSQL no Docker e roda a API e o frontend diretamente na sua máquina.
+
+1. **Crie o `.env`** copiando `.env.example` (`Copy-Item .env.example .env` no PowerShell, `cp .env.example .env` no Git Bash/Linux/macOS) e **preencha `DB_PASSWORD` e `JWT_SECRET`** (o secret precisa ter pelo menos 32 bytes; o `.env.example` traz comandos para gerar um valor). O `.env.example` vem com esses dois campos vazios de propósito. O init nunca gera segredos por você; se o `.env` não existir, ou se esses valores estiverem vazios ou o secret tiver menos de 32 bytes, ele para e avisa.
 2. **Rode o init:** no VS Code, `Terminal > Run Task... > init` (ou `npm run init` na raiz do projeto).
 
 **O que acontece:** valida o `.env`, Docker, Java e Node; sobe o PostgreSQL (`docker compose up -d postgres`) e espera o healthcheck; consulta as tabelas no banco; inicia o backend com o perfil `seed` (o Hibernate cria as tabelas e o usuário demo é inserido); confere o resultado no banco; roda `npm install` em `frontend/` só se faltar `node_modules` e inicia o frontend. No fim, mostra um resumo com as URLs.
@@ -29,7 +37,7 @@ Um único comando sobe o banco, cria as tabelas, insere dados de demonstração 
 
 **Para zerar o banco** (apaga todos os dados): `docker compose down -v` e rode o init de novo.
 
-**Se algo falhar:** porta ocupada (8080 ou 5173)? Defina `SERVER_PORT` e/ou `FRONTEND_PORT` no `.env` ou no shell. Erro de autenticação no banco depois de trocar `DB_PASSWORD`? O volume antigo guarda a senha anterior; recrie com `docker compose down -v`.
+**Se algo falhar:** porta ocupada (8080 ou 5173)? Defina `SERVER_PORT` e/ou `FRONTEND_PORT` no `.env` ou no shell (veja a tabela de variáveis em "Como rodar"). Erro de autenticação no banco depois de trocar `DB_PASSWORD`? O volume antigo guarda a senha anterior; recrie com `docker compose down -v`.
 
 O perfil `seed` só existe para o init (e para quem o ativar de propósito): o perfil padrão nunca insere dados de demonstração.
 
@@ -75,7 +83,7 @@ docs/                                Regras de negócio, API de perfil e migraç
 
 ### Pré-requisitos
 
-Java 21 e Node.js com npm (para o caminho automático, veja o [Início rápido](#início-rápido-init)). Não é preciso instalar o Maven (há o Maven Wrapper). No PowerShell, use `./mvnw.cmd` ou `.\mvnw.cmd`.
+Veja a tabela de pré-requisitos do [Início rápido](#início-rápido-init). Docker só é necessário para o PostgreSQL; para o perfil `dev` bastam Java 21 e Node.js. No PowerShell, use `./mvnw.cmd` ou `.\mvnw.cmd`; no Linux/macOS, `./mvnw`.
 
 ### Backend, perfil padrão (PostgreSQL)
 
@@ -90,6 +98,11 @@ O perfil padrão usa PostgreSQL e exige configuração por variáveis de ambient
 | `JWT_EXPIRATION_MS` | não | `900000` (15 min) | Validade do token de acesso |
 | `REFRESH_TOKEN_REMEMBER_ME_TTL` | não | `30d` | Sessão com "Lembrar de mim" |
 | `REFRESH_TOKEN_SESSION_TTL` | não | `12h` | Sessão sem "Lembrar de mim" |
+| `REFRESH_TOKEN_REUSE_GRACE` | não | `10s` | Janela em que reapresentar um refresh token recém-rotacionado (duas abas renovando juntas) só devolve `401`, sem revogar a sessão |
+| `FORWARD_HEADERS_STRATEGY` | não | `none` | Use `native` (ou `framework`) só atrás de um proxy confiável, para o limitador de login usar o `X-Forwarded-For`; nunca sem proxy (o cabeçalho seria forjável) |
+| `SERVER_PORT` | não | `8080` | Porta da API no `npm run init` (contorna porta ocupada) |
+| `FRONTEND_PORT` | não | `5173` | Porta do frontend no `npm run init` |
+| `VITE_API_PROXY_TARGET` | não | `http://localhost:8080` | Alvo do proxy `/api` do Vite; o init ajusta sozinho se `SERVER_PORT` mudar |
 | `LEGAL_TERMS_VERSION` | não | `2026-09-29` | Versão vigente dos Termos de Uso |
 | `LEGAL_PRIVACY_VERSION` | não | `2026-09-29` | Versão vigente da Política de Privacidade |
 
@@ -115,7 +128,7 @@ O antigo perfil `postgres` foi removido: use o perfil padrão com as variáveis 
    docker compose up -d postgres
    ```
 
-4. **Rodee a aplicação** com as variáveis de ambiente definidas:
+4. **Rode a aplicação** com as variáveis de ambiente definidas:
    ```powershell
    # PowerShell
    $env:DB_PASSWORD = "sua-senha-escolhida"
@@ -125,7 +138,7 @@ O antigo perfil `postgres` foi removido: use o perfil padrão com as variáveis 
    ou via `.env`:
    ```bash
    set -a && source .env && set +a  # Linux/macOS
-   ./mvnw.cmd spring-boot:run
+   ./mvnw spring-boot:run
    ```
 
 5. **Pare o container** quando terminar:
@@ -149,7 +162,7 @@ Nunca exponha a porta `5432` publicamente.
 Não exige PostgreSQL. O banco é H2 em memória: **os dados são perdidos a cada reinicialização**. O perfil cria o usuário demo `desenvolvedor@dev.com` (senha idêntica ao e-mail) com dashboard, disciplinas, atividades, notas e faltas de exemplo. Use somente em desenvolvimento local, nunca em produção.
 
 ```powershell
-./mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=dev
+./mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=dev"
 ```
 
 Nesse perfil `JWT_SECRET` é opcional (há um segredo exclusivo de desenvolvimento; se definido, tem prioridade). A API fica em `http://localhost:8080`.
@@ -162,7 +175,7 @@ Nesse perfil `JWT_SECRET` é opcional (há um segredo exclusivo de desenvolvimen
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
@@ -174,7 +187,7 @@ Abra `http://localhost:5173`. O Vite encaminha as requisições de `/api` para o
 ./mvnw.cmd test        # backend: H2 em memória, configuração em src/test/resources/application.properties
 cd frontend
 npm run build          # build de produção do frontend
-node --test tests      # testes de lógica do frontend (não há script npm; cobertura ainda pequena)
+npm test               # testes de lógica do frontend (node:test; cobertura ainda pequena)
 ```
 
 ## Domínio e regras
@@ -230,5 +243,5 @@ Pontos de atenção ao atualizar um banco existente:
 - Recuperação de senha (item 45): aguardando decisão da equipe.
 - Textos legais (Termos de Uso e Política de Privacidade) são rascunhos, com campos "a definir" (contato, encarregado, local e prazo de retenção).
 - Decisões de produto em aberto: situação acadêmica combinada (nota e frequência), horários das aulas no calendário e mais tipos de avaliação.
-- O frontend ainda não tem testes automatizados de interface nem script `npm test`; existem apenas testes de lógica em `frontend/tests/`.
+- O frontend ainda não tem testes automatizados de interface; existem apenas testes de lógica (`npm test` em `frontend/`).
 - Limitador de login em memória (não distribuído).
