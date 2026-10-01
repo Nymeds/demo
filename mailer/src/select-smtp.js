@@ -8,7 +8,7 @@ export function smtpFailureReason(error) {
 }
 
 // verify() valida conexão, TLS e autenticação, sem enviar mensagem.
-export async function selectSmtp(config, { factory = createTransport, report = () => {} } = {}) {
+export async function selectSmtp(config, { factory = createTransport, report = () => {}, timeoutMs = 15000 } = {}) {
   const ports = config.port === 'auto' ? [465, 587] : [config.port]
   for (const port of ports) {
     const transport = factory({ ...config, port })
@@ -17,7 +17,7 @@ export async function selectSmtp(config, { factory = createTransport, report = (
       await Promise.race([
         transport.verify(),
         new Promise((_, reject) => {
-          timer = setTimeout(() => reject(Object.assign(new Error('Timeout SMTP'), { code: 'ETIMEDOUT' })), 15000)
+          timer = setTimeout(() => reject(Object.assign(new Error('Timeout SMTP'), { code: 'ETIMEDOUT' })), timeoutMs)
         }),
       ])
       report(`SMTP verificado na porta ${port} (${port === 465 ? 'TLS' : 'STARTTLS'}).`)

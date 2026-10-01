@@ -46,3 +46,16 @@ test('an explicitly configured SMTP port is respected', async () => {
   await assert.rejects(selectSmtp({ port: 587 }, f))
   assert.deepEqual(f.attempts, [587])
 })
+
+test('a hanging verification is bounded and the next port can be selected', async () => {
+  const closed = []
+  const selected = await selectSmtp({ port: 'auto' }, {
+    timeoutMs: 10,
+    factory: ({ port }) => ({
+      verify: () => port === 465 ? new Promise(() => {}) : Promise.resolve(true),
+      close: () => closed.push(port),
+    }),
+  })
+  assert.equal(selected.port, 587)
+  assert.deepEqual(closed, [465])
+})
