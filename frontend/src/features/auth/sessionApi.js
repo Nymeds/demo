@@ -1,4 +1,9 @@
-export class SessionExpiredError extends Error {}
+export class SessionExpiredError extends Error {
+  constructor(message, status = 401) {
+    super(message)
+    this.status = status
+  }
+}
 
 export async function sessionRequest(action) {
   const response = await fetch(`/api/v1/auth/${action}`, {
@@ -8,7 +13,9 @@ export async function sessionRequest(action) {
     body: '{}',
     signal: AbortSignal.timeout(15000),
   })
-  if (response.status === 401) throw new SessionExpiredError('Sua sessão expirou. Entre novamente.')
+  if ([401, 403].includes(response.status)) {
+    throw new SessionExpiredError('Sua sessão expirou ou não tem permissão. Entre novamente.', response.status)
+  }
   if (!response.ok) throw new Error('Não foi possível atualizar sua sessão. Verifique a conexão.')
   return response.status === 204 ? null : response.json()
 }

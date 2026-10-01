@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import AuthScreen from './AuthScreen.vue'
 import DashboardScreen from '../dashboard/DashboardScreen.vue'
+import AccessDeniedScreen from './AccessDeniedScreen.vue'
+import { ACCESS_DENIED_EVENT } from '../../api/protectedFetch'
 
 vi.mock('../dashboard/DashboardScreen.vue', () => ({ default: {
   props: ['accessToken', 'user'], emits: ['logout', 'token-refreshed'],
@@ -34,6 +36,7 @@ beforeEach(() => {
   vi.useFakeTimers()
   localStorage.clear()
   sessionStorage.clear()
+  window.history.replaceState(null, '', '/')
   fetchMock = vi.fn()
   vi.stubGlobal('fetch', fetchMock)
 })
@@ -119,10 +122,9 @@ describe('Lembrar de mim', () => {
     await vi.advanceTimersByTimeAsync(840000)
     expect(wrapper.find('[data-testid="dashboard"]').exists()).toBe(true)
     reply({}, 401)
-    reply(null, 204)
     await vi.advanceTimersByTimeAsync(10000)
-    expect(wrapper.find('input[type="email"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Sua sessão expirou')
+    expect(wrapper.findComponent(AccessDeniedScreen).exists()).toBe(true)
+    expect(wrapper.find('[data-testid="dashboard"]').exists()).toBe(false)
   })
 
   it('desabilita o login enquanto restaura e limpa temporizadores ao desmontar', async () => {
@@ -138,5 +140,87 @@ describe('Lembrar de mim', () => {
     resolveRefresh({ ok: true, status: 200, json: async () => auth })
     await flushPromises()
     expect(vi.getTimerCount()).toBe(0)
+  })
+})
+
+describe('Acesso a rotas protegidas', () => {
+  it.each(['/disciplinas', '/dashboard', '/qualquer-rota', '/#/notas'])('bloqueia %s após recusa da sessão', async path => {
+    window.history.replaceState(null, '', path)
+    reply({}, 401)
+    wrapper = mount(AuthScreen)
+    expect(wrapper.findComponent(AccessDeniedScreen).exists()).toBe(false)
+    await flushPromises()
+    expect(wrapper.findComponent(AccessDeniedScreen).props('status')).toBe(401)
+    expect(wrapper.find('[data-testid="dashboard"]').exists()).toBe(false)
+  })
+
+  it('libera a rota apenas depois de validar sessão e perfil', async () => {
+    window.history.replaceState(null, '', '/disciplinas')
+    reply(auth)
+    reply(user)
+    wrapper = mount(AuthScreen)
+    expect(wrapper.find('[data-testid="dashboard"]').exists()).toBe(false)
+    await flushPromises()
+    expect(wrapper.find('[data-testid="dashboard"]').exists()).toBe(true)
+    expect(wrapper.findComponent(AccessDeniedScreen).exists()).toBe(false)
+  })
+
+  it.each([401, 403])('recusa uma sessão cujo perfil retorna %s', async status => {
+    window.history.replaceState(null, '', '/dashboard')
+    reply(auth)
+    reply({}, status)
+    wrapper = mount(AuthScreen)
+    await flushPromises()
+    expect(wrapper.findComponent(AccessDeniedScreen).exists()).toBe(true)
+    expect(wrapper.find('[data-testid="dashboard"]').exists()).toBe(false)
+  })
+
+  it('mostra 403 quando a restauração da sessão é proibida', async () => {
+    window.history.replaceState(null, '', '/dashboard')
+    reply({}, 403)
+    wrapper = mount(AuthScreen)
+    await flushPromises()
+    expect(wrapper.findComponent(AccessDeniedScreen).props('status')).toBe(403)
+  })
+
+  it('bloqueia uma rota alterada pelo histórico sem autenticação', async () => {
+    reply({}, 401)
+    wrapper = mount(AuthScreen)
+    await flushPromises()
+    window.history.pushState(null, '', '/perfil')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+    await flushPromises()
+    expect(wrapper.findComponent(AccessDeniedScreen).exists()).toBe(true)
+  })
+
+  it.each([401, 403])('remove o dashboard quando uma chamada protegida recebe %s', async status => {
+    await login(true)
+    window.dispatchEvent(new CustomEvent(ACCESS_DENIED_EVENT, { detail: { status } }))
+    await flushPromises()
+    expect(wrapper.findComponent(AccessDeniedScreen).props('status')).toBe(status)
+    expect(wrapper.find('[data-testid="dashboard"]').exists()).toBe(false)
+    expect(vi.getTimerCount()).toBe(1) // Apenas a animação do Buddy, sem renovação de token.
+  })
+
+  it('não trata credenciais incorretas no login como tentativa de acesso a rota protegida', async () => {
+    await startLogin()
+    reply({ message: 'E-mail ou senha inválidos.' }, 401)
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.findComponent(AccessDeniedScreen).exists()).toBe(false)
+    expect(wrapper.text()).toContain('E-mail ou senha inválidos.')
+  })
+
+  it('volta ao login e revoga o cookie sem restaurar o acesso automaticamente', async () => {
+    window.history.replaceState(null, '', '/dashboard')
+    reply({}, 401)
+    wrapper = mount(AuthScreen)
+    await flushPromises()
+    reply(null, 204)
+    await wrapper.findComponent(AccessDeniedScreen).findAll('button').find(button => button.text() === 'Voltar ao login').trigger('click')
+    await flushPromises()
+    expect(window.location.pathname).toBe('/login')
+    expect(wrapper.find('input[type="email"]').exists()).toBe(true)
+    expect(wrapper.findComponent(AccessDeniedScreen).exists()).toBe(false)
   })
 })

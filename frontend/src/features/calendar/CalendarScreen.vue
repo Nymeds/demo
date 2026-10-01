@@ -1,4 +1,5 @@
 <script setup>
+import { protectedFetch } from '../../api/protectedFetch'
 import { computed, onMounted, ref, watch } from 'vue'
 import CalendarEventModal from './CalendarEventModal.vue'
 import DeleteCalendarEventModal from './DeleteCalendarEventModal.vue'
@@ -220,7 +221,7 @@ function upcomingDayLabel(value) {
 }
 
 async function apiRequest(path, options = {}) {
-  const response = await fetch(path, {
+  const response = await protectedFetch(path, {
     ...options,
     headers: {
       Authorization: `Bearer ${props.accessToken}`,

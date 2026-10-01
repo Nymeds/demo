@@ -1,4 +1,5 @@
 <script setup>
+import { protectedFetch } from '../../api/protectedFetch'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppToast from '../../components/ui/AppToast.vue'
 import { frequencySituation } from '../frequency/frequencyRules.js'
@@ -78,7 +79,7 @@ function closeAddModal() {
 }
 
 async function apiRequest(path, options = {}) {
-  const response = await fetch(path, {
+  const response = await protectedFetch(path, {
     ...options,
     headers: {
       Authorization: `Bearer ${props.accessToken}`,

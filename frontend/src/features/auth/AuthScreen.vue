@@ -6,10 +6,15 @@ import { useAvatar } from '../../composables/useAvatar'
 import DashboardScreen from '../dashboard/DashboardScreen.vue'
 import PasswordRecoveryScreen from './PasswordRecoveryScreen.vue'
 import { sessionRequest, SessionExpiredError } from './sessionApi'
+import AccessDeniedScreen from './AccessDeniedScreen.vue'
+import { ACCESS_DENIED_EVENT, protectedFetch } from '../../api/protectedFetch'
+import { currentRoute } from './routeAccess'
 
 const { clearAvatar } = useAvatar()
 
-const mode = ref('login')
+const route = ref(currentRoute())
+const mode = ref(route.value.publicMode || 'login')
+const deniedStatus = ref(null)
 const name = ref('')
 const email = ref('')
 const password = ref('')
@@ -76,7 +81,7 @@ async function renewAccessToken() {
       storeAccessToken(auth.accessToken, auth.expiresIn)
     } catch (error) {
       if (version !== sessionVersion) return
-      if (error instanceof SessionExpiredError) await logout('session-expired')
+      if (error instanceof SessionExpiredError) denyAccess(error.status)
       else renewTimer = setTimeout(renewAccessToken, 10000)
     }
   })().finally(() => { renewPromise = null })
@@ -87,6 +92,39 @@ function onWindowFocus() {
   if (tokenExpiresAt - Date.now() < 60000) renewAccessToken()
 }
 
+function denyAccess(status = 401) {
+  if (deniedStatus.value) return
+  deniedStatus.value = status
+  sessionVersion++
+  clearTimeout(renewTimer)
+  authenticatedUser.value = null
+  accessToken.value = ''
+  tokenExpiresAt = 0
+  restoringSession.value = false
+  clearStoredTokens()
+  clearAvatar()
+}
+
+function onAccessDenied(event) {
+  denyAccess(event.detail.status)
+}
+
+function onRouteChanged() {
+  route.value = currentRoute()
+  if (restoringSession.value || deniedStatus.value) return
+  if (!route.value.publicMode && !authenticatedUser.value) denyAccess()
+  else if (route.value.publicMode && !authenticatedUser.value) switchMode(route.value.publicMode)
+}
+
+async function returnToLogin() {
+  // Revoga o cookie antes de permitir uma nova tentativa de entrada.
+  await logout()
+  window.history.replaceState(null, '', '/login')
+  route.value = currentRoute()
+  switchMode('login')
+  deniedStatus.value = null
+}
+
 async function restoreSession() {
   const version = sessionVersion
   clearStoredTokens()
@@ -94,10 +132,11 @@ async function restoreSession() {
     if (logoutPending()) {
       await sessionRequest('logout')
       logoutPending(false)
+      if (!route.value.publicMode) denyAccess()
       return
     }
     const auth = await sessionRequest('refresh')
-    const response = await fetch('/api/v1/users/me', {
+    const response = await protectedFetch('/api/v1/users/me', {
       headers: { Authorization: `Bearer ${auth.accessToken}` },
       signal: AbortSignal.timeout(15000),
     })
@@ -110,6 +149,11 @@ async function restoreSession() {
     rememberMe.value = auth.rememberMe
     storeAccessToken(auth.accessToken, auth.expiresIn)
   } catch (error) {
+    if (version !== sessionVersion) return
+    if (error instanceof SessionExpiredError && !route.value.publicMode) {
+      denyAccess(error.status)
+      return
+    }
     if (!(error instanceof SessionExpiredError)) {
       feedback.value = 'Não foi possível restaurar sua sessão. Verifique a conexão ou entre novamente.'
       feedbackType.value = 'error'
@@ -120,6 +164,9 @@ async function restoreSession() {
 }
 
 onMounted(() => {
+  window.addEventListener(ACCESS_DENIED_EVENT, onAccessDenied)
+  window.addEventListener('popstate', onRouteChanged)
+  window.addEventListener('hashchange', onRouteChanged)
   restoreSession()
   window.addEventListener('focus', onWindowFocus)
 })
@@ -127,6 +174,9 @@ onBeforeUnmount(() => {
   sessionVersion++
   clearTimeout(renewTimer)
   window.removeEventListener('focus', onWindowFocus)
+  window.removeEventListener(ACCESS_DENIED_EVENT, onAccessDenied)
+  window.removeEventListener('popstate', onRouteChanged)
+  window.removeEventListener('hashchange', onRouteChanged)
 })
 
 function switchMode(nextMode) {
@@ -186,7 +236,7 @@ async function submit() {
     }
 
     if (isLogin.value) {
-      const userResponse = await fetch('/api/v1/users/me', {
+      const userResponse = await protectedFetch('/api/v1/users/me', {
         headers: { Authorization: `Bearer ${data.accessToken}` },
       })
 
@@ -248,6 +298,12 @@ async function logout(reason) {
   feedback.value = message?.text || (failed ? 'Você saiu neste navegador. Reconecte para encerrar também a sessão salva no servidor.' : '')
   feedbackType.value = message?.type || (failed ? 'error' : '')
 
+  if (reason === 'session-expired') denyAccess()
+  else if (!deniedStatus.value) {
+    window.history.replaceState(null, '', '/login')
+    route.value = currentRoute()
+  }
+
   if (reason === 'account-deleted') {
     email.value = ''
   }
@@ -266,10 +322,12 @@ function refreshAccessToken(token) {
 </script>
 
 <template>
+  <AccessDeniedScreen v-if="deniedStatus" :status="deniedStatus" @login="returnToLogin" />
   <DashboardScreen
-    v-if="authenticatedUser"
+    v-else-if="authenticatedUser"
     :user="authenticatedUser"
     :access-token="accessToken"
+    :route-section="route.publicMode ? '' : route.section"
     @logout="logout"
     @user-updated="updateAuthenticatedUser"
     @token-refreshed="refreshAccessToken"

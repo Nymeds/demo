@@ -1,4 +1,5 @@
 <script setup>
+import { protectedFetch } from '../../api/protectedFetch'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import ActivityModal from './ActivityModal.vue'
 import AppSelect from '../../components/ui/AppSelect.vue'
@@ -56,7 +57,7 @@ function closeToast() {
 }
 
 async function apiRequest(path, options = {}) {
-  const response = await fetch(path, {
+  const response = await protectedFetch(path, {
     ...options,
     headers: {
       Authorization: `Bearer ${props.accessToken}`,

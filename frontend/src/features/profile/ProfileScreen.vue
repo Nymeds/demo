@@ -1,4 +1,5 @@
 <script setup>
+import { protectedFetch } from '../../api/protectedFetch'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import AppToast from '../../components/ui/AppToast.vue'
 import AvatarCropModal from '../settings/AvatarCropModal.vue'
@@ -122,7 +123,7 @@ function closeToast() {
 
 async function apiRequest(path, options = {}) {
   const isFormData = options.body instanceof FormData
-  const response = await fetch(path, {
+  const response = await protectedFetch(path, {
     ...options,
     headers: {
       Authorization: `Bearer ${props.accessToken}`,
@@ -154,7 +155,7 @@ async function loadAvatar(userProfile = profile.value) {
   if (!userProfile.hasProfilePhoto || !userProfile.profilePhotoUrl) return
 
   try {
-    const response = await fetch(userProfile.profilePhotoUrl, {
+    const response = await protectedFetch(userProfile.profilePhotoUrl, {
       headers: { Authorization: `Bearer ${props.accessToken}` },
       cache: 'no-store',
     })

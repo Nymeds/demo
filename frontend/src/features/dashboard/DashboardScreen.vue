@@ -1,4 +1,5 @@
 <script setup>
+import { protectedFetch } from '../../api/protectedFetch'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ActivitiesScreen from '../activities/ActivitiesScreen.vue'
 import ProvasScreen from '../exams/ProvasScreen.vue'
@@ -13,13 +14,15 @@ import SettingsScreen from '../settings/SettingsScreen.vue'
 import { createSettingsApi, sectionFromPreference } from '../settings/settingsApi'
 import SidebarUserMenu from './SidebarUserMenu.vue'
 
-const { user, accessToken } = defineProps({
+const { user, accessToken, routeSection } = defineProps({
   user: { type: Object, required: true },
   accessToken: { type: String, required: true },
+  routeSection: { type: String, default: '' },
 })
 
 const emit = defineEmits(['logout', 'user-updated', 'token-refreshed'])
-const activeSection = ref('dashboard')
+const activeSection = ref(routeSection || 'dashboard')
+watch(() => routeSection, section => { if (section) activeSection.value = section })
 const sidebarAvatarUrl = ref('')
 const dashboardLoading = ref(true)
 const dashboardError = ref('')
@@ -68,7 +71,7 @@ const todayLabel = new Intl.DateTimeFormat('pt-BR', {
 }).format(today)
 
 async function apiRequest(path) {
-  const response = await fetch(path, { headers: { Authorization: `Bearer ${accessToken}` } })
+  const response = await protectedFetch(path, { headers: { Authorization: `Bearer ${accessToken}` } })
   const data = await response.json().catch(() => ({}))
 
   if (!response.ok) {
@@ -118,7 +121,7 @@ async function loadSidebarAvatar() {
   if (!user.hasProfilePhoto || !user.profilePhotoUrl) return
 
   try {
-    const response = await fetch(user.profilePhotoUrl, {
+    const response = await protectedFetch(user.profilePhotoUrl, {
       cache: 'no-store',
       headers: { Authorization: `Bearer ${accessToken}` },
     })
@@ -234,7 +237,7 @@ async function applyStartSection() {
   try {
     const preferences = await apiRequest('/api/v1/settings/preferences')
 
-    if (activeSection.value === 'dashboard') {
+    if (!routeSection && activeSection.value === 'dashboard') {
       activeSection.value = sectionFromPreference(preferences.startSection)
     }
   } catch (error) {

@@ -659,6 +659,7 @@
 
 
 <script setup>
+import { protectedFetch } from '../../api/protectedFetch'
 import AppSelect from '../../components/ui/AppSelect.vue'
 import GradeModal from './GradeModal.vue'
 import SimulatorHelpModal from './SimulatorHelpModal.vue'
@@ -765,7 +766,7 @@ const filteredDisciplines = computed(() => {
 })
 
 async function apiRequest(path, options = {}) {
-  const response = await fetch(path, {
+  const response = await protectedFetch(path, {
     ...options,
 
     headers: {

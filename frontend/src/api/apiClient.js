@@ -1,3 +1,5 @@
+import { protectedFetch } from './protectedFetch'
+
 // Cliente HTTP compartilhado pelas telas novas: envia o token, trata sessão expirada (401),
 // respostas sem conteúdo (204), servidor indisponível e junta as mensagens de validação.
 
@@ -24,7 +26,7 @@ export function createApiClient(getAccessToken) {
     let response
 
     try {
-      response = await fetch(url, {
+      response = await protectedFetch(url, {
         method,
         headers: {
           Authorization: `Bearer ${getAccessToken()}`,
