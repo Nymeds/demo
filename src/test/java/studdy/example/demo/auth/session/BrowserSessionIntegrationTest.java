@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
+@SpringBootTest(properties = "app.jwt.access-token-expiration-ms=900000")
 @AutoConfigureMockMvc
 class BrowserSessionIntegrationTest {
     @Autowired MockMvc mvc;
