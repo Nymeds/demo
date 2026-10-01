@@ -4,8 +4,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import studdy.example.demo.auth.SessionTokens;
 import studdy.example.demo.auth.dto.AuthResponse;
+import studdy.example.demo.security.JwtService;
 import studdy.example.demo.settings.dto.ChangePasswordRequest;
 import studdy.example.demo.settings.dto.ProfileResponse;
 import studdy.example.demo.user.AppUser;
@@ -18,16 +18,16 @@ public class ProfileSettingsService {
 
     private final UserRepository userRepository;
     private final AccountCredentials accountCredentials;
-    private final SessionTokens sessionTokens;
+    private final JwtService jwtService;
 
     public ProfileSettingsService(
             UserRepository userRepository,
             AccountCredentials accountCredentials,
-            SessionTokens sessionTokens
+            JwtService jwtService
     ) {
         this.userRepository = userRepository;
         this.accountCredentials = accountCredentials;
-        this.sessionTokens = sessionTokens;
+        this.jwtService = jwtService;
     }
 
     @Transactional(readOnly = true)
@@ -49,8 +49,12 @@ public class ProfileSettingsService {
         user.changePasswordHash(accountCredentials.encode(request.newPassword()));
         userRepository.save(user);
 
-        // Access tokens anteriores são recusados (credentialsUpdatedAt); todas as sessões caem e a
-        // atual recebe um par novo.
-        return sessionTokens.reissueAfterCredentialChange(user);
+        // Access tokens e sessões de navegador anteriores são recusados (credentialsUpdatedAt). Este
+        // navegador recebe um token novo; o SettingsController troca o cookie da sessão dele.
+        return new AuthResponse(
+                jwtService.generateTokenFor(user.getId(), user.getCredentialsUpdatedAt()),
+                "Bearer",
+                jwtService.getExpirationInSeconds()
+        );
     }
 }

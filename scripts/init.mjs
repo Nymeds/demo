@@ -79,9 +79,9 @@ function printSummary({ frontendUrl, apiUrl }) {
 async function run() {
   init.info('Pipeline de inicialização do AcadOrganize.');
 
-  const { env, problems: envProblems, generatedJwtSecret } = loadEnv(root);
+  const { env, problems: envProblems, generatedSecrets } = loadEnv(root);
   const endpoints = resolveEndpoints(env);
-  if (generatedJwtSecret) init.info('JWT_SECRET estava vazio: um segredo aleatório foi gravado no .env.');
+  for (const key of generatedSecrets) init.info(`${key} estava vazio: um segredo aleatório foi gravado no .env.`);
   if (envProblems.length) return abort([...envProblems, ...ENV_HELP]);
   init.ok('.env encontrado com DB_PASSWORD e JWT_SECRET.');
 

@@ -13,11 +13,15 @@ public interface UserRepository extends JpaRepository<AppUser, UUID> {
 
     Optional<AppUser> findByEmail(String email);
 
-    // Serializa operações de sessão do usuário (rotação de refresh token x troca de senha/e-mail).
-    // Ordem de travas em todo o código: usuário primeiro, depois os refresh tokens.
+    // Serializa operações de sessão do usuário (renovação/criação de sessão x troca de senha/e-mail).
+    // Ordem de travas em todo o código: usuário primeiro, depois as sessões e a recuperação de senha.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from AppUser u where u.id = :id")
     Optional<AppUser> findByIdForUpdate(@Param("id") UUID id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from AppUser u where u.email = :email")
+    Optional<AppUser> findByEmailForUpdate(@Param("email") String email);
 
     boolean existsByEmail(String email);
 

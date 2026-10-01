@@ -6,7 +6,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
-import studdy.example.demo.auth.SessionTokens;
+import studdy.example.demo.auth.dto.AuthResponse;
+import studdy.example.demo.security.JwtService;
 import studdy.example.demo.settings.AccountCredentials;
 import studdy.example.demo.user.dto.UpdateProfileRequest;
 import studdy.example.demo.user.dto.UserResponse;
@@ -21,15 +22,15 @@ public class UserProfileService {
     private final UserRepository userRepository;
     private final UserProfilePhotoRepository photoRepository;
     private final AccountCredentials accountCredentials;
-    private final SessionTokens sessionTokens;
+    private final JwtService jwtService;
 
     public UserProfileService(
             UserRepository userRepository,
             UserProfilePhotoRepository photoRepository,
             AccountCredentials accountCredentials,
-            SessionTokens sessionTokens
+            JwtService jwtService
     ) {
-        this.sessionTokens = sessionTokens;
+        this.jwtService = jwtService;
         this.accountCredentials = accountCredentials;
         this.userRepository = userRepository;
         this.photoRepository = photoRepository;
@@ -79,8 +80,13 @@ public class UserProfileService {
         try {
             UserResponse response = toResponse(userRepository.saveAndFlush(user));
 
-            // Todas as sessões caem (inclusive access tokens antigos); quem trocou recebe um par novo.
-            return emailChanged ? response.withSession(sessionTokens.reissueAfterCredentialChange(user)) : response;
+            // Todas as sessões caem (inclusive access tokens antigos); quem trocou recebe um token novo
+            // e o UserController troca o cookie da sessão deste navegador.
+            return emailChanged ? response.withSession(new AuthResponse(
+                    jwtService.generateTokenFor(user.getId(), user.getCredentialsUpdatedAt()),
+                    "Bearer",
+                    jwtService.getExpirationInSeconds()
+            )) : response;
         } catch (DataIntegrityViolationException exception) {
             throw conflict("O e-mail ou nome de usuário informado já está em uso.");
         }

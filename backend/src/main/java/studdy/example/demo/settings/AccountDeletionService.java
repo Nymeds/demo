@@ -2,7 +2,6 @@ package studdy.example.demo.settings;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import studdy.example.demo.auth.RefreshTokenService;
 import studdy.example.demo.calendar.CalendarEventRepository;
 import studdy.example.demo.dashboard.Dashboard;
 import studdy.example.demo.dashboard.DashboardRepository;
@@ -27,7 +26,6 @@ public class AccountDeletionService {
     private final UserPreferencesRepository preferencesRepository;
     private final LegacyUserAvatarRepository legacyAvatarRepository;
     private final UserProfilePhotoRepository profilePhotoRepository;
-    private final RefreshTokenService refreshTokenService;
 
     public AccountDeletionService(
             AccountCredentials accountCredentials,
@@ -37,10 +35,8 @@ public class AccountDeletionService {
             CalendarEventRepository calendarEventRepository,
             UserPreferencesRepository preferencesRepository,
             LegacyUserAvatarRepository legacyAvatarRepository,
-            UserProfilePhotoRepository profilePhotoRepository,
-            RefreshTokenService refreshTokenService
+            UserProfilePhotoRepository profilePhotoRepository
     ) {
-        this.refreshTokenService = refreshTokenService;
         this.accountCredentials = accountCredentials;
         this.userRepository = userRepository;
         this.dashboardRepository = dashboardRepository;
@@ -72,7 +68,8 @@ public class AccountDeletionService {
         legacyAvatarRepository.deleteByUserId(userId);
         profilePhotoRepository.deleteByUser_Id(userId);
         preferencesRepository.deleteByUser_Id(userId);
-        refreshTokenService.deleteAllForUser(userId);
+        // Sessões de navegador (browser_sessions) e recuperação de senha (password_recoveries) saem
+        // junto com o usuário pelo ON DELETE CASCADE do banco (@OnDelete nas entidades).
         userRepository.delete(user);
     }
 }

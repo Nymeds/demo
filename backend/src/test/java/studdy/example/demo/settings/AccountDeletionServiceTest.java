@@ -88,10 +88,10 @@ class AccountDeletionServiceTest {
     private AccountDeletionService accountDeletionService;
 
     @Autowired
-    private studdy.example.demo.auth.RefreshTokenService refreshTokenService;
+    private studdy.example.demo.auth.session.BrowserSessionService browserSessionService;
 
     @Autowired
-    private studdy.example.demo.auth.RefreshTokenRepository refreshTokenRepository;
+    private studdy.example.demo.auth.session.BrowserSessionRepository browserSessionRepository;
 
     @Autowired
     private EntityManager entityManager;
@@ -137,16 +137,16 @@ class AccountDeletionServiceTest {
     }
 
     @Test
-    void deletesTheRefreshTokensOfTheAccount() {
+    void deletesTheBrowserSessionsOfTheAccount() {
         AppUser owner = newUser("com-sessao@example.com");
-        refreshTokenService.issue(owner, true);
-        refreshTokenService.issue(owner, false);
-        assertEquals(2, refreshTokenRepository.count());
+        browserSessionService.create(owner.getId(), true, null);
+        browserSessionService.create(owner.getId(), false, null);
+        assertEquals(2, browserSessionRepository.findByUserIdOrderByCreatedAtDesc(owner.getId()).size());
 
         deleteInANewRequest(owner.getId());
 
         assertFalse(userRepository.existsById(owner.getId()));
-        assertEquals(0, refreshTokenRepository.count());
+        assertTrue(browserSessionRepository.findByUserIdOrderByCreatedAtDesc(owner.getId()).isEmpty());
     }
 
     @Test

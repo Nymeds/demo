@@ -15,7 +15,8 @@ export const REQUIRED_TABLES = [
   'frequency',
   'absence_records',
   'calendar_events',
-  'refresh_tokens',
+  'browser_sessions',
+  'password_recoveries',
   'user_preferences',
   'user_profile_photos',
 ];

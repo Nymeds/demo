@@ -1,10 +1,13 @@
-// Leitura e validação do .env (sem dependências). O único segredo gerado aqui é o JWT_SECRET, quando
-// está vazio: assim ninguém fica com uma chave copiada de exemplo. O DB_PASSWORD continua com o usuário.
+// Leitura e validação do .env (sem dependências). Os segredos internos da API (JWT_SECRET e
+// RECOVERY_HASH_SECRET) são gerados aqui quando estão vazios: assim ninguém fica com uma chave copiada
+// de exemplo. O DB_PASSWORD continua com o usuário; o MAILER_API_SECRET, com scripts/setup-recovery.mjs
+// (precisa ser igual em mailer/.env).
 import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const MIN_JWT_SECRET_BYTES = 32;
+const GENERATED_SECRETS = ['JWT_SECRET', 'RECOVERY_HASH_SECRET'];
 
 const DEFAULTS = {
   DB_NAME: 'academic_organizer',
@@ -54,34 +57,38 @@ function validateEnv(env) {
 }
 
 /**
- * Grava um JWT_SECRET aleatório no .env quando ele está vazio (no shell e no arquivo).
- * Troca a linha `JWT_SECRET=` existente ou acrescenta uma no fim. Retorna true se gerou.
+ * Grava valores aleatórios no .env para os segredos de GENERATED_SECRETS que estão vazios (no shell e
+ * no arquivo). Troca a linha `NOME=` existente ou acrescenta uma no fim. Retorna os nomes gerados.
  */
-export function ensureJwtSecret(root, baseEnv = process.env) {
+export function ensureSecrets(root, baseEnv = process.env) {
   const file = envFilePath(root);
-  const text = readFileSync(file, 'utf8');
-  if (baseEnv.JWT_SECRET || parseEnvFile(text).JWT_SECRET) return false;
+  let text = readFileSync(file, 'utf8');
+  const generated = [];
 
-  const line = `JWT_SECRET=${randomBytes(48).toString('base64url')}`;
-  const updated = /^\s*(?:export\s+)?JWT_SECRET\s*=.*$/m.test(text)
-    ? text.replace(/^\s*(?:export\s+)?JWT_SECRET\s*=.*$/m, line)
-    : `${text.replace(/\s*$/, '')}\n${line}\n`;
-  writeFileSync(file, updated, 'utf8');
-  return true;
+  for (const key of GENERATED_SECRETS) {
+    if (baseEnv[key] || parseEnvFile(text)[key]) continue;
+    const pattern = new RegExp(`^\\s*(?:export\\s+)?${key}\\s*=.*$`, 'm');
+    const line = `${key}=${randomBytes(48).toString('base64url')}`;
+    text = pattern.test(text) ? text.replace(pattern, line) : `${text.replace(/\s*$/, '')}\n${line}\n`;
+    generated.push(key);
+  }
+
+  if (generated.length > 0) writeFileSync(file, text, 'utf8');
+  return generated;
 }
 
-/** Retorna `{ env, problems, generatedJwtSecret }`; `problems` vazio significa que o .env está pronto. */
+/** Retorna `{ env, problems, generatedSecrets }`; `problems` vazio significa que o .env está pronto. */
 export function loadEnv(root, baseEnv = process.env) {
   if (!existsSync(envFilePath(root))) {
-    return { env: { ...baseEnv }, problems: ['Arquivo .env não encontrado na raiz do projeto.'], generatedJwtSecret: false };
+    return { env: { ...baseEnv }, problems: ['Arquivo .env não encontrado na raiz do projeto.'], generatedSecrets: [] };
   }
-  const generatedJwtSecret = ensureJwtSecret(root, baseEnv);
+  const generatedSecrets = ensureSecrets(root, baseEnv);
   const env = buildEnv(root, baseEnv);
-  return { env, problems: validateEnv(env), generatedJwtSecret };
+  return { env, problems: validateEnv(env), generatedSecrets };
 }
 
 export const ENV_HELP = [
-  'Copie .env.example para .env e preencha DB_PASSWORD (o JWT_SECRET vazio é gerado sozinho):',
+  'Copie .env.example para .env e preencha DB_PASSWORD (JWT_SECRET e RECOVERY_HASH_SECRET vazios são gerados sozinhos):',
   '  Windows (PowerShell): Copy-Item .env.example .env',
   '  Linux/macOS/Git Bash: cp .env.example .env',
 ];

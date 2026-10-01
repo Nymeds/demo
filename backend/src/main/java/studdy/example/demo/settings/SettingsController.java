@@ -1,6 +1,9 @@
 package studdy.example.demo.settings;
 
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -11,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import studdy.example.demo.auth.dto.AuthResponse;
+import studdy.example.demo.auth.session.BrowserSessionService;
+import studdy.example.demo.auth.session.SessionCookies;
 import studdy.example.demo.settings.dto.ChangePasswordRequest;
 import studdy.example.demo.settings.dto.DeleteAccountRequest;
 import studdy.example.demo.settings.dto.PreferencesResponse;
@@ -26,15 +31,21 @@ public class SettingsController {
     private final ProfileSettingsService profileSettingsService;
     private final UserPreferencesService userPreferencesService;
     private final AccountDeletionService accountDeletionService;
+    private final BrowserSessionService sessions;
+    private final SessionCookies cookies;
 
     public SettingsController(
             ProfileSettingsService profileSettingsService,
             UserPreferencesService userPreferencesService,
-            AccountDeletionService accountDeletionService
+            AccountDeletionService accountDeletionService,
+            BrowserSessionService sessions,
+            SessionCookies cookies
     ) {
         this.profileSettingsService = profileSettingsService;
         this.userPreferencesService = userPreferencesService;
         this.accountDeletionService = accountDeletionService;
+        this.sessions = sessions;
+        this.cookies = cookies;
     }
 
     @GetMapping("/profile")
@@ -45,9 +56,15 @@ public class SettingsController {
     @PutMapping("/password")
     public AuthResponse changePassword(
             @AuthenticationPrincipal UUID userId,
-            @Valid @RequestBody ChangePasswordRequest request
+            @Valid @RequestBody ChangePasswordRequest request,
+            @CookieValue(name = SessionCookies.NAME, required = false) String sessionToken,
+            HttpServletRequest httpRequest, HttpServletResponse response
     ) {
-        return profileSettingsService.changePassword(userId, request);
+        var auth = profileSettingsService.changePassword(userId, request);
+        var session = sessions.replaceAfterPasswordChange(userId, sessionToken);
+        if (session != null) cookies.set(session, httpRequest, response);
+        response.setHeader("Cache-Control", "no-store");
+        return auth;
     }
 
     @GetMapping("/preferences")

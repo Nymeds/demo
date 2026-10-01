@@ -8,8 +8,8 @@ import studdy.example.demo.security.TooManyRequestsException;
 import java.time.Clock;
 import java.time.Duration;
 
-// Limita /refresh e /logout por IP: são públicos e consultam o banco a cada chamada. Uma aba normal
-// renova a sessão a cada ~15 min, então o limite padrão só barra inundação.
+// Limita /refresh e /logout (sessão por cookie) por IP: são públicos e consultam o banco a cada
+// chamada. Uma aba normal renova a sessão a cada ~15 min, então o limite padrão só barra inundação.
 @Component
 public class TokenRequestLimiter {
 

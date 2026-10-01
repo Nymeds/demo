@@ -15,9 +15,12 @@ public record LoginRequest (
     @Size(max = 200, message = "A senha deve ter no máximo 200 caracteres.")
     String password,
 
-    // Ausente no JSON equivale a false: sessão curta (12 h por padrão).
+    // Ausente no JSON equivale a false: cookie de sessão do navegador, válido por até 12 h.
     Boolean rememberMe
 ){
+    public LoginRequest(String email, String password) {
+        this(email, password, false);
+    }
 
     public boolean shouldRemember() {
         return Boolean.TRUE.equals(rememberMe);

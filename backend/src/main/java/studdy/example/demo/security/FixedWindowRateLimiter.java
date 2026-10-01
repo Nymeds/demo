@@ -44,7 +44,9 @@ public final class FixedWindowRateLimiter {
         this.limit = limit;
         this.window = window;
         this.maxKeys = maxKeys;
-        this.lastSweep = new AtomicReference<>(clock.instant());
+        // Começa na primeira chamada, não na construção: o Clock pode ser um mock ainda sem resposta
+        // quando o contexto do Spring sobe (testes de sessão e recuperação controlam o relógio).
+        this.lastSweep = new AtomicReference<>();
     }
 
     /** Reserva uma tentativa. Devolve 0 se reservou; senão, os segundos até a janela vencer. */
@@ -108,6 +110,10 @@ public final class FixedWindowRateLimiter {
 
     private void sweepIfDue(Instant now) {
         Instant previous = lastSweep.get();
+        if (previous == null) {
+            lastSweep.compareAndSet(null, now);
+            return;
+        }
         if (Duration.between(previous, now).compareTo(SWEEP_INTERVAL) >= 0
                 && lastSweep.compareAndSet(previous, now)) {
             windows.entrySet().removeIf(entry -> isExpired(entry.getValue(), now));

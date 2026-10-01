@@ -25,7 +25,7 @@ public record UserResponse(
         // Versão dos Termos aceita pela conta; null se ainda não houve aceite registrado.
         String termsAcceptedVersion,
         // Só presente quando a operação trocou as credenciais (ex.: e-mail em PUT /users/me): as
-        // sessões anteriores caíram e o cliente deve passar a usar este novo par de tokens.
+        // sessões anteriores caíram e o cliente deve passar a usar este novo access token.
         @JsonInclude(JsonInclude.Include.NON_NULL)
         AuthResponse session
 ) {

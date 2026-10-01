@@ -1,6 +1,6 @@
 # Migrações manuais (PostgreSQL)
 
-A aplicação usa `spring.jpa.hibernate.ddl-auto=update`. Isso cria tabelas e colunas novas (por exemplo `activities.type`, `refresh_tokens` e as colunas `terms_*`/`privacy_version` de `app_users`), mas não remove colunas antigas, não altera restrições nem índices existentes, não cria índices parciais e não corrige dados. Por isso, bancos já existentes precisam destes scripts. Os scripts são para PostgreSQL (o H2 do perfil `dev` e dos testes é descartável).
+A aplicação usa `spring.jpa.hibernate.ddl-auto=update`. Isso cria tabelas e colunas novas (por exemplo `activities.type`, `browser_sessions`, `password_recoveries` e as colunas `terms_*`/`privacy_version` de `app_users`), mas não remove colunas antigas, não altera restrições nem índices existentes, não cria índices parciais e não corrige dados. Por isso, bancos já existentes precisam destes scripts. Os scripts são para PostgreSQL (o H2 do perfil `dev` e dos testes é descartável).
 
 **Regra: toda mudança em enum (`@Enumerated(EnumType.STRING)`) exige um script.** O Hibernate cria uma restrição CHECK com os valores do enum e o `update` nunca a altera; sem script, bancos existentes rejeitam os valores novos.
 
@@ -21,6 +21,12 @@ Pós-boot:
 | Script | O que faz |
 | --- | --- |
 | `2026-09-29-dashboard-single-active.sql` | Cria o índice único parcial `ux_dashboards_one_active_per_owner` (um dashboard `ACTIVE` por usuário). Falha se ainda houver duplicados. `IF NOT EXISTS` verifica só o nome, não a definição. |
+
+Opcional, a qualquer momento:
+
+| Script | O que faz |
+| --- | --- |
+| `2026-10-01-drop-refresh-tokens.sql` | Remove a tabela `refresh_tokens`, que deixou de ser usada quando a sessão passou a ser o cookie HttpOnly (`browser_sessions`). Os índices `idx_refresh_tokens_*` dos scripts anteriores só são criados se a tabela existir. |
 
 Todos são idempotentes.
 

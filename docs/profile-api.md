@@ -35,7 +35,7 @@ A resposta não expõe o hash da senha nem os bytes da foto. Quando há uma foto
 
 #### Troca de e-mail e sessão
 
-Ao trocar o e-mail, todas as sessões anteriores caem (access tokens e refresh tokens antigos deixam de valer) e a resposta traz o objeto `session` com um novo par de tokens (`accessToken`, `tokenType`, `expiresIn`, `refreshToken`, `refreshTokenExpiresAt`). O cliente deve passar a usá-lo. Sem troca de e-mail, `session` não aparece na resposta. Na tela de perfil, o frontend só envia `currentPassword` quando o e-mail foi alterado e salva a `session` recebida.
+Ao trocar o e-mail, todas as sessões anteriores caem (access tokens antigos e os cookies de sessão dos outros navegadores deixam de valer) e a resposta traz o objeto `session` com um novo access token (`accessToken`, `tokenType`, `expiresIn`). O navegador que fez a troca recebe também um cookie de sessão novo (`Set-Cookie`), com a mesma escolha de "Lembrar de mim". O cliente deve passar a usar o token. Sem troca de e-mail, `session` não aparece na resposta. Na tela de perfil, o frontend só envia `currentPassword` quando o e-mail foi alterado e salva a `session` recebida.
 
 #### Erros
 

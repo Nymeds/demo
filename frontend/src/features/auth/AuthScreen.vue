@@ -3,22 +3,29 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import loginPanelImage from '../../assets/images/login-panel.png'
 import registerPanelImage from '../../assets/images/register-panel.png'
 import DashboardScreen from '../dashboard/DashboardScreen.vue'
+import PasswordRecoveryScreen from './PasswordRecoveryScreen.vue'
+import { sessionRequest, SessionExpiredError } from './sessionApi'
+import AccessDeniedScreen from './AccessDeniedScreen.vue'
+import { ACCESS_DENIED_EVENT, protectedFetch } from '../../api/protectedFetch'
+import { currentRoute } from './routeAccess'
 import {
   beginDeliberateLogout,
   clearSession,
-  getRefreshToken,
+  forgetLegacyTokens,
   getSession,
-  onSessionExpired,
+  LOGOUT_PENDING_KEY,
   onSessionRemovedElsewhere,
   REMEMBER_ME_DAYS,
   saveSession,
 } from '../../shared/auth/session.js'
 import { exceedsPasswordBytes, PASSWORD_TOO_LONG_MESSAGE } from '../../shared/auth/passwordRules.js'
-import { apiRequest } from '../../shared/http/apiRequest.js'
+import { apiRequest, renewSession } from '../../shared/http/apiRequest.js'
 import LegalModal from '../legal/LegalModal.vue'
 import { useLegalVersions } from '../legal/useLegalVersions.js'
 
-const mode = ref('login')
+const route = ref(currentRoute())
+const mode = ref(route.value.publicMode || 'login')
+const deniedStatus = ref(null)
 const name = ref('')
 const email = ref('')
 const password = ref('')
@@ -30,6 +37,10 @@ const loading = ref(false)
 const feedback = ref('')
 const feedbackType = ref('')
 const authenticatedUser = ref(null)
+const restoringSession = ref(true)
+const endingSession = ref(false)
+let renewTimer
+let sessionVersion = 0
 
 const legal = useLegalVersions()
 const legalDocument = ref('')
@@ -37,6 +48,7 @@ const fieldErrors = ref({})
 
 function openLegal(doc) {
   legalDocument.value = doc
+  if (!legal.versions.value && !legal.loading.value) legal.load()
 }
 
 function closeLegal() {
@@ -44,6 +56,7 @@ function closeLegal() {
 }
 
 const isLogin = computed(() => mode.value === 'login')
+const isRegister = computed(() => mode.value === 'register')
 const title = computed(() => (isLogin.value ? 'Bem-vindo de volta!' : 'Criar conta'))
 const subtitle = computed(() => (
   isLogin.value
@@ -51,37 +64,132 @@ const subtitle = computed(() => (
     : 'Preencha os dados para começar a organizar seus estudos.'
 ))
 
-async function restoreSession() {
-  const stored = getSession()
+// O access token vale poucos minutos: é renovado pelo cookie da sessão um minuto antes de vencer.
+function scheduleRenewal(delayMs) {
+  clearTimeout(renewTimer)
+  const expiresAt = getSession()?.expiresAt
+  const delay = delayMs ?? (expiresAt ? Math.max(1000, expiresAt - Date.now() - 60000) : 60000)
+  renewTimer = setTimeout(renewAccessToken, delay)
+}
 
-  if (!stored?.accessToken) return
-
-  rememberMe.value = Boolean(stored.rememberMe)
-
+function logoutPending(value) {
   try {
-    authenticatedUser.value = await apiRequest('/api/v1/users/me')
+    if (value === true) localStorage.setItem(LOGOUT_PENDING_KEY, '1')
+    if (value === false) localStorage.removeItem(LOGOUT_PENDING_KEY)
+    return localStorage.getItem(LOGOUT_PENDING_KEY) === '1'
+  } catch { return false }
+}
+
+async function renewAccessToken() {
+  if (!authenticatedUser.value || endingSession.value) return
+  const version = sessionVersion
+  try {
+    const auth = await renewSession()
+    if (version !== sessionVersion) return
+    rememberMe.value = auth.rememberMe
+    scheduleRenewal()
   } catch (error) {
-    // Sessão expirada já é tratada pelo ouvinte de onSessionExpired.
-    if (error.name === 'SessionExpiredError') return
-    feedback.value = 'Não foi possível restaurar sua sessão. Verifique se a API está ativa.'
-    feedbackType.value = 'error'
+    if (version !== sessionVersion) return
+    if (error instanceof SessionExpiredError) denyAccess(error.status)
+    else scheduleRenewal(10000)
   }
 }
 
-let stopSessionExpiredListener = null
+function onWindowFocus() {
+  const expiresAt = getSession()?.expiresAt
+  if (expiresAt && expiresAt - Date.now() < 60000) renewAccessToken()
+}
+
+function denyAccess(status = 401) {
+  if (deniedStatus.value) return
+  deniedStatus.value = status
+  sessionVersion++
+  clearTimeout(renewTimer)
+  authenticatedUser.value = null
+  restoringSession.value = false
+  clearSession()
+}
+
+function onAccessDenied(event) {
+  denyAccess(event.detail.status)
+}
+
+function onRouteChanged() {
+  route.value = currentRoute()
+  if (restoringSession.value || deniedStatus.value) return
+  if (!route.value.publicMode && !authenticatedUser.value) denyAccess()
+  else if (route.value.publicMode && !authenticatedUser.value) switchMode(route.value.publicMode)
+}
+
+async function returnToLogin() {
+  // Revoga o cookie antes de permitir uma nova tentativa de entrada.
+  await logout()
+  window.history.replaceState(null, '', '/login')
+  route.value = currentRoute()
+  switchMode('login')
+  deniedStatus.value = null
+}
+
+async function restoreSession() {
+  const version = sessionVersion
+  forgetLegacyTokens()
+  try {
+    if (logoutPending()) {
+      await sessionRequest('logout')
+      logoutPending(false)
+      if (!route.value.publicMode) denyAccess()
+      return
+    }
+    const auth = await renewSession()
+    const response = await protectedFetch('/api/v1/users/me', {
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+      signal: AbortSignal.timeout(15000),
+    })
+    if (!response.ok) {
+      throw new Error('Não foi possível carregar sua sessão. Entre novamente ou tente recarregar a página.')
+    }
+    const user = await response.json()
+    if (version !== sessionVersion) return
+    authenticatedUser.value = user
+    rememberMe.value = auth.rememberMe
+    scheduleRenewal()
+  } catch (error) {
+    if (version !== sessionVersion) return
+    if (error instanceof SessionExpiredError && !route.value.publicMode) {
+      denyAccess(error.status)
+      return
+    }
+    // Não sobrescreve uma mensagem mais recente (ex.: senha recuperada enquanto a sessão era verificada).
+    if (!(error instanceof SessionExpiredError) && !feedback.value) {
+      feedback.value = 'Não foi possível restaurar sua sessão. Verifique a conexão ou entre novamente.'
+      feedbackType.value = 'error'
+    }
+  } finally {
+    if (version === sessionVersion) restoringSession.value = false
+  }
+}
+
 let stopSessionRemovedListener = null
 
 onMounted(() => {
-  stopSessionExpiredListener = onSessionExpired(() => logout('session-expired'))
+  window.addEventListener(ACCESS_DENIED_EVENT, onAccessDenied)
+  window.addEventListener('popstate', onRouteChanged)
+  window.addEventListener('hashchange', onRouteChanged)
   stopSessionRemovedListener = onSessionRemovedElsewhere(() => {
-    if (authenticatedUser.value) logout('other-tab')
+    if (authenticatedUser.value && !endingSession.value) logout('other-tab')
   })
   restoreSession()
-  legal.load()
+  window.addEventListener('focus', onWindowFocus)
+  if (isRegister.value) legal.load()
 })
 
 onBeforeUnmount(() => {
-  stopSessionExpiredListener?.()
+  sessionVersion++
+  clearTimeout(renewTimer)
+  window.removeEventListener('focus', onWindowFocus)
+  window.removeEventListener(ACCESS_DENIED_EVENT, onAccessDenied)
+  window.removeEventListener('popstate', onRouteChanged)
+  window.removeEventListener('hashchange', onRouteChanged)
   stopSessionRemovedListener?.()
 })
 
@@ -96,7 +204,15 @@ function switchMode(nextMode) {
   if (nextMode === 'register' && !legal.versions.value) legal.load()
 }
 
+function recoveryCompleted(recoveredEmail) {
+  switchMode('login')
+  email.value = recoveredEmail
+  feedback.value = 'Senha recuperada com sucesso. Entre com sua nova senha.'
+  feedbackType.value = 'success'
+}
+
 async function submit() {
+  if (loading.value || restoringSession.value) return
   if (!isLogin.value && password.value !== confirmPassword.value) {
     feedback.value = 'As senhas informadas não são iguais.'
     feedbackType.value = 'error'
@@ -135,19 +251,26 @@ async function submit() {
       method: 'POST',
       body: payload,
       skipAuth: true,
+      // O login devolve o cookie HttpOnly da sessão; "Lembrar de mim" define a validade dele.
+      credentials: 'same-origin',
+      signal: AbortSignal.timeout(15000),
       fallbackMessage: 'Não foi possível concluir a solicitação.',
     })
 
     if (isLogin.value) {
+      sessionVersion++
       saveSession(data, { rememberMe: rememberMe.value })
 
       try {
         authenticatedUser.value = await apiRequest('/api/v1/users/me')
-      } catch (error) {
+      } catch {
         clearSession()
         throw new Error('Login realizado, mas não foi possível carregar o perfil.')
       }
 
+      logoutPending(false)
+      password.value = ''
+      scheduleRenewal()
     } else {
       feedback.value = 'Conta criada com sucesso. Agora entre com seus dados.'
       feedbackType.value = 'success'
@@ -165,7 +288,7 @@ async function submit() {
       feedbackType.value = 'error'
       return
     }
-    feedback.value = error instanceof TypeError
+    feedback.value = error instanceof TypeError || error?.name === 'TimeoutError'
       ? 'Não foi possível conectar ao servidor. Confirme que a API está iniciada.'
       : error.message || 'Não foi possível conectar à API.'
     feedbackType.value = 'error'
@@ -188,32 +311,43 @@ async function termsVersionChanged(error, sentVersion) {
 
 const LOGOUT_MESSAGES = Object.freeze({
   'account-deleted': { text: 'Sua conta e todos os seus dados foram excluídos.', type: 'success' },
-  'session-expired': { text: 'Sua sessão expirou. Entre novamente.', type: 'error' },
   'other-tab': { text: 'Você saiu em outra aba.', type: 'success' },
 })
 
-function logout(reason) {
-  const message = LOGOUT_MESSAGES[reason]
-  const refreshToken = getRefreshToken()
-  const isDeliberate = reason !== 'session-expired'
+async function logout(reason) {
+  if (endingSession.value) return
+  endingSession.value = true
+  sessionVersion++
+  clearTimeout(renewTimer)
+  // Saída intencional: nenhuma resposta 401 em voo pode virar "acesso negado".
+  if (reason !== 'session-expired') beginDeliberateLogout()
 
-  // Logout intencional: nenhuma resposta 401 em voo pode virar "sua sessão expirou".
-  if (isDeliberate) beginDeliberateLogout()
-
-  // Revoga a sessão no servidor; falhas são ignoradas para nunca prender o usuário na tela.
-  if (refreshToken && isDeliberate && reason !== 'other-tab') {
-    apiRequest('/api/v1/auth/logout', {
-      method: 'POST',
-      body: { refreshToken },
-      skipAuth: true,
-    }).catch(() => {})
+  let failed = false
+  // O cookie é o mesmo para todas as abas: só a aba que iniciou a saída o revoga no servidor.
+  if (reason !== 'other-tab') {
+    logoutPending(true)
+    try {
+      await sessionRequest('logout')
+      logoutPending(false)
+    } catch { failed = true }
   }
 
   clearSession()
   authenticatedUser.value = null
-  password.value = ''
-  feedback.value = message?.text || ''
-  feedbackType.value = message?.type || ''
+  rememberMe.value = false
+  endingSession.value = false
+
+  if (reason === 'session-expired') {
+    denyAccess()
+  } else if (!deniedStatus.value) {
+    window.history.replaceState(null, '', '/login')
+    route.value = currentRoute()
+    switchMode('login')
+  }
+
+  const message = LOGOUT_MESSAGES[reason]
+  feedback.value = message?.text || (failed ? 'Você saiu neste navegador. Reconecte para encerrar também a sessão salva no servidor.' : '')
+  feedbackType.value = message?.type || (failed ? 'error' : '')
 
   if (reason === 'account-deleted') {
     email.value = ''
@@ -228,9 +362,11 @@ function updateAuthenticatedUser(profile) {
 </script>
 
 <template>
+  <AccessDeniedScreen v-if="deniedStatus" :status="deniedStatus" @login="returnToLogin" />
   <DashboardScreen
-    v-if="authenticatedUser"
+    v-else-if="authenticatedUser"
     :user="authenticatedUser"
+    :route-section="route.publicMode ? '' : route.section"
     @logout="logout"
     @user-updated="updateAuthenticatedUser"
   />
@@ -239,20 +375,20 @@ function updateAuthenticatedUser(profile) {
     <div class="auth-decoration auth-decoration-top" aria-hidden="true"></div>
     <div class="auth-decoration auth-decoration-bottom" aria-hidden="true"></div>
 
-    <section class="auth-card" aria-labelledby="auth-title">
-      <aside class="auth-presentation" :class="{ 'is-register': !isLogin }">
+    <section class="auth-card" :class="{ 'is-recovery': mode === 'recovery' }" aria-labelledby="auth-title">
+      <aside class="auth-presentation" :class="{ 'is-register': isRegister }">
         <img
           class="auth-panel-image"
-          :src="isLogin ? loginPanelImage : registerPanelImage"
-          :alt="isLogin
-            ? 'Apresentação do AcadOrganize e seus recursos acadêmicos'
-            : 'Ambiente de estudos com notebook, livros e proteção de dados'"
+          :src="isRegister ? registerPanelImage : loginPanelImage"
+          :alt="isRegister
+            ? 'Ambiente de estudos com notebook, livros e proteção de dados'
+            : 'Apresentação do AcadOrganize e seus recursos acadêmicos'"
           width="794"
           height="1979"
         >
         <!-- Tablet e celular: a arte vertical cortava o título; o mesmo conteúdo em texto se ajusta à largura. -->
         <div class="auth-compact-brand" aria-hidden="true">
-          <template v-if="isLogin">
+          <template v-if="!isRegister">
             <svg class="auth-compact-cap" viewBox="0 0 64 48">
               <path d="M32 4 2 17l30 13 30-13Z" />
               <path d="M14 23v12c0 4 8 8 18 8s18-4 18-8V23L32 31Z" />
@@ -270,13 +406,17 @@ function updateAuthenticatedUser(profile) {
 
       <section class="auth-form-panel">
         <div class="auth-form-wrap">
+          <PasswordRecoveryScreen v-if="mode === 'recovery'" :initial-email="email"
+            @cancel="switchMode('login')" @completed="recoveryCompleted" />
+          <template v-else>
           <header>
             <p class="auth-eyebrow">{{ isLogin ? 'Acesse sua conta' : 'Comece agora' }}</p>
             <h2 id="auth-title">{{ title }} <span v-if="isLogin" aria-hidden="true">👋</span></h2>
             <p>{{ subtitle }}</p>
           </header>
 
-          <form @submit.prevent="submit">
+          <p v-if="restoringSession" class="auth-feedback" role="status">Verificando sua sessão...</p>
+          <form :aria-busy="loading || restoringSession" @submit.prevent="submit">
             <label v-if="!isLogin">
               Nome completo
               <span class="auth-input-wrap">
@@ -322,16 +462,13 @@ function updateAuthenticatedUser(profile) {
 
             <div v-if="isLogin" class="auth-form-options">
               <label class="auth-checkbox">
-                <input v-model="rememberMe" type="checkbox" aria-describedby="remember-help">
+                <input v-model="rememberMe" type="checkbox" :disabled="loading || restoringSession" aria-describedby="remember-help">
                 <span>
                   Manter conectado neste dispositivo
                   <small id="remember-help" class="auth-helper">Você continuará conectado por até {{ REMEMBER_ME_DAYS }} dias. Não use em computadores compartilhados.</small>
                 </span>
               </label>
-              <span class="auth-forgot">
-                <button class="disabled-link auth-forgot-button" type="button" disabled aria-describedby="forgot-password-help">Esqueci minha senha</button>
-                <small id="forgot-password-help" class="auth-helper">Em breve — fale com o suporte.</small>
-              </span>
+              <button class="auth-text-button" type="button" :disabled="loading" @click="switchMode('recovery')">Esqueci minha senha</button>
             </div>
 
             <div v-else class="auth-terms-block">
@@ -351,8 +488,8 @@ function updateAuthenticatedUser(profile) {
               </p>
             </div>
 
-            <button class="auth-primary-button" type="submit" :disabled="loading || (!isLogin && !legal.versions.value)">
-              <span>{{ loading ? 'Aguarde...' : isLogin ? 'Entrar' : 'Criar minha conta' }}</span>
+            <button class="auth-primary-button" type="submit" :disabled="loading || restoringSession || (!isLogin && !legal.versions.value)">
+              <span>{{ loading || restoringSession ? 'Aguarde...' : isLogin ? 'Entrar' : 'Criar minha conta' }}</span>
               <svg v-if="!loading" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
             </button>
           </form>
@@ -361,10 +498,11 @@ function updateAuthenticatedUser(profile) {
 
           <p class="auth-switch">
             {{ isLogin ? 'Ainda não tem uma conta?' : 'Já tem uma conta?' }}
-            <button type="button" @click="switchMode(isLogin ? 'register' : 'login')">
+            <button type="button" :disabled="loading" @click="switchMode(isLogin ? 'register' : 'login')">
               {{ isLogin ? 'Cadastre-se' : 'Fazer login' }}
             </button>
           </p>
+          </template>
         </div>
       </section>
     </section>
@@ -390,12 +528,15 @@ function updateAuthenticatedUser(profile) {
 
 <style scoped>
 .auth-helper { color: #77728a; display: block; font-size: .7rem; margin-top: 2px; }
-.auth-forgot { display: flex; flex-direction: column; }
-.auth-forgot-button:disabled { color: #8b87a0; cursor: not-allowed; opacity: 1; }
-.auth-forgot-button:focus-visible { border-radius: 4px; outline: 2px solid rgba(99, 48, 224, .5); outline-offset: 2px; }
-.auth-forgot-button { background: none; border: 0; font: inherit; font-size: .74rem; padding: 0; text-align: left; }
+.auth-form-options { align-items: flex-start; gap: 12px; }
+.auth-form-options .auth-text-button { flex-shrink: 0; }
 .auth-link-button { background: none; border: 0; color: #6849d7; cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
 .auth-link-button:focus-visible { outline: 3px solid #b9a7f5; outline-offset: 2px; }
 .auth-field-error { color: #df3f32; font-size: .74rem; margin: 6px 0 0; }
 .auth-form-panel .auth-terms label { color: #646171; cursor: default; display: block; font-size: .75rem; font-weight: 450; }
+
+@media (max-width: 760px) {
+  .auth-form-options .auth-text-button { min-height: 44px; }
+  .auth-helper { font-size: .75rem; }
+}
 </style>

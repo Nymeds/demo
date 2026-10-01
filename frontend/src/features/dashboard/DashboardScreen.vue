@@ -42,12 +42,15 @@ import {
   normalizePreferences,
 } from '../../shared/settings/preferences.js'
 
-const { user } = defineProps({
+const { user, routeSection } = defineProps({
   user: { type: Object, required: true },
+  // Seção pedida pela URL (/disciplinas, /#/notas...), resolvida em features/auth/routeAccess.js.
+  routeSection: { type: String, default: '' },
 })
 
 const emit = defineEmits(['logout', 'user-updated'])
-const activeSection = ref('dashboard')
+const activeSection = ref(routeSection || 'dashboard')
+watch(() => routeSection, section => { if (section) activeSection.value = section })
 const sidebarAvatarUrl = ref('')
 const dashboardLoading = ref(true)
 const dashboardError = ref('')
@@ -207,7 +210,7 @@ async function initializePreferences() {
   if (!preferences.loaded) return
 
   applyPreferences(preferences)
-  if (activeSection.value === 'dashboard') {
+  if (!routeSection && activeSection.value === 'dashboard') {
     activeSection.value = sectionFromPreference(preferences.startSection)
   }
 }

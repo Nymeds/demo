@@ -1,14 +1,15 @@
 import assert from 'node:assert/strict'
 import test, { beforeEach } from 'node:test'
+import { ACCESS_DENIED_EVENT } from '../src/api/protectedFetch.js'
 import {
   beginDeliberateLogout,
   clearSession,
+  forgetLegacyTokens,
   getSession,
   getSessionGeneration,
-  onSessionExpired,
+  LOGOUT_PENDING_KEY,
   onSessionRemovedElsewhere,
   saveSession,
-  SESSION_STORAGE_KEY,
 } from '../src/shared/auth/session.js'
 import { apiRequest, SessionExpiredError } from '../src/shared/http/apiRequest.js'
 
@@ -22,18 +23,24 @@ class MemoryStorage {
 }
 
 let listeners
+let deniedEvents
 const realFetch = globalThis.fetch
 
 beforeEach(() => {
   listeners = []
+  deniedEvents = []
   globalThis.window = {
     localStorage: new MemoryStorage(),
     sessionStorage: new MemoryStorage(),
     addEventListener: (type, handler) => listeners.push({ type, handler }),
     removeEventListener: (type, handler) => { listeners = listeners.filter(item => item.handler !== handler) },
+    dispatchEvent: event => {
+      if (event.type === ACCESS_DENIED_EVENT) deniedEvents.push(event.detail.status)
+      return true
+    },
   }
   // Uma nova sessão zera o estado global de logout deliberado deixado por testes anteriores.
-  saveSession({ accessToken: 'reset', refreshToken: 'reset' })
+  saveSession({ accessToken: 'reset' })
   clearSession()
 })
 
@@ -45,15 +52,15 @@ function restoreFetch() {
   globalThis.fetch = realFetch
 }
 
-test('401s simultâneos disparam uma única renovação e todas as requisições são repetidas', async t => {
+test('401s simultâneos disparam uma única renovação pelo cookie e todas as requisições são repetidas', async t => {
   t.after(restoreFetch)
-  saveSession({ accessToken: 'old', refreshToken: 'r1', expiresIn: 60 })
-  let refreshCalls = 0
+  saveSession({ accessToken: 'old', expiresIn: 60 }, { rememberMe: true })
+  const refreshCalls = []
 
   globalThis.fetch = async (path, init) => {
     if (path === '/api/v1/auth/refresh') {
-      refreshCalls += 1
-      return json(200, { accessToken: 'new', refreshToken: 'r2', expiresIn: 60 })
+      refreshCalls.push(init)
+      return json(200, { accessToken: 'new', expiresIn: 900, rememberMe: true })
     }
     return bearer(init) === 'Bearer new' ? json(200, { ok: path }) : json(401)
   }
@@ -64,17 +71,27 @@ test('401s simultâneos disparam uma única renovação e todas as requisições
     apiRequest('/api/v1/c'),
   ])
 
-  assert.equal(refreshCalls, 1)
+  assert.equal(refreshCalls.length, 1)
+  // A renovação usa só o cookie HttpOnly: nenhum token vai no corpo.
+  assert.equal(refreshCalls[0].credentials, 'same-origin')
+  assert.equal(refreshCalls[0].headers['X-Session-Request'], '1')
+  assert.equal(refreshCalls[0].body, '{}')
   assert.deepEqual(results.map(item => item.ok), ['/api/v1/a', '/api/v1/b', '/api/v1/c'])
-  assert.equal(getSession().refreshToken, 'r2')
+  assert.equal(getSession().accessToken, 'new')
+  assert.equal(getSession().rememberMe, true)
 })
 
-test('falha na renovação limpa a sessão, lança SessionExpiredError e avisa uma vez', async t => {
+test('nenhum token é gravado no localStorage ou no sessionStorage', () => {
+  saveSession({ accessToken: 'a', expiresIn: 900 }, { rememberMe: true })
+
+  assert.equal(window.localStorage.length, 0)
+  assert.equal(window.sessionStorage.length, 0)
+  assert.equal(getSession().accessToken, 'a')
+})
+
+test('renovação recusada limpa a sessão, lança SessionExpiredError e avisa uma vez', async t => {
   t.after(restoreFetch)
-  saveSession({ accessToken: 'old', refreshToken: 'r1' })
-  let expiredEvents = 0
-  const stop = onSessionExpired(() => { expiredEvents += 1 })
-  t.after(stop)
+  saveSession({ accessToken: 'old' })
 
   globalThis.fetch = async () => json(401)
 
@@ -82,21 +99,45 @@ test('falha na renovação limpa a sessão, lança SessionExpiredError e avisa u
 
   assert.ok(outcomes.every(item => item.status === 'rejected' && item.reason instanceof SessionExpiredError))
   assert.equal(getSession(), null)
-  assert.equal(expiredEvents, 1)
+  assert.deepEqual(deniedEvents, [401])
 })
 
-test('logout durante a renovação não ressuscita a sessão nem mostra "sessão expirou"', async t => {
+test('403 em rota protegida encerra a sessão sem tentar renovar', async t => {
   t.after(restoreFetch)
-  saveSession({ accessToken: 'old', refreshToken: 'r1' })
-  let expiredEvents = 0
-  const stop = onSessionExpired(() => { expiredEvents += 1 })
-  t.after(stop)
+  saveSession({ accessToken: 'token' })
+  const paths = []
+
+  globalThis.fetch = async path => {
+    paths.push(path)
+    return json(403)
+  }
+
+  await assert.rejects(apiRequest('/api/v1/a'), SessionExpiredError)
+  assert.deepEqual(paths, ['/api/v1/a'])
+  assert.deepEqual(deniedEvents, [403])
+  assert.equal(getSession(), null)
+})
+
+test('erros de rotas públicas não encerram a sessão', async t => {
+  t.after(restoreFetch)
+  globalThis.fetch = async () => json(401, { message: 'E-mail ou senha inválidos.' })
+
+  await assert.rejects(
+    apiRequest('/api/v1/auth/login', { method: 'POST', body: {}, skipAuth: true }),
+    error => error.message === 'E-mail ou senha inválidos.' && !(error instanceof SessionExpiredError),
+  )
+  assert.deepEqual(deniedEvents, [])
+})
+
+test('logout durante a renovação não ressuscita a sessão nem mostra acesso negado', async t => {
+  t.after(restoreFetch)
+  saveSession({ accessToken: 'old' })
   let releaseRefresh
 
   globalThis.fetch = async path => {
     if (path === '/api/v1/auth/refresh') {
       await new Promise(resolve => { releaseRefresh = resolve })
-      return json(200, { accessToken: 'new', refreshToken: 'r2' })
+      return json(200, { accessToken: 'new' })
     }
     return json(401)
   }
@@ -110,12 +151,12 @@ test('logout durante a renovação não ressuscita a sessão nem mostra "sessão
 
   await assert.rejects(pending, SessionExpiredError)
   assert.equal(getSession(), null)
-  assert.equal(expiredEvents, 0)
+  assert.deepEqual(deniedEvents, [])
 })
 
 test('resposta tardia de uma sessão anterior não derruba um login novo', async t => {
   t.after(restoreFetch)
-  saveSession({ accessToken: 'old', refreshToken: 'r1' })
+  saveSession({ accessToken: 'old' })
   let releaseFirst
 
   globalThis.fetch = async (path, init) => {
@@ -129,26 +170,27 @@ test('resposta tardia de uma sessão anterior não derruba um login novo', async
   const pending = apiRequest('/api/v1/slow')
   await tick()
   clearSession()
-  saveSession({ accessToken: 'fresh', refreshToken: 'r9' })
+  saveSession({ accessToken: 'fresh' })
   releaseFirst()
 
   await assert.rejects(pending, SessionExpiredError)
   assert.equal(getSession()?.accessToken, 'fresh')
+  assert.deepEqual(deniedEvents, [])
 })
 
-test('a chave antiga de sessão é migrada uma única vez', () => {
+test('tokens guardados por versões anteriores são apagados', () => {
+  window.localStorage.setItem('studdy.session', '{"refreshToken":"antigo"}')
   window.localStorage.setItem('acad-organize.access-token', 'legacy-token')
+  window.sessionStorage.setItem('acad-organize.session-token', 'legacy-token')
 
-  const migrated = getSession()
+  forgetLegacyTokens()
 
-  assert.equal(migrated.accessToken, 'legacy-token')
-  assert.equal(migrated.rememberMe, true)
-  assert.equal(window.localStorage.getItem('acad-organize.access-token'), null)
-  assert.equal(JSON.parse(window.localStorage.getItem(SESSION_STORAGE_KEY)).accessToken, 'legacy-token')
+  assert.equal(window.localStorage.length, 0)
+  assert.equal(window.sessionStorage.length, 0)
 })
 
 test('clearSession remove cenários do simulador por prefixo e avança a geração', () => {
-  saveSession({ accessToken: 'a', refreshToken: 'b' }, { rememberMe: true })
+  saveSession({ accessToken: 'a' }, { rememberMe: true })
   window.localStorage.setItem('studdy:simulator:user-1', '[]')
   window.localStorage.setItem('studdy:simulator:user-2', '[]')
   window.sessionStorage.setItem('studdy:simulator:tmp', '[]')
@@ -157,6 +199,7 @@ test('clearSession remove cenários do simulador por prefixo e avança a geraç�
 
   clearSession()
 
+  assert.equal(getSession(), null)
   assert.equal(window.localStorage.getItem('studdy:simulator:user-1'), null)
   assert.equal(window.localStorage.getItem('studdy:simulator:user-2'), null)
   assert.equal(window.sessionStorage.getItem('studdy:simulator:tmp'), null)
@@ -164,17 +207,16 @@ test('clearSession remove cenários do simulador por prefixo e avança a geraç�
   assert.equal(getSessionGeneration(), before + 1)
 })
 
-test('remoção da sessão em outra aba dispara o logout local', () => {
-  saveSession({ accessToken: 'a', refreshToken: 'b' }, { rememberMe: true })
+test('saída iniciada em outra aba dispara o logout local', () => {
   let calls = 0
   const stop = onSessionRemovedElsewhere(() => { calls += 1 })
   const { handler } = listeners.find(item => item.type === 'storage')
 
-  handler({ key: 'outra-chave', newValue: null })
+  handler({ key: 'outra-chave', newValue: '1' })
+  handler({ key: LOGOUT_PENDING_KEY, newValue: null })
   assert.equal(calls, 0)
 
-  window.localStorage.removeItem(SESSION_STORAGE_KEY)
-  handler({ key: SESSION_STORAGE_KEY, newValue: null })
+  handler({ key: LOGOUT_PENDING_KEY, newValue: '1' })
   assert.equal(calls, 1)
 
   stop()

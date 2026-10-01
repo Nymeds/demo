@@ -10,6 +10,7 @@ import studdy.example.demo.auth.dto.AuthResponse;
 import studdy.example.demo.auth.dto.LoginRequest;
 import studdy.example.demo.auth.dto.RegisterRequest;
 import studdy.example.demo.legal.LegalVersions;
+import studdy.example.demo.security.JwtService;
 import studdy.example.demo.security.PasswordLimits;
 import studdy.example.demo.user.AppUser;
 import studdy.example.demo.user.UserRepository;
@@ -28,9 +29,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final LoginAttemptLimiter loginAttemptLimiter;
     private final RegistrationLimiter registrationLimiter;
-    private final TokenRequestLimiter tokenRequestLimiter;
-    private final RefreshTokenService refreshTokenService;
-    private final SessionTokens sessionTokens;
+    private final JwtService jwtService;
     private final LegalVersions legalVersions;
     private final Clock clock;
     // Hash calculado uma vez na inicialização. Quando o e-mail não existe, o BCrypt roda contra ele
@@ -42,9 +41,7 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             LoginAttemptLimiter loginAttemptLimiter,
             RegistrationLimiter registrationLimiter,
-            TokenRequestLimiter tokenRequestLimiter,
-            RefreshTokenService refreshTokenService,
-            SessionTokens sessionTokens,
+            JwtService jwtService,
             LegalVersions legalVersions,
             Clock clock
     ) {
@@ -52,9 +49,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.loginAttemptLimiter = loginAttemptLimiter;
         this.registrationLimiter = registrationLimiter;
-        this.tokenRequestLimiter = tokenRequestLimiter;
-        this.refreshTokenService = refreshTokenService;
-        this.sessionTokens = sessionTokens;
+        this.jwtService = jwtService;
         this.legalVersions = legalVersions;
         this.clock = clock;
         this.dummyPasswordHash = passwordEncoder.encode(UUID.randomUUID().toString());
@@ -105,19 +100,12 @@ public class AuthService {
         }
 
         loginAttemptLimiter.recordSuccess(email, clientIp);
-        return sessionTokens.login(user, request.shouldRemember());
-    }
-
-    // Sem @Transactional aqui: a revogação da família em caso de reuso precisa ser confirmada
-    // pela transação do RefreshTokenService mesmo que a chamada termine em 401.
-    public AuthResponse refresh(String refreshToken, String clientIp) {
-        tokenRequestLimiter.acquire(clientIp);
-        return sessionTokens.rotate(refreshToken);
-    }
-
-    public void logout(String refreshToken, String clientIp) {
-        tokenRequestLimiter.acquire(clientIp);
-        refreshTokenService.revoke(refreshToken);
+        // O cookie da sessão (Lembrar de mim) é criado pelo AuthController a partir deste token.
+        return new AuthResponse(
+                jwtService.generateTokenFor(user.getId(), user.getCredentialsUpdatedAt()),
+                "Bearer",
+                jwtService.getExpirationInSeconds()
+        );
     }
 
     private boolean passwordMatches(String rawPassword, AppUser user) {

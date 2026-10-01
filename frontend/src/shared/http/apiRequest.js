@@ -1,32 +1,21 @@
-// Cliente HTTP único: token Bearer, JSON, erros padronizados e renovação de sessão
-// (single-flight por aba + trava entre abas quando disponível).
+// Cliente HTTP único: token Bearer, JSON, erros padronizados e renovação da sessão pelo cookie
+// HttpOnly da API (um único pedido de renovação por aba, mesmo com vários 401 simultâneos).
+import { notifyAccessDenied } from '../../api/protectedFetch.js'
+import { sessionRequest, SessionExpiredError } from '../../features/auth/sessionApi.js'
 import {
   clearSession,
-  emitSessionExpired,
   getAccessToken,
-  getRefreshToken,
   getSessionGeneration,
+  isDeliberateLogout,
   saveSession,
 } from '../auth/session.js'
 
-export class SessionExpiredError extends Error {
-  constructor(message = 'Sua sessão expirou. Entre novamente.') {
-    super(message)
-    this.name = 'SessionExpiredError'
-    this.status = 401
-  }
-}
+export { SessionExpiredError }
 
 const DEFAULT_ERROR = 'Não foi possível concluir a solicitação.'
 const GATEWAY_STATUSES = [502, 503, 504]
-const REFRESH_PATH = '/api/v1/auth/refresh'
-const LOCK_NAME = 'studdy-refresh'
 
-let refreshInFlight = null
-
-function isAuthPath(path) {
-  return typeof path === 'string' && (path.includes('/auth/login') || path.includes('/auth/refresh') || path.includes('/auth/logout'))
-}
+let renewal = null
 
 export function errorMessage(data, fallback = DEFAULT_ERROR) {
   const body = data && typeof data === 'object' ? data : {}
@@ -54,71 +43,37 @@ function buildInit(options, token) {
   }
 }
 
-async function doRefresh(failedToken) {
-  const current = getAccessToken()
+/**
+ * Pede um access token novo usando o cookie da sessão e o guarda na memória. Chamadas simultâneas
+ * compartilham o mesmo pedido. Lança SessionExpiredError se o servidor recusar a sessão.
+ */
+export function renewSession() {
+  if (!renewal) {
+    const generation = getSessionGeneration()
 
-  // Outra aba já renovou: basta repetir com o token novo.
-  if (current && current !== failedToken) return current
-
-  const generation = getSessionGeneration()
-  const refreshToken = getRefreshToken()
-  if (!refreshToken) throw new SessionExpiredError()
-
-  const response = await fetch(REFRESH_PATH, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
-  })
-
-  // Logout (ou novo login) durante a renovação: nunca regravar tokens de uma sessão encerrada.
-  if (generation !== getSessionGeneration()) throw new SessionExpiredError()
-
-  // Outra aba rotacionou o refresh token enquanto esperávamos: usa o resultado dela.
-  if (getRefreshToken() !== refreshToken) {
-    const rotated = getAccessToken()
-    if (rotated) return rotated
-    throw new SessionExpiredError()
+    renewal = sessionRequest('refresh')
+      .then(auth => {
+        // Logout (ou novo login) durante a renovação: nunca regravar o token de uma sessão encerrada.
+        if (generation !== getSessionGeneration() || isDeliberateLogout()) throw new SessionExpiredError()
+        saveSession(auth)
+        return auth
+      })
+      .finally(() => {
+        renewal = null
+      })
   }
 
-  if (response.ok) {
-    const data = await response.json()
-    if (generation !== getSessionGeneration() || getRefreshToken() !== refreshToken) {
-      throw new SessionExpiredError()
-    }
-    saveSession(data)
-    return data.accessToken
-  }
-
-  if (response.status >= 500) {
-    throw new Error('Não foi possível renovar sua sessão agora. Tente novamente.')
-  }
-
-  throw new SessionExpiredError()
-}
-
-function refreshAccessToken(failedToken) {
-  if (!refreshInFlight) {
-    const run = () => doRefresh(failedToken)
-    const locked = typeof navigator !== 'undefined' && navigator.locks?.request
-      ? navigator.locks.request(LOCK_NAME, run)
-      : run()
-
-    refreshInFlight = Promise.resolve(locked).finally(() => {
-      refreshInFlight = null
-    })
-  }
-
-  return refreshInFlight
+  return renewal
 }
 
 // Só encerra a sessão se ela ainda for a mesma que iniciou a requisição; uma resposta tardia
 // de uma sessão anterior não pode derrubar um login novo.
-function expireSession(generation) {
-  if (generation === getSessionGeneration()) {
+function expireSession(generation, status = 401) {
+  if (generation === getSessionGeneration() && !isDeliberateLogout()) {
     clearSession()
-    emitSessionExpired()
+    notifyAccessDenied(status)
   }
-  return new SessionExpiredError()
+  return new SessionExpiredError(undefined, status)
 }
 
 async function parseError(response, fallback) {
@@ -134,25 +89,29 @@ async function parseError(response, fallback) {
   return error
 }
 
+// skipAuth: rotas públicas (login, cadastro, versões legais). Os erros delas são da própria tela.
 export async function apiRequest(path, options = {}) {
   const fallback = options.fallbackMessage || DEFAULT_ERROR
-  const canRefresh = !options.skipAuth && !isAuthPath(path)
+  const isProtected = !options.skipAuth
   const generation = getSessionGeneration()
-  let token = options.skipAuth ? '' : getAccessToken()
-  let response = await fetch(path, buildInit(options, token))
+  let response = await fetch(path, buildInit(options, isProtected ? getAccessToken() : ''))
 
-  if (response.status === 401 && canRefresh) {
+  if (isProtected && response.status === 401) {
     // A sessão que iniciou esta requisição já foi encerrada: não repete com o token de outra.
-    if (generation !== getSessionGeneration()) throw new SessionExpiredError()
+    if (generation !== getSessionGeneration() || isDeliberateLogout()) throw new SessionExpiredError()
 
+    let token
     try {
-      token = await refreshAccessToken(token)
+      token = (await renewSession()).accessToken
     } catch (error) {
-      throw error instanceof SessionExpiredError ? expireSession(generation) : error
+      throw error instanceof SessionExpiredError ? expireSession(generation, error.status) : error
     }
 
     response = await fetch(path, buildInit(options, token))
-    if (response.status === 401) throw expireSession(generation)
+  }
+
+  if (isProtected && (response.status === 401 || response.status === 403)) {
+    throw expireSession(generation, response.status)
   }
 
   if (!response.ok) throw await parseError(response, fallback)

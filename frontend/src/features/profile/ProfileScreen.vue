@@ -208,16 +208,16 @@ async function saveData() {
 
   const wasEmailChange = emailChanged.value
   const response = await apiRequest('/api/v1/users/me', { method: 'PUT', body: JSON.stringify(payload) })
-  const { session, accessToken, refreshToken, ...updatedProfile } = response ?? {}
-  // Após trocar o e-mail o servidor pode devolver tokens novos (os antigos são revogados).
-  const newTokens = session?.accessToken ? session : (accessToken ? { ...response } : null)
-  if (newTokens) saveSession(newTokens)
+  const { session, ...updatedProfile } = response ?? {}
+  // Após trocar o e-mail o servidor devolve um token novo (os antigos são revogados) e troca o
+  // cookie da sessão deste navegador.
+  if (session?.accessToken) saveSession(session)
   profile.value = updatedProfile
   fillForm(updatedProfile)
   currentPassword.value = ''
   emit('updated', updatedProfile)
 
-  return wasEmailChange && !newTokens
+  return wasEmailChange && !session?.accessToken
     ? 'Seu e-mail foi alterado. Entre novamente se for solicitado.'
     : ''
 }
