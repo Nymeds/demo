@@ -1,3 +1,5 @@
+-- Flyway (perfil padrao, PostgreSQL). Idempotente e protegido por to_regclass: num banco novo (Flyway roda
+-- antes do Hibernate criar as tabelas) vira no-op. Nao edite depois de aplicado: crie um novo V<n>__.
 -- PRE-BOOT. PostgreSQL only. Idempotent; skips tables/columns that do not exist yet.
 -- calendar_events.discipline_id and grades.activity_id are @OnDelete(SET_NULL) in the entities, but
 -- ddl-auto=update never changes a foreign key that already exists. In older databases the key is

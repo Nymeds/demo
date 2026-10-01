@@ -106,7 +106,7 @@ export function onSessionRemovedElsewhere(callback) {
   const target = typeof window !== 'undefined' ? window : null
 
   function handleStorage(event) {
-    if (event.key === LOGOUT_PENDING_KEY && event.newValue === '1') callback()
+    if (event.key === LOGOUT_PENDING_KEY && event.newValue) callback()
   }
 
   target?.addEventListener?.('storage', handleStorage)

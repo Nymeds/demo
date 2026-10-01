@@ -106,7 +106,7 @@ describe('Lembrar de mim', () => {
     await wrapper.find('[data-testid="dashboard"] button').trigger('click')
     await flushPromises()
     expect(wrapper.text()).toContain('Você saiu neste navegador')
-    expect(localStorage.getItem('acad-organize.logout-pending')).toBe('1')
+    expect(localStorage.getItem('acad-organize.logout-pending')).toBeTruthy()
     wrapper.unmount()
     wrapper = null
     reply(null, 204)
@@ -182,6 +182,16 @@ describe('Acesso a rotas protegidas', () => {
     wrapper = mount(AuthScreen)
     await flushPromises()
     expect(wrapper.findComponent(AccessDeniedScreen).props('status')).toBe(403)
+  })
+
+  it.each([401, 403])('mostra o login em rota pública quando /users/me retorna %s', async status => {
+    window.history.replaceState(null, '', '/login')
+    reply(auth)
+    reply({}, status)
+    wrapper = mount(AuthScreen)
+    await flushPromises()
+    expect(wrapper.findComponent(AccessDeniedScreen).exists()).toBe(false)
+    expect(wrapper.find('input[type="email"]').exists()).toBe(true)
   })
 
   it('bloqueia uma rota alterada pelo histórico sem autenticação', async () => {

@@ -1,5 +1,6 @@
 package studdy.example.demo.grade;
 
+import studdy.example.demo.security.SessionTokens;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,6 +60,10 @@ class GradeControllerActivityTest {
     private JwtService jwtService;
 
     @Autowired
+
+    private studdy.example.demo.auth.session.BrowserSessionService browserSessions;
+
+    @Autowired
     private GradeRepository gradeRepository;
 
     @Test
@@ -110,7 +115,7 @@ class GradeControllerActivityTest {
         ));
 
         url = "/api/v1/dashboards/" + dashboard.getId() + "/disciplines/" + discipline.getId() + "/grades";
-        token = jwtService.generateToken(owner.getId());
+        token = SessionTokens.of(jwtService, browserSessions, owner.getId());
     }
 
     @Test

@@ -1,5 +1,6 @@
 package studdy.example.demo.user;
 
+import studdy.example.demo.security.SessionTokens;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,10 @@ class UserProfileControllerTest {
     private JwtService jwtService;
 
     @Autowired
+
+    private studdy.example.demo.auth.session.BrowserSessionService browserSessions;
+
+    @Autowired
     private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     private String authorization;
@@ -47,7 +52,7 @@ class UserProfileControllerTest {
                 "perfil-controller@example.com",
                 passwordEncoder.encode("Senha@1234")
         ));
-        authorization = "Bearer " + jwtService.generateToken(user.getId());
+        authorization = "Bearer " + SessionTokens.of(jwtService, browserSessions, user.getId());
     }
 
     @Test

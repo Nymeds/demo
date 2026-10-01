@@ -11,7 +11,27 @@ const FRONTEND_TIMEOUT_MS = 90_000;
 const NOTICE_EVERY_MS = 15_000;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const TRUSTED_LOCAL_PROXY = {
+  FORWARD_HEADERS_STRATEGY: 'native',
+  SERVER_TOMCAT_REMOTEIP_INTERNAL_PROXIES: String.raw`127\.0\.0\.1|0:0:0:0:0:0:0:1`,
+  SERVER_TOMCAT_REMOTEIP_REMOTE_IP_HEADER: 'x-forwarded-for',
+};
+
 const npmCommand = IS_WINDOWS ? 'npm.cmd' : 'npm';
+
+const isLocalHost = (host) => ['localhost', '127.0.0.1', '[::1]'].includes(host) || host.endsWith('.localhost');
+
+/**
+ * AUTH_COOKIE_SECURE=true faz o navegador só enviar o cookie de sessão por HTTPS. Com URLs http fora do
+ * localhost (ex.: celular acessando pelo IP da rede) o login "funciona" mas a sessão nunca chega à API.
+ * Devolve avisos; não impede o init.
+ */
+export function cookieSecureWarnings(env, urls) {
+  if (String(env.AUTH_COOKIE_SECURE).toLowerCase() !== 'true') return [];
+  return urls
+    .filter((url) => { try { const u = new URL(url); return u.protocol === 'http:' && !isLocalHost(u.hostname); } catch { return false; } })
+    .map((url) => `AUTH_COOKIE_SECURE=true, mas ${url} é HTTP fora do localhost: o navegador não enviará o cookie de sessão e o login não se manterá. Use HTTPS ou AUTH_COOKIE_SECURE=false no desenvolvimento.`);
+}
 
 /** URLs e portas. Padrão 8080/5173; SERVER_PORT e FRONTEND_PORT existem para contornar portas ocupadas. */
 export function resolveEndpoints(env) {
@@ -35,9 +55,11 @@ export function startBackend({ root, env, log }) {
   return startStreamed(
     mvn,
     ['spring-boot:run', '-Dspring-boot.run.profiles=seed', '-Dspring-boot.run.jvmArguments=-Dstdout.encoding=UTF-8'],
-    // O init é só local: confia no X-Forwarded-For do proxy do Vite para cada aparelho ter o próprio IP
-    // nos limites de login (FORWARD_HEADERS_STRATEGY no .env ou no shell tem prioridade).
-    { cwd: backendDir, env: { FORWARD_HEADERS_STRATEGY: 'framework', ...env }, log },
+    // O init é só local: confia no X-Forwarded-For apenas quando a conexão vem do próprio computador (o
+    // proxy do Vite, xfwd) e usa o salto mais à direita (RemoteIpValve do Tomcat, estratégia "native").
+    // Assim cada aparelho tem o próprio IP nos limites de login sem aceitar cabeçalho forjado de fora.
+    // Valores no .env ou no shell têm prioridade.
+    { cwd: backendDir, env: { ...TRUSTED_LOCAL_PROXY, ...env }, log },
   );
 }
 

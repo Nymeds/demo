@@ -1,5 +1,6 @@
 package studdy.example.demo.gradebook;
 
+import studdy.example.demo.security.SessionTokens;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +50,10 @@ class GradebookControllerTest {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+
+    private studdy.example.demo.auth.session.BrowserSessionService browserSessions;
+
     private String url;
     private String token;
 
@@ -71,7 +76,7 @@ class GradebookControllerTest {
         gradeRepository.save(new Grade(discipline, "Trabalho", new BigDecimal("9.00"), LocalDate.of(2026, 8, 20)));
 
         url = "/api/v1/dashboards/" + dashboard.getId() + "/gradebook";
-        token = jwtService.generateToken(owner.getId());
+        token = SessionTokens.of(jwtService, browserSessions, owner.getId());
     }
 
     @Test
@@ -96,7 +101,7 @@ class GradebookControllerTest {
     void hidesTheDashboardOfAnotherUser() throws Exception {
         AppUser intruder = userRepository.save(new AppUser("Intruso", "intruso-notas@example.com", "hash"));
 
-        mockMvc.perform(get(url).header("Authorization", "Bearer " + jwtService.generateToken(intruder.getId())))
+        mockMvc.perform(get(url).header("Authorization", "Bearer " + SessionTokens.of(jwtService, browserSessions, intruder.getId())))
                 .andExpect(status().isNotFound());
     }
 

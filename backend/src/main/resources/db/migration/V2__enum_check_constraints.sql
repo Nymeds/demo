@@ -1,10 +1,11 @@
+-- Flyway (perfil padrao, PostgreSQL). Idempotente e protegido por to_regclass: num banco novo (Flyway roda
+-- antes do Hibernate criar as tabelas) vira no-op. Nao edite depois de aplicado: crie um novo V<n>__.
 -- PRE-BOOT. PostgreSQL only. Idempotent; safe before the first boot of the new version.
 -- Hibernate 7 creates CHECK constraints for @Enumerated(STRING) columns and ddl-auto=update
 -- never changes them, so existing databases reject the new StartSection values.
 -- Values must match backend/src/main/java/studdy/example/demo/settings/StartSection.java.
 -- Other enum columns had no value changes in this work (activities.type is a new column and is
 -- created by Hibernate together with its constraint). Any future enum change needs a script like this.
-BEGIN;
 
 DO $$
 DECLARE
@@ -29,4 +30,3 @@ BEGIN
         CHECK (start_section IN ('DASHBOARD','DISCIPLINES','ACTIVITIES','EXAMS','FREQUENCY','GRADES','SIMULATOR','CALENDAR'));
 END $$;
 
-COMMIT;

@@ -12,7 +12,9 @@ import java.util.UUID;
 
 public interface DisciplineRepository extends JpaRepository<Discipline, UUID> {
 
-    List<Discipline> findAllByDashboard_IdOrderByNameAsc(UUID dashboardId);
+    /** Traz a frequência no mesmo SELECT (evita 1 consulta por disciplina); notas e horários vão em lote (@BatchSize). */
+    @Query("select d from Discipline d left join fetch d.frequency where d.dashboard.id = :dashboardId order by d.name asc")
+    List<Discipline> findAllByDashboard_IdOrderByNameAsc(@Param("dashboardId") UUID dashboardId);
 
     Optional<Discipline> findByIdAndDashboard_Id(UUID id, UUID dashboardId);
 

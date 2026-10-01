@@ -94,20 +94,25 @@ public class UserProfileService {
 
     @Transactional
     public UserResponse updatePhoto(UUID userId, MultipartFile file) {
-        AppUser user = findUser(userId);
         byte[] rawContent = readAndValidate(file);
-        detectContentType(rawContent);
+        requireSupportedFormat(rawContent);
+        // Trava a linha do usuário: dois envios simultâneos não tentam inserir duas fotos.
+        AppUser user = accountCredentials.findUserForUpdate(userId);
         byte[] content = ProfilePhotoProcessor.process(rawContent).orElseThrow(() -> new ResponseStatusException(
                 HttpStatus.BAD_REQUEST,
                 "Não foi possível ler a imagem. Envie uma foto PNG ou JPG válida."
         ));
         String contentType = ProfilePhotoProcessor.CONTENT_TYPE;
 
-        UserProfilePhoto photo = photoRepository.findByUser_Id(userId)
-                .orElseGet(() -> new UserProfilePhoto(user, content, contentType));
-        photo.update(content, contentType);
-        photoRepository.save(photo);
+        photoRepository.findByUser_Id(userId).ifPresentOrElse(
+                photo -> photo.update(content, contentType),
+                () -> photoRepository.save(new UserProfilePhoto(user, content, contentType)));
         user.markProfileUpdated();
+        try {
+            photoRepository.flush();
+        } catch (DataIntegrityViolationException exception) {
+            throw conflict("A foto de perfil foi alterada ao mesmo tempo em outra aba. Tente novamente.");
+        }
 
         return UserResponse.from(user, true);
     }
@@ -170,8 +175,8 @@ public class UserProfileService {
         }
     }
 
-    private String detectContentType(byte[] content) {
-        return ProfilePhotoFormat.detectContentType(content).orElseThrow(() -> new ResponseStatusException(
+    private void requireSupportedFormat(byte[] content) {
+        ProfilePhotoFormat.detectContentType(content).orElseThrow(() -> new ResponseStatusException(
                 HttpStatus.UNSUPPORTED_MEDIA_TYPE,
                 "A foto de perfil deve estar no formato PNG ou JPG."
         ));

@@ -13,6 +13,8 @@ import {
 export { SessionExpiredError }
 
 const DEFAULT_ERROR = 'Não foi possível concluir a solicitação.'
+const REQUEST_TIMEOUT_MS = 20000
+const TIMEOUT_MESSAGE = 'O servidor demorou para responder. Tente novamente.'
 const GATEWAY_STATUSES = [502, 503, 504]
 
 let renewal = null
@@ -26,6 +28,27 @@ export function errorMessage(data, fallback = DEFAULT_ERROR) {
   return fieldErrors || body.detail || body.message || fallback
 }
 
+function withTimeout(signal) {
+  const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+  if (!signal) return timeout
+  return typeof AbortSignal.any === 'function' ? AbortSignal.any([signal, timeout]) : signal
+}
+
+// Troca o erro de timeout (e só ele) por uma mensagem amigável; cancelamentos do chamador seguem iguais.
+async function timedFetch(path, init) {
+  try {
+    return await fetch(path, init)
+  } catch (error) {
+    if (error?.name === 'TimeoutError') {
+      const friendly = new Error(TIMEOUT_MESSAGE)
+      friendly.status = 0
+      friendly.fieldErrors = {}
+      throw friendly
+    }
+    throw error
+  }
+}
+
 function buildInit(options, token) {
   const { body, headers, as, fallbackMessage, skipAuth, ...init } = options
   const isRaw = typeof body === 'string' || body instanceof FormData || body instanceof Blob
@@ -34,6 +57,7 @@ function buildInit(options, token) {
 
   return {
     ...init,
+    signal: withTimeout(init.signal),
     body: payload,
     headers: {
       ...(token && !skipAuth ? { Authorization: `Bearer ${token}` } : {}),
@@ -94,7 +118,7 @@ export async function apiRequest(path, options = {}) {
   const fallback = options.fallbackMessage || DEFAULT_ERROR
   const isProtected = !options.skipAuth
   const generation = getSessionGeneration()
-  let response = await fetch(path, buildInit(options, isProtected ? getAccessToken() : ''))
+  let response = await timedFetch(path, buildInit(options, isProtected ? getAccessToken() : ''))
 
   if (isProtected && response.status === 401) {
     // A sessão que iniciou esta requisição já foi encerrada: não repete com o token de outra.
@@ -107,12 +131,11 @@ export async function apiRequest(path, options = {}) {
       throw error instanceof SessionExpiredError ? expireSession(generation, error.status) : error
     }
 
-    response = await fetch(path, buildInit(options, token))
+    response = await timedFetch(path, buildInit(options, token))
   }
 
-  if (isProtected && (response.status === 401 || response.status === 403)) {
-    throw expireSession(generation, response.status)
-  }
+  // Só 401 encerra a sessão; 403 (sem permissão) é um erro comum da operação.
+  if (isProtected && response.status === 401) throw expireSession(generation, 401)
 
   if (!response.ok) throw await parseError(response, fallback)
   if (response.status === 204) return null

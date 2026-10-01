@@ -20,6 +20,8 @@ import java.util.UUID;
 @Service
 public class CalendarEventService {
 
+    private static final long MAX_PERIOD_DAYS = 366;
+
     private static final int MAX_UPCOMING_LIMIT = 50;
 
     private final CalendarEventRepository calendarEventRepository;
@@ -71,6 +73,13 @@ public class CalendarEventService {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "A data final deve ser posterior à data inicial."
+            );
+        }
+
+        if (java.time.temporal.ChronoUnit.DAYS.between(start, end) > MAX_PERIOD_DAYS) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "O período consultado não pode passar de " + MAX_PERIOD_DAYS + " dias."
             );
         }
 

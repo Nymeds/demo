@@ -52,7 +52,7 @@ class ClockUsageTest {
         when(discipline.getId()).thenReturn(disciplineId);
         when(access.findOwnedDiscipline(userId, dashboardId, disciplineId)).thenReturn(discipline);
         Activity activity = new Activity("Prova", null, LocalDate.of(2026, 9, 29), null, null, discipline);
-        when(activityRepository.findByIdAndDiscipline_Id(activityId, disciplineId)).thenReturn(Optional.of(activity));
+        when(activityRepository.findByIdAndDiscipline_IdForUpdate(activityId, disciplineId)).thenReturn(Optional.of(activity));
         when(gradeRepository.saveAndFlush(any(Grade.class))).thenAnswer(i -> i.getArgument(0));
         return new GradeService(gradeRepository, activityRepository, access, new AcademicPerformanceService(), clock);
     }

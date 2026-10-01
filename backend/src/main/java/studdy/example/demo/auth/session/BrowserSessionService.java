@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import studdy.example.demo.auth.dto.AuthResponse;
 import studdy.example.demo.security.JwtService;
 import studdy.example.demo.user.UserRepository;
 
@@ -60,8 +61,8 @@ public class BrowserSessionService {
         random.nextBytes(bytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         Instant expiresAt = now.plus(rememberMe ? REMEMBERED_LIFETIME : BROWSER_LIFETIME);
-        sessions.save(new BrowserSession(user, hash(token), rememberMe, now, expiresAt));
-        return new IssuedSession(token, rememberMe, expiresAt);
+        var saved = sessions.save(new BrowserSession(user, hash(token), rememberMe, now, expiresAt));
+        return new IssuedSession(token, rememberMe, expiresAt, saved.getId());
     }
 
     @Transactional
@@ -76,7 +77,7 @@ public class BrowserSessionService {
         if (user.getCredentialsUpdatedAt() != null && user.getCredentialsUpdatedAt().isAfter(issuedAt)) {
             issuedAt = user.getCredentialsUpdatedAt();
         }
-        return new SessionResponse(jwt.generateToken(user.getId(), issuedAt), "Bearer", jwt.getExpirationInSeconds(), session.isRememberMe());
+        return new SessionResponse(jwt.generateToken(user.getId(), issuedAt, session.getId()), "Bearer", jwt.getExpirationInSeconds(), session.isRememberMe());
     }
 
     @Transactional
@@ -85,12 +86,31 @@ public class BrowserSessionService {
         if (session != null) sessions.delete(session);
     }
 
-    /** Mantém somente o navegador atual conectado após troca de senha autenticada. */
+    /**
+     * Mantém somente o navegador atual conectado após troca de senha autenticada. Não usa
+     * isValid(): quando este método roda, credentialsUpdatedAt já mudou e a sessão atual
+     * seria sempre recusada; por isso só confere dono e prazo.
+     */
     @Transactional
     public IssuedSession replaceAfterPasswordChange(UUID userId, String token) {
         var previous = find(token);
-        if (previous == null || !previous.getUser().getId().equals(userId) || !now().isBefore(previous.getExpiresAt())) return null;
+        if (previous == null || !previous.getUser().getId().equals(userId) || !now().isBefore(previous.getExpiresAt())) {
+            // Sem cookie válido deste navegador: abre uma sessão nova para que o token emitido tenha "sid".
+            return create(userId, false, null);
+        }
         return create(userId, previous.isRememberMe(), token);
+    }
+
+    /** Consulta única por chave primária usada pelo filtro JWT para tokens com claim "sid". */
+    @Transactional(readOnly = true)
+    public boolean isActive(UUID sessionId, UUID userId) {
+        return sessions.existsByIdAndUser_IdAndExpiresAtAfter(sessionId, userId, now());
+    }
+
+    /** Remove sessões expiradas (rodado diariamente por SessionPurgeScheduler). */
+    @Transactional
+    public int purgeExpired() {
+        return sessions.deleteExpired(now());
     }
 
     private BrowserSession find(String token) {
@@ -110,6 +130,13 @@ public class BrowserSessionService {
     private ResponseStatusException expired() {
         return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sua sessão expirou. Entre novamente.");
     }
-    public record IssuedSession(String token, boolean rememberMe, Instant expiresAt) {}
+    public record IssuedSession(String token, boolean rememberMe, Instant expiresAt, UUID sessionId) {}
+
+    /** Reemite o access token (mesmo usuário e iat) vinculado à sessão criada na mesma requisição (claim "sid"). */
+    public AuthResponse bindAccessToken(AuthResponse auth, IssuedSession session) {
+        var claims = jwt.parse(auth.accessToken());
+        return new AuthResponse(jwt.generateToken(claims.userId(), claims.issuedAt(), session.sessionId()),
+                auth.tokenType(), auth.expiresIn());
+    }
     public record SessionResponse(String accessToken, String tokenType, long expiresIn, boolean rememberMe) {}
 }

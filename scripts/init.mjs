@@ -3,12 +3,12 @@
 // e mantém backend e frontend rodando. Sem dependências além do Node. Veja o README (Início rápido).
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DEMO_EMAIL, DEMO_PASSWORD, REQUIRED_TABLES, dropLegacyTables, inspectDatabase, startContainer, waitForSeed, waitUntilHealthy } from './init/database.mjs';
+import { DEMO_EMAIL, DEMO_PASSWORD, REQUIRED_TABLES, inspectDatabase, startContainer, waitForSeed, waitUntilHealthy } from './init/database.mjs';
 import { ENV_HELP, loadEnv } from './init/env.mjs';
 import { createLogger } from './init/log.mjs';
 import { checkPrerequisites } from './init/prerequisites.mjs';
 import { hasExited, hasRunningChildren, killAllSync, stopAll } from './init/proc.mjs';
-import { ensureFrontendDependencies, resolveEndpoints, startBackend, startFrontend, waitForBackend, waitForFrontend } from './init/services.mjs';
+import { cookieSecureWarnings, ensureFrontendDependencies, resolveEndpoints, startBackend, startFrontend, waitForBackend, waitForFrontend } from './init/services.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const init = createLogger('INIT');
@@ -53,7 +53,7 @@ function describeBefore(state) {
     return;
   }
   const found = REQUIRED_TABLES.length - state.missing.length;
-  db.info(`Tabelas encontradas: ${found}/${REQUIRED_TABLES.length}. O backend cria as que faltam ao iniciar (Hibernate, ddl-auto=update).`);
+  db.info(`Tabelas encontradas: ${found}/${REQUIRED_TABLES.length}. O backend aplica as migrações (Flyway) e cria as que faltam ao iniciar (Hibernate, ddl-auto=update).`);
 }
 
 function describeAfter(before, after) {
@@ -84,6 +84,9 @@ async function run() {
   for (const key of generatedSecrets) init.info(`${key} estava vazio: um segredo aleatório foi gravado no .env.`);
   if (envProblems.length) return abort([...envProblems, ...ENV_HELP]);
   init.ok('.env encontrado com DB_PASSWORD e JWT_SECRET.');
+  for (const warning of cookieSecureWarnings(env, [endpoints.frontendUrl, endpoints.apiUrl, env.VITE_API_PROXY_TARGET].filter(Boolean))) {
+    init.warn(warning);
+  }
 
   const prerequisiteProblems = await checkPrerequisites();
   if (prerequisiteProblems.length) return abort(prerequisiteProblems);
@@ -91,10 +94,6 @@ async function run() {
 
   await startContainer({ root, env, log: db });
   await waitUntilHealthy({ log: db });
-  if (await dropLegacyTables(env)) {
-    db.ok('Tabela antiga refresh_tokens removida (a sessão agora é o cookie HttpOnly; todos entram de novo).');
-  }
-
   const before = await inspectDatabase(env);
   describeBefore(before);
 

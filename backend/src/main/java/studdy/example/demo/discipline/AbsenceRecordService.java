@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,9 @@ import studdy.example.demo.discipline.dto.CreateAbsenceRecordRequest;
 
 @Service
 public class AbsenceRecordService {
+
+    static final int MAX_TOTAL_ABSENCES = 9999;
+    private static final int MAX_HISTORY = 1000;
 
     private final AbsenceRecordRepository absenceRecordRepository;
     private final FrequencyRepository frequencyRepository;
@@ -64,7 +68,7 @@ public class AbsenceRecordService {
                 .orElseGet(() -> new Frequency(discipline, 0));
 
         BigDecimal previousAttendance = frequency.attendancePercentage();
-        frequency.update(frequency.getAbsences() + request.quantity());
+        frequency.update(addAbsences(frequency.getAbsences(), request.quantity()));
         try {
             frequencyRepository.saveAndFlush(frequency);
         } catch (DataIntegrityViolationException exception) {
@@ -96,7 +100,8 @@ public class AbsenceRecordService {
         disciplineAccessService.findOwnedDiscipline(userId, dashboardId, disciplineId);
 
         return absenceRecordRepository
-                .findAllByDiscipline_IdOrderByAbsenceDateDescCreatedAtDesc(disciplineId)
+                .findAllByDiscipline_IdOrderByAbsenceDateDescCreatedAtDesc(
+                        disciplineId, PageRequest.of(0, MAX_HISTORY))
                 .stream()
                 .map(AbsenceRecordResponse::from)
                 .toList();
@@ -124,6 +129,26 @@ public class AbsenceRecordService {
         frequency.update(Math.max(frequency.getAbsences() - record.getQuantity(), 0));
         frequencyRepository.save(frequency);
         absenceRecordRepository.delete(record);
+    }
+
+    private static int addAbsences(int current, int quantity) {
+        int total;
+        try {
+            total = Math.addExact(current, quantity);
+        } catch (ArithmeticException exception) {
+            throw totalTooHigh();
+        }
+        if (total > MAX_TOTAL_ABSENCES) {
+            throw totalTooHigh();
+        }
+        return total;
+    }
+
+    private static ResponseStatusException totalTooHigh() {
+        return new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "O total de faltas não pode passar de " + MAX_TOTAL_ABSENCES + "."
+        );
     }
 
     private void rejectFutureDate(LocalDate date) {

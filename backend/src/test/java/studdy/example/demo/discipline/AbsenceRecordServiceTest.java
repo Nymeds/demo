@@ -68,6 +68,18 @@ class AbsenceRecordServiceTest {
     }
 
     @Test
+    void rejectsATotalAboveTheCap() {
+        for (int i = 0; i < 10; i++) {
+            absenceRecordService.create(owner.getId(), dashboard.getId(), discipline.getId(),
+                    new CreateAbsenceRecordRequest(LocalDate.of(2026, 9, 14), 999, "Saúde", null));
+        }
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> absenceRecordService.create(owner.getId(), dashboard.getId(), discipline.getId(),
+                        new CreateAbsenceRecordRequest(LocalDate.of(2026, 9, 14), 999, "Saúde", null)));
+        assertEquals(400, error.getStatusCode().value());
+    }
+
+    @Test
     void savesTheRecordAndUpdatesTheFrequency() {
         AbsenceRecordResponse created = absenceRecordService.create(
                 owner.getId(), dashboard.getId(), discipline.getId(),

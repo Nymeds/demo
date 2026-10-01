@@ -28,6 +28,7 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.BatchSize;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -76,8 +77,10 @@ public class Discipline {
             indexes = @Index(name = "idx_discipline_schedules_discipline_id", columnList = "discipline_id")
     )
     @OrderColumn(name = "position")
+    @BatchSize(size = 50)
     private List<ClassSchedule> schedules = new ArrayList<>();
 
+    @BatchSize(size = 50)
     @OneToMany(mappedBy = "discipline", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Grade> grades = new ArrayList<>();
 

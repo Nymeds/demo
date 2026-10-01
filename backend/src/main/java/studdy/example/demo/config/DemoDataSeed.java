@@ -1,7 +1,9 @@
 package studdy.example.demo.config;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.sql.Connection;
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -67,6 +69,7 @@ public class DemoDataSeed implements ApplicationRunner {
     private final ActivityRepository activityRepository;
     private final GradeRepository gradeRepository;
     private final FrequencyRepository frequencyRepository;
+    private final Clock clock;
 
     public DemoDataSeed(
             DataSource dataSource,
@@ -77,8 +80,10 @@ public class DemoDataSeed implements ApplicationRunner {
             DisciplineRepository disciplineRepository,
             ActivityRepository activityRepository,
             GradeRepository gradeRepository,
-            FrequencyRepository frequencyRepository
+            FrequencyRepository frequencyRepository,
+            Clock clock
     ) {
+        this.clock = clock;
         this.dataSource = dataSource;
         this.environment = environment;
         this.passwordEncoder = passwordEncoder;
@@ -164,7 +169,7 @@ public class DemoDataSeed implements ApplicationRunner {
                 "2"
         ));
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         activityRepository.saveAll(List.of(
                 new Activity(
                         "Lista de árvores binárias",
@@ -221,13 +226,40 @@ public class DemoDataSeed implements ApplicationRunner {
         ));
     }
 
+    public static final String ALLOW_REMOTE_PROPERTY = "app.seed.allow-remote";
+
     private boolean isSeedAllowed() throws Exception {
-        return environment.acceptsProfiles(Profiles.of(SEED_PROFILE)) || isH2Database();
+        String url = datasourceUrl();
+        boolean h2 = url.startsWith("jdbc:h2:");
+        if (!environment.acceptsProfiles(Profiles.of(SEED_PROFILE)) && !h2) {
+            return false;
+        }
+        if (h2 || isLocalHost(url) || environment.getProperty(ALLOW_REMOTE_PROPERTY, Boolean.class, false)) {
+            return true;
+        }
+        log.warn("SEED DEMO ignorado: o banco {} nao e local. Defina {}=true para permitir.",
+                hostOf(url), ALLOW_REMOTE_PROPERTY);
+        return false;
     }
 
-    private boolean isH2Database() throws Exception {
+    private String datasourceUrl() throws Exception {
         try (Connection connection = dataSource.getConnection()) {
-            return connection.getMetaData().getURL().startsWith("jdbc:h2:");
+            String url = connection.getMetaData().getURL();
+            return url == null ? "" : url;
+        }
+    }
+
+    static boolean isLocalHost(String jdbcUrl) {
+        String host = hostOf(jdbcUrl);
+        return "localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host);
+    }
+
+    private static String hostOf(String jdbcUrl) {
+        try {
+            String host = URI.create(jdbcUrl.startsWith("jdbc:") ? jdbcUrl.substring(5) : jdbcUrl).getHost();
+            return host == null ? "" : host;
+        } catch (IllegalArgumentException exception) {
+            return "";
         }
     }
 }

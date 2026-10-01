@@ -43,8 +43,9 @@ public class AuthController {
                               @CookieValue(name = SessionCookies.NAME, required = false) String previousToken,
                               HttpServletRequest httpRequest, HttpServletResponse response) {
         var auth = authService.login(request, httpRequest.getRemoteAddr());
-        cookies.set(sessions.createAuthenticated(auth.accessToken(), request.shouldRemember(), previousToken), httpRequest, response);
-        return auth;
+        var session = sessions.createAuthenticated(auth.accessToken(), request.shouldRemember(), previousToken);
+        cookies.set(session, httpRequest, response);
+        return sessions.bindAccessToken(auth, session);
     }
 
     @PostMapping(value = "/refresh", consumes = MediaType.APPLICATION_JSON_VALUE)

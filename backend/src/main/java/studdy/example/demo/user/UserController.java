@@ -53,8 +53,9 @@ public class UserController {
         if (updated.session() != null) {
             // Trocar o e-mail invalida todas as sessões; só este navegador continua conectado.
             var session = sessions.replaceAfterPasswordChange(userId, sessionToken);
-            if (session != null) cookies.set(session, httpRequest, response);
+            cookies.set(session, httpRequest, response);
             response.setHeader("Cache-Control", "no-store");
+            return updated.withSession(sessions.bindAccessToken(updated.session(), session));
         }
         return updated;
     }

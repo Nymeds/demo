@@ -117,14 +117,17 @@ O perfil padrão usa PostgreSQL e exige configuração por variáveis de ambient
 | `DB_PASSWORD` | sim | vazio | Sem ela a conexão falha |
 | `JWT_SECRET` | sim | vazio | Mínimo de 32 bytes |
 | `JWT_EXPIRATION_MS` | não | `900000` (15 min) | Validade do token de acesso |
-| `AUTH_COOKIE_SECURE` | não (sim em produção) | `false` | `true` em produção HTTPS (inclusive com TLS terminando no proxy): o cookie da sessão só trafega por HTTPS |
+| `AUTH_COOKIE_SECURE` | não (sim em produção) | `false` | `true` em produção HTTPS (inclusive com TLS terminando no proxy): o cookie da sessão só trafega por HTTPS. Com `true` e acesso por `http://` fora do localhost (ex.: celular pelo IP da rede) o navegador não envia o cookie e a sessão não se mantém; o init avisa nesse caso |
 | `RECOVERY_HASH_SECRET` | não | o `JWT_SECRET` | Chave (mínimo 32 bytes) do HMAC dos códigos de recuperação. Use uma chave própria; o init gera uma se estiver vazia |
 | `MAILER_API_SECRET` | para enviar e-mails | vazio | Chave interna (mínimo 32 bytes) entre a API e o `mailer/`; a mesma de `mailer/.env`. `node scripts/setup-recovery.mjs` gera e sincroniza |
 | `MAILER_URL` | não | `http://127.0.0.1:3001` | Endereço do `mailer/`; fora de localhost exige HTTPS |
 | `MAILER_AUTO_START` | não | `false` (`true` no `.env.example`) | A API inicia o `mailer/` ao subir e o encerra ao parar |
 | `MAILER_DIRECTORY` | não | `../mailer` | Pasta do `mailer/`, relativa a `backend/` (de onde a API roda) |
 | `NODE_EXECUTABLE` | não | `node` | Caminho do Node.js usado para iniciar o `mailer/` |
-| `FORWARD_HEADERS_STRATEGY` | não | `none` | Use `native` (ou `framework`) só atrás de um proxy confiável, para o limitador de login usar o `X-Forwarded-For`; nunca sem proxy (o cabeçalho seria forjável) |
+| `FORWARD_HEADERS_STRATEGY` | não | `none` (`native` no perfil `dev` e no init) | Use `native` só atrás de um proxy confiável e ajuste `server.tomcat.remoteip.internal-proxies` ao IP dele: o Tomcat lê o `X-Forwarded-For` da direita para a esquerda e só pula saltos confiáveis. Evite `framework`: ele aceita o cabeçalho de qualquer origem e usa o valor mais à esquerda, que o cliente controla. Nunca habilite sem proxy (o cabeçalho seria forjável) |
+| `DDL_AUTO` | não | `update` | `spring.jpa.hibernate.ddl-auto`; o plano é chegar a `validate` (veja Migrações) |
+| `DB_POOL_SIZE` | não | `10` | Tamanho máximo do pool Hikari. No PostgreSQL cada conexão tem `statement_timeout=30s` e `lock_timeout=5s` |
+| `SESSION_PURGE_CRON` | não | `0 30 3 * * *` | Cron (Spring) da limpeza de sessões expiradas |
 | `SERVER_PORT` | não | `8080` | Porta da API no `npm run init` (contorna porta ocupada) |
 | `FRONTEND_PORT` | não | `5173` | Porta do frontend no `npm run init` |
 | `VITE_API_PROXY_TARGET` | não | `http://localhost:8080` | Alvo do proxy `/api` do Vite; o init ajusta sozinho se `SERVER_PORT` mudar |
@@ -313,15 +316,15 @@ Todas as rotas, exceto `auth` e `legal`, exigem `Authorization: Bearer <token>`.
 
 ## Migrações
 
-O projeto usa `spring.jpa.hibernate.ddl-auto=update`: o Hibernate cria tabelas e colunas novas, mas não remove colunas, não altera restrições existentes, não cria índices parciais e não corrige dados. Mudanças desse tipo em bancos já existentes exigem scripts manuais. Os scripts (PostgreSQL) estão em `docs/migrations/`; veja `docs/migrations/README.md` para quando e como aplicar.
+O perfil padrão (PostgreSQL) aplica as migrações versionadas com **Flyway** a cada inicialização, antes do Hibernate (`spring.jpa.hibernate.ddl-auto=${DDL_AUTO:update}`) criar tabelas e colunas novas. Os scripts ficam em `backend/src/main/resources/db/migration`; não há mais scripts manuais com `psql`. Bancos já existentes recebem uma linha de base na versão 1 e as migrações V2 em diante. Detalhes, regras e o plano para `ddl-auto=validate` em `docs/migrations/README.md`. Nos perfis `dev` e de teste (H2) o Flyway fica desligado.
 
 Pontos de atenção ao atualizar um banco existente:
 - Faça **backup antes do primeiro boot** da nova versão: o migrador de avatares legados apaga as linhas antigas de `user_avatars` após converter as fotos.
-- `activities.type`, as tabelas `browser_sessions` e `password_recoveries` e as colunas `terms_*`/`privacy_version` são criadas automaticamente pelo `ddl-auto`; não precisam de script. A antiga tabela `refresh_tokens` deixou de ser usada e **precisa ser removida antes de subir a nova versão** com `docs/migrations/2026-10-01-drop-refresh-tokens.sql` (pré-boot, obrigatório): a chave estrangeira dela não tem `ON DELETE CASCADE` e faria a exclusão de conta falhar com erro 500. O `npm run init` aplica esse script sozinho.
-- Ordem: backup, scripts pré-boot com a aplicação parada, subir a aplicação, script pós-boot.
-- Qualquer mudança em enum exige um script (a restrição CHECK do banco não é atualizada pelo Hibernate).
+- A antiga tabela `refresh_tokens` é removida automaticamente (`V6__drop_refresh_tokens.sql`); todos entram de novo.
+- O índice único parcial de dashboard ativo (`ux_dashboards_one_active_per_owner`) é criado pelo callback `afterMigrate` num boot em que a tabela já exista e não haja duplicados: num banco novo, a partir do segundo boot.
+- Qualquer mudança em enum exige uma nova migração `V<n>__` (a restrição CHECK do banco não é atualizada pelo Hibernate). Nunca edite uma migração já aplicada.
+- `PostgresSmokeTest` (Testcontainers) valida as migrações contra `postgres:16-alpine`. É opt-in: `./mvnw.cmd test` o pula (nenhum contêiner sobe). Para rodá-lo (exige Docker): `$env:RUN_POSTGRES_TESTS="true"; ./mvnw.cmd test -Dtest=PostgresSmokeTest` (no Linux/macOS: `RUN_POSTGRES_TESTS=true ./mvnw test -Dtest=PostgresSmokeTest`).
 - Sessões vencidas ou revogadas de uma conta são apagadas no próximo login dela (no máximo 10 por conta).
-- Trabalho futuro recomendado: Flyway com `spring.jpa.hibernate.ddl-auto=validate`.
 
 ## Pendências conhecidas
 

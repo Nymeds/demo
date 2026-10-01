@@ -14,6 +14,7 @@ O código atual é uma base Spring Boot; não presuma que funcionalidades de dom
 - Valide entradas HTTP com Bean Validation e retorne respostas HTTP coerentes.
 - Armazene configurações em `backend/src/main/resources/application.properties`; nunca versione segredos.
 - Use PostgreSQL para a persistência de execução e JPA para o mapeamento de entidades.
+- Mudanças de esquema que o `ddl-auto=update` não faz (enum/CHECK, índices parciais, FKs, limpeza de dados) viram uma nova migração Flyway `V<n>__` em `backend/src/main/resources/db/migration`, idempotente e protegida com `to_regclass`; nunca edite uma migração já aplicada (veja `docs/migrations/README.md`). O Flyway fica desligado nos perfis `dev` e de teste (H2).
 
 ## Fluxo de trabalho
 

@@ -1,3 +1,5 @@
+-- Flyway (perfil padrao, PostgreSQL). Idempotente e protegido por to_regclass: num banco novo (Flyway roda
+-- antes do Hibernate criar as tabelas) vira no-op. Nao edite depois de aplicado: crie um novo V<n>__.
 -- PRE-BOOT. PostgreSQL only. Idempotent; each index is created only if its table exists.
 -- Names match the @Index declarations in the entities, so Hibernate finds them already present.
 DO $$
@@ -7,8 +9,7 @@ DECLARE
         ['idx_disciplines_dashboard_id',        'disciplines',     'dashboard_id'],
         ['idx_absence_records_discipline_id',   'absence_records', 'discipline_id'],
         ['idx_calendar_events_dashboard_id',    'calendar_events', 'dashboard_id'],
-        ['idx_calendar_events_discipline_id',   'calendar_events', 'discipline_id'],
-        ['idx_refresh_tokens_user_id',          'refresh_tokens',  'user_id']
+        ['idx_calendar_events_discipline_id',   'calendar_events', 'discipline_id']
     ];
     i int;
 BEGIN

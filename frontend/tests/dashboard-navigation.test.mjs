@@ -176,7 +176,7 @@ ${rewriteRelativeImports(code, sfcUrl)}`,
   for (const label of ['Dashboard', 'Disciplinas', 'Atividades', 'Provas', 'Frequência', 'Notas',
     'Simulador de Notas', 'Calendário', 'Perfil', 'Sair']) {
     const item = button(label)
-    assert.equal(item.props.title, label, `${label} deve ter title`)
+    assert.equal(label === 'Sair' ? item.props['data-tooltip'] : item.props.title, label, `${label} deve ter title/tooltip`)
     assert.equal(item.props['aria-label'], label, `${label} deve ter aria-label`)
   }
 

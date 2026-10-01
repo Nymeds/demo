@@ -153,7 +153,7 @@ public class GradeService {
             return null;
         }
 
-        Activity activity = activityRepository.findByIdAndDiscipline_Id(activityId, disciplineId)
+        Activity activity = activityRepository.findByIdAndDiscipline_IdForUpdate(activityId, disciplineId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Avaliação não encontrada nesta disciplina."

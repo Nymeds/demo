@@ -72,11 +72,14 @@ function scheduleRenewal(delayMs) {
   renewTimer = setTimeout(renewAccessToken, delay)
 }
 
+let logoutSequence = 0
+
 function logoutPending(value) {
   try {
-    if (value === true) localStorage.setItem(LOGOUT_PENDING_KEY, '1')
+    // Valor único a cada saída: o evento "storage" só dispara quando o valor muda.
+    if (value === true) localStorage.setItem(LOGOUT_PENDING_KEY, `${Date.now()}-${++logoutSequence}`)
     if (value === false) localStorage.removeItem(LOGOUT_PENDING_KEY)
-    return localStorage.getItem(LOGOUT_PENDING_KEY) === '1'
+    return Boolean(localStorage.getItem(LOGOUT_PENDING_KEY))
   } catch { return false }
 }
 
@@ -141,10 +144,16 @@ async function restoreSession() {
       return
     }
     const auth = await renewSession()
-    const response = await protectedFetch('/api/v1/users/me', {
+    // Em rota pública, 401/403 só significa "sem sessão": mostra o login, não o acesso negado.
+    const fetchProfile = route.value.publicMode ? fetch : protectedFetch
+    const response = await fetchProfile('/api/v1/users/me', {
       headers: { Authorization: `Bearer ${auth.accessToken}` },
       signal: AbortSignal.timeout(15000),
     })
+    if (route.value.publicMode && [401, 403].includes(response.status)) {
+      clearSession()
+      return
+    }
     if (!response.ok) {
       throw new Error('Não foi possível carregar sua sessão. Entre novamente ou tente recarregar a página.')
     }
@@ -383,6 +392,7 @@ function updateAuthenticatedUser(profile) {
             : 'Apresentação do AcadOrganize e seus recursos acadêmicos'"
           width="794"
           height="1979"
+          decoding="async"
         >
         <!-- Tablet e celular: a arte vertical cortava o título; o mesmo conteúdo em texto se ajusta à largura. -->
         <div class="auth-compact-brand" aria-hidden="true">

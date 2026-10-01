@@ -2,6 +2,7 @@ package studdy.example.demo.discipline.dto;
 
 import java.time.LocalDate;
 
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -13,6 +14,7 @@ public record CreateAbsenceRecordRequest(
 
         @NotNull(message = "A quantidade de faltas é obrigatória.")
         @Positive(message = "A quantidade de faltas deve ser maior que zero.")
+        @Max(value = 999, message = "A quantidade de faltas deve ser no máximo 999.")
         Integer quantity,
 
         @NotBlank(message = "O motivo da falta é obrigatório.")

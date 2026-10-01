@@ -1,5 +1,6 @@
 package studdy.example.demo.auth.recovery;
 
+import studdy.example.demo.security.SessionTokens;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +42,7 @@ class PasswordRecoveryIntegrationTest {
     @Autowired UserRepository users;
     @Autowired PasswordEncoder encoder;
     @Autowired JwtService jwt;
+    @Autowired studdy.example.demo.auth.session.BrowserSessionService browserSessions;
     @Autowired AuthService auth;
     @MockitoBean RecoveryMailSender mail;
     @MockitoBean Clock clock;
@@ -70,7 +72,7 @@ class PasswordRecoveryIntegrationTest {
 
     @Test
     void completesPublicHttpFlowRevokesSessionsAndAllowsImmediateLogin() throws Exception {
-        String oldToken = jwt.generateToken(user.getId());
+        String oldToken = SessionTokens.of(jwt, browserSessions, user.getId());
         String code = requestCode();
         String json = mvc.perform(post("/api/v1/auth/password-recovery/verify")
                         .with(request -> { request.setRemoteAddr(address); return request; })
@@ -88,8 +90,13 @@ class PasswordRecoveryIntegrationTest {
         assertThatThrownBy(() -> auth.login(new LoginRequest(user.getEmail(), "senha-antiga-123"), address))
                 .isInstanceOf(ResponseStatusException.class);
         mvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + oldToken)).andExpect(status().isUnauthorized());
-        var login = auth.login(new LoginRequest(user.getEmail(), "senha-nova-123"), address);
-        mvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + login.accessToken())).andExpect(status().isOk());
+        String loginJson = mvc.perform(post("/api/v1/auth/login")
+                        .with(request -> { request.setRemoteAddr(address); return request; })
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + user.getEmail() + "\",\"password\":\"senha-nova-123\"}"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String loginToken = JsonPath.read(loginJson, "$.accessToken");
+        mvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + loginToken)).andExpect(status().isOk());
         assertThatThrownBy(() -> service.resetPassword(user.getEmail(), token, "outra-senha-123"))
                 .isInstanceOf(ResponseStatusException.class);
     }

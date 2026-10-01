@@ -102,7 +102,7 @@ test('renovação recusada limpa a sessão, lança SessionExpiredError e avisa u
   assert.deepEqual(deniedEvents, [401])
 })
 
-test('403 em rota protegida encerra a sessão sem tentar renovar', async t => {
+test('403 em rota protegida é erro comum e mantém a sessão', async t => {
   t.after(restoreFetch)
   saveSession({ accessToken: 'token' })
   const paths = []
@@ -112,10 +112,10 @@ test('403 em rota protegida encerra a sessão sem tentar renovar', async t => {
     return json(403)
   }
 
-  await assert.rejects(apiRequest('/api/v1/a'), SessionExpiredError)
+  await assert.rejects(apiRequest('/api/v1/a'), error => error.status === 403 && !(error instanceof SessionExpiredError))
   assert.deepEqual(paths, ['/api/v1/a'])
-  assert.deepEqual(deniedEvents, [403])
-  assert.equal(getSession(), null)
+  assert.deepEqual(deniedEvents, [])
+  assert.notEqual(getSession(), null)
 })
 
 test('erros de rotas públicas não encerram a sessão', async t => {

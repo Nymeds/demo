@@ -1,5 +1,6 @@
+-- Flyway (perfil padrao, PostgreSQL). Idempotente e protegido por to_regclass: num banco novo (Flyway roda
+-- antes do Hibernate criar as tabelas) vira no-op. Nao edite depois de aplicado: crie um novo V<n>__.
 -- PRE-BOOT. PostgreSQL only. Idempotent; safe before the first boot (guards on table/column existence).
-BEGIN;
 
 -- Remove legacy column.
 DO $$
@@ -73,4 +74,3 @@ BEGIN
     END IF;
 END $$;
 
-COMMIT;

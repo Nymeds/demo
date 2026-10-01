@@ -5,7 +5,8 @@ export const CONTAINER = 'studdy-postgres';
 export const DEMO_EMAIL = 'desenvolvedor@dev.com';
 export const DEMO_PASSWORD = 'desenvolvedor@dev.com';
 
-// Tabelas criadas pelo Hibernate (spring.jpa.hibernate.ddl-auto=update) ao iniciar o backend.
+// Ao iniciar o backend, o Flyway aplica backend/src/main/resources/db/migration (inclui remover a tabela
+// antiga refresh_tokens) e depois o Hibernate (ddl-auto=update) cria estas tabelas.
 export const REQUIRED_TABLES = [
   'app_users',
   'dashboards',
@@ -71,17 +72,6 @@ async function psql(env, sql) {
     throw new Error(`Consulta ao banco falhou: ${(result.stderr || result.error?.message || '').trim()}`);
   }
   return result.stdout.trim();
-}
-
-/**
- * Pré-boot obrigatório (o mesmo de docs/migrations/2026-10-01-drop-refresh-tokens.sql): a tabela antiga
- * refresh_tokens tem chave estrangeira para app_users sem ON DELETE CASCADE e ninguém mais apaga essas
- * linhas, então excluir uma conta que já teve sessão falharia. Devolve true se a tabela existia.
- */
-export async function dropLegacyTables(env) {
-  const existed = (await psql(env, `SELECT to_regclass('public.refresh_tokens') IS NOT NULL`)) === 't';
-  if (existed) await psql(env, 'DROP TABLE IF EXISTS refresh_tokens');
-  return existed;
 }
 
 /** Consulta information_schema e o usuário demo. Só lê; nunca altera o banco. */

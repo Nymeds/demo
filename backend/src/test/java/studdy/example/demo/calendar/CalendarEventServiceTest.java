@@ -316,6 +316,14 @@ class CalendarEventServiceTest {
     }
 
     @Test
+    void rejectsPeriodsLongerThanAYear() {
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> findByPeriod(MONDAY, MONDAY.plusDays(400), null));
+        assertEquals(400, error.getStatusCode().value());
+        findByPeriod(MONDAY, MONDAY.plusDays(366), null);
+    }
+
+    @Test
     void listsOnlyTheEventsInsideThePeriodOrderedByStart() {
         create("Depois", CalendarEventCategory.CLASS, MONDAY.plusDays(2), null, null);
         create("Antes", CalendarEventCategory.CLASS, MONDAY, null, null);

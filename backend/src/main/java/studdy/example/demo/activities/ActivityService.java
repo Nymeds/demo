@@ -137,12 +137,14 @@ public class ActivityService {
             UpdateActivityRequest request
     ) {
 
-        Activity activity = findOwnedActivity(
-                userId,
-                dashboardId,
-                disciplineId,
-                activityId
-        );
+        // Ordem de locks: atividade primeiro, nota depois (mesma ordem do GradeService).
+        disciplineAccessService.findOwnedDiscipline(userId, dashboardId, disciplineId);
+        Activity activity = activityRepository
+                .findByIdAndDiscipline_IdForUpdate(activityId, disciplineId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Atividade não encontrada."
+                ));
 
         gradeRepository.findByActivity_IdForUpdate(activityId).ifPresent(grade -> {
             if (request.dueDate().isAfter(grade.getRecordedAt())) {

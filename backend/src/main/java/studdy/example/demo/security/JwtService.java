@@ -29,6 +29,8 @@ public class JwtService {
             "c6213fa2fde7811434b24994a9651ad94a3b7d49bf70f75666064756d427aa3a"
     );
 
+    static final String SESSION_CLAIM = "sid";
+
     private final SecretKey signingKey;
     private final long expirationInMs;
 
@@ -98,7 +100,14 @@ public class JwtService {
     }
 
     public String generateToken(UUID userId, Instant issuedAt) {
-        return Jwts.builder()
+        return generateToken(userId, issuedAt, null);
+    }
+
+    /** Token vinculado a uma sessão de navegador (claim "sid"): cai junto com a sessão. */
+    public String generateToken(UUID userId, Instant issuedAt, UUID sessionId) {
+        var builder = Jwts.builder();
+        if (sessionId != null) builder.claim(SESSION_CLAIM, sessionId.toString());
+        return builder
                 .subject(userId.toString())
                 .issuedAt(Date.from(issuedAt))
                 .expiration(Date.from(issuedAt.plusMillis(expirationInMs)))
@@ -118,14 +127,17 @@ public class JwtService {
                 .getPayload();
 
         Date issuedAt = claims.getIssuedAt();
+        String sessionId = claims.get(SESSION_CLAIM, String.class);
 
         return new TokenClaims(
                 UUID.fromString(claims.getSubject()),
-                issuedAt == null ? null : issuedAt.toInstant()
+                issuedAt == null ? null : issuedAt.toInstant(),
+                sessionId == null ? null : UUID.fromString(sessionId)
         );
     }
 
-    public record TokenClaims(UUID userId, Instant issuedAt) {
+    /** sessionId é nulo para tokens sem vínculo de sessão (resposta do login e da troca de credenciais). */
+    public record TokenClaims(UUID userId, Instant issuedAt, UUID sessionId) {
     }
 
     public long getExpirationInSeconds() {

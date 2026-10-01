@@ -13,7 +13,10 @@ import java.util.Objects;
 import java.util.UUID;
 
 @Entity
-@Table(name = "browser_sessions", indexes = @Index(name = "idx_browser_session_user", columnList = "user_id"))
+@Table(name = "browser_sessions", indexes = {
+        @Index(name = "idx_browser_session_user", columnList = "user_id"),
+        @Index(name = "idx_browser_sessions_expires_at", columnList = "expires_at")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class BrowserSession {

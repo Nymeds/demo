@@ -185,4 +185,74 @@ class BrowserSessionIntegrationTest {
         assertThat(service.refresh(next.token()).rememberMe()).isFalse();
         assertThat(sessions.findByUserIdOrderByCreatedAtDesc(user.getId())).hasSize(10);
     }
+
+    private String refreshedAccessToken(Cookie cookie) throws Exception {
+        var result = mvc.perform(post("/api/v1/auth/refresh").cookie(cookie).contentType(MediaType.APPLICATION_JSON)
+                        .header("X-Session-Request", "1").content("{}"))
+                .andExpect(status().isOk()).andReturn();
+        return accessToken(result);
+    }
+
+    @Test void loginAccessTokenCarriesSessionIdAndDiesOnLogout() throws Exception {
+        var result = login(true);
+        String token = accessToken(result);
+        var sessionId = sessions.findByUserIdOrderByCreatedAtDesc(user.getId()).getFirst().getId();
+        assertThat(jwt.parse(token).sessionId()).isEqualTo(sessionId);
+        mvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
+
+        mvc.perform(post("/api/v1/auth/logout").cookie(savedCookie(result)).contentType(MediaType.APPLICATION_JSON)
+                        .header("X-Session-Request", "1").content("{}"))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test void tokenWithoutSessionIdIsRejected() throws Exception {
+        mvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + jwt.generateToken(user.getId())))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test void refreshedAccessTokenCarriesSessionIdAndDiesOnLogout() throws Exception {
+        var cookie = savedCookie(login(true));
+        String token = refreshedAccessToken(cookie);
+        var sessionId = sessions.findByUserIdOrderByCreatedAtDesc(user.getId()).getFirst().getId();
+        assertThat(jwt.parse(token).sessionId()).isEqualTo(sessionId);
+        mvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
+
+        mvc.perform(post("/api/v1/auth/logout").cookie(cookie).contentType(MediaType.APPLICATION_JSON)
+                        .header("X-Session-Request", "1").content("{}"))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test void newLoginReplacingCookieRevokesOldSessionAccessToken() throws Exception {
+        var cookie = savedCookie(login(false));
+        String token = refreshedAccessToken(cookie);
+
+        mvc.perform(post("/api/v1/auth/login").cookie(cookie).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + user.getEmail() + "\",\"password\":\"senha-atual-123\"}"))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test void sessionBoundTokenIsRejectedOnceSessionExpires() throws Exception {
+        String token = refreshedAccessToken(savedCookie(login(false)));
+        when(clock.instant()).thenReturn(now.plus(12, ChronoUnit.HOURS));
+        mvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test void purgeRemovesOnlyExpiredSessions() throws Exception {
+        login(false);
+        login(true);
+        when(clock.instant()).thenReturn(now.plus(13, ChronoUnit.HOURS));
+        assertThat(service.purgeExpired()).isGreaterThanOrEqualTo(1);
+        var remaining = sessions.findByUserIdOrderByCreatedAtDesc(user.getId());
+        assertThat(remaining).hasSize(1).allMatch(BrowserSession::isRememberMe);
+    }
 }

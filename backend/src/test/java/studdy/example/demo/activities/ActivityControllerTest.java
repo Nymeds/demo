@@ -1,5 +1,6 @@
 package studdy.example.demo.activities;
 
+import studdy.example.demo.security.SessionTokens;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -54,6 +55,10 @@ class ActivityControllerTest {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+
+    private studdy.example.demo.auth.session.BrowserSessionService browserSessions;
+
     private Dashboard dashboard;
     private Discipline discipline;
     private String disciplineActivitiesUrl;
@@ -87,7 +92,7 @@ class ActivityControllerTest {
         disciplineActivitiesUrl = "/api/v1/dashboards/" + dashboard.getId()
                 + "/disciplines/" + discipline.getId() + "/activities";
         dashboardActivitiesUrl = "/api/v1/dashboards/" + dashboard.getId() + "/activities";
-        token = jwtService.generateToken(owner.getId());
+        token = SessionTokens.of(jwtService, browserSessions, owner.getId());
     }
 
     @Test
@@ -196,7 +201,7 @@ class ActivityControllerTest {
         AppUser intruder = userRepository.save(
                 new AppUser("Intruso", "atividade-api-intruso@example.com", "hash")
         );
-        String intruderToken = jwtService.generateToken(intruder.getId());
+        String intruderToken = SessionTokens.of(jwtService, browserSessions, intruder.getId());
 
         mockMvc.perform(get(dashboardActivitiesUrl + "?type=EXAM")
                         .header("Authorization", "Bearer " + intruderToken))

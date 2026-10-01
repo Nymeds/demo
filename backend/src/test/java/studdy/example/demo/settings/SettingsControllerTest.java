@@ -1,5 +1,6 @@
 package studdy.example.demo.settings;
 
+import studdy.example.demo.security.SessionTokens;
 import com.jayway.jsonpath.JsonPath;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -47,6 +48,10 @@ class SettingsControllerTest {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+
+    private studdy.example.demo.auth.session.BrowserSessionService browserSessions;
+
     @Value("${app.jwt.secret}")
     private String jwtSecret;
 
@@ -56,7 +61,7 @@ class SettingsControllerTest {
     @BeforeEach
     void setUp() {
         user = userRepository.save(new AppUser("Estudante", "rotas@example.com", passwordEncoder.encode(PASSWORD)));
-        token = jwtService.generateToken(user.getId());
+        token = SessionTokens.of(jwtService, browserSessions, user.getId());
     }
 
     @Test
@@ -168,7 +173,9 @@ class SettingsControllerTest {
 
     // Monta um token com a data de emissão escolhida, algo que o JwtService não permite.
     private String tokenIssuedAt(Instant issuedAt) {
+        var session = browserSessions.create(user.getId(), false, null);
         return Jwts.builder()
+                .claim("sid", session.sessionId().toString())
                 .subject(user.getId().toString())
                 .issuedAt(Date.from(issuedAt))
                 .expiration(Date.from(issuedAt.plusSeconds(900)))

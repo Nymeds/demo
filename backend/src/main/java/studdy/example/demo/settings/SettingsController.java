@@ -62,9 +62,9 @@ public class SettingsController {
     ) {
         var auth = profileSettingsService.changePassword(userId, request);
         var session = sessions.replaceAfterPasswordChange(userId, sessionToken);
-        if (session != null) cookies.set(session, httpRequest, response);
+        cookies.set(session, httpRequest, response);
         response.setHeader("Cache-Control", "no-store");
-        return auth;
+        return sessions.bindAccessToken(auth, session);
     }
 
     @GetMapping("/preferences")

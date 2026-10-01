@@ -27,6 +27,13 @@ class CreateAbsenceRecordRequestTest {
     }
 
     @Test
+    void rejectsMoreThanNineHundredNinetyNineAbsencesAtOnce() {
+        assertTrue(validator.validate(new CreateAbsenceRecordRequest(
+                LocalDate.now(), 1000, "Saúde", null
+        )).stream().anyMatch(violation -> violation.getPropertyPath().toString().equals("quantity")));
+    }
+
+    @Test
     void limitsTheOptionalNoteToThreeHundredCharacters() {
         assertTrue(validator.validate(new CreateAbsenceRecordRequest(
                 LocalDate.now(), 1, "Outro", "x".repeat(301)
