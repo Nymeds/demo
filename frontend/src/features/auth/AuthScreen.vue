@@ -1,10 +1,11 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import loginPanelImage from '../../assets/images/login-panel.png'
 import registerPanelImage from '../../assets/images/register-panel.png'
 import { useAvatar } from '../../composables/useAvatar'
 import DashboardScreen from '../dashboard/DashboardScreen.vue'
 import PasswordRecoveryScreen from './PasswordRecoveryScreen.vue'
+import { sessionRequest, SessionExpiredError } from './sessionApi'
 
 const { clearAvatar } = useAvatar()
 
@@ -21,9 +22,16 @@ const feedback = ref('')
 const feedbackType = ref('')
 const authenticatedUser = ref(null)
 const accessToken = ref('')
+const restoringSession = ref(true)
+const endingSession = ref(false)
+let renewTimer
+let renewPromise
+let tokenExpiresAt = 0
+let sessionVersion = 0
 
 const persistentTokenKey = 'acad-organize.access-token'
 const sessionTokenKey = 'acad-organize.session-token'
+const logoutPendingKey = 'acad-organize.logout-pending'
 
 const isLogin = computed(() => mode.value === 'login')
 const title = computed(() => (isLogin.value ? 'Bem-vindo de volta!' : 'Criar conta'))
@@ -34,51 +42,89 @@ const subtitle = computed(() => (
 ))
 
 function clearStoredTokens() {
-  localStorage.removeItem(persistentTokenKey)
-  sessionStorage.removeItem(sessionTokenKey)
+  try {
+    localStorage.removeItem(persistentTokenKey)
+    sessionStorage.removeItem(sessionTokenKey)
+  } catch { /* A sessão por cookie também funciona quando Web Storage está bloqueado. */ }
 }
 
-function storeAccessToken(token) {
+function storeAccessToken(token, expiresIn = 900) {
   clearStoredTokens()
+  accessToken.value = token
+  tokenExpiresAt = Date.now() + expiresIn * 1000
+  clearTimeout(renewTimer)
+  renewTimer = setTimeout(renewAccessToken, Math.max(1, expiresIn - 60) * 1000)
+}
 
-  if (rememberMe.value) {
-    localStorage.setItem(persistentTokenKey, token)
-  } else {
-    sessionStorage.setItem(sessionTokenKey, token)
-  }
+function logoutPending(value) {
+  try {
+    if (value === true) localStorage.setItem(logoutPendingKey, '1')
+    if (value === false) localStorage.removeItem(logoutPendingKey)
+    return localStorage.getItem(logoutPendingKey) === '1'
+  } catch { return false }
+}
+
+async function renewAccessToken() {
+  if (!authenticatedUser.value || endingSession.value) return
+  if (renewPromise) return renewPromise
+  const version = sessionVersion
+  renewPromise = (async () => {
+    try {
+      const auth = await sessionRequest('refresh')
+      if (version !== sessionVersion) return
+      rememberMe.value = auth.rememberMe
+      storeAccessToken(auth.accessToken, auth.expiresIn)
+    } catch (error) {
+      if (version !== sessionVersion) return
+      if (error instanceof SessionExpiredError) await logout('session-expired')
+      else renewTimer = setTimeout(renewAccessToken, 10000)
+    }
+  })().finally(() => { renewPromise = null })
+  return renewPromise
+}
+
+function onWindowFocus() {
+  if (tokenExpiresAt - Date.now() < 60000) renewAccessToken()
 }
 
 async function restoreSession() {
-  const persistentToken = localStorage.getItem(persistentTokenKey)
-  const storedToken = persistentToken || sessionStorage.getItem(sessionTokenKey)
-
-  if (!storedToken) return
-
-  rememberMe.value = Boolean(persistentToken)
-
+  clearStoredTokens()
   try {
-    const response = await fetch('/api/v1/users/me', {
-      headers: { Authorization: `Bearer ${storedToken}` },
-    })
-
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
-        clearStoredTokens()
-        feedback.value = 'Sua sessão expirou. Entre novamente.'
-        feedbackType.value = 'error'
-      }
+    if (logoutPending()) {
+      await sessionRequest('logout')
+      logoutPending(false)
       return
     }
-
+    const auth = await sessionRequest('refresh')
+    const response = await fetch('/api/v1/users/me', {
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+      signal: AbortSignal.timeout(15000),
+    })
+    if (!response.ok) {
+      throw new Error('Não foi possível carregar sua sessão. Entre novamente ou tente recarregar a página.')
+    }
     authenticatedUser.value = await response.json()
-    accessToken.value = storedToken
-  } catch {
-    feedback.value = 'Não foi possível restaurar sua sessão. Verifique se a API está ativa.'
-    feedbackType.value = 'error'
+    rememberMe.value = auth.rememberMe
+    storeAccessToken(auth.accessToken, auth.expiresIn)
+  } catch (error) {
+    if (!(error instanceof SessionExpiredError)) {
+      feedback.value = 'Não foi possível restaurar sua sessão. Verifique a conexão ou entre novamente.'
+      feedbackType.value = 'error'
+    }
+  } finally {
+    restoringSession.value = false
   }
 }
 
-onMounted(restoreSession)
+onMounted(() => {
+  restoreSession()
+  window.addEventListener('focus', onWindowFocus)
+})
+onBeforeUnmount(() => {
+  sessionVersion++
+  clearTimeout(renewTimer)
+  window.removeEventListener('focus', onWindowFocus)
+})
 
 function switchMode(nextMode) {
   mode.value = nextMode
@@ -98,6 +144,7 @@ function recoveryCompleted(recoveredEmail) {
 }
 
 async function submit() {
+  if (loading.value || restoringSession.value) return
   if (!isLogin.value && password.value !== confirmPassword.value) {
     feedback.value = 'As senhas informadas não são iguais.'
     feedbackType.value = 'error'
@@ -109,14 +156,16 @@ async function submit() {
 
   const path = isLogin.value ? '/api/v1/auth/login' : '/api/v1/auth/register'
   const payload = isLogin.value
-    ? { email: email.value, password: password.value }
+    ? { email: email.value, password: password.value, rememberMe: rememberMe.value }
     : { name: name.value, email: email.value, password: password.value }
 
   try {
     const response = await fetch(path, {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000),
     })
 
     const data = await response.json().catch(() => ({}))
@@ -143,8 +192,10 @@ async function submit() {
       }
 
       authenticatedUser.value = await userResponse.json()
-      accessToken.value = data.accessToken
-      storeAccessToken(data.accessToken)
+      sessionVersion++
+      logoutPending(false)
+      password.value = ''
+      storeAccessToken(data.accessToken, data.expiresIn)
     } else {
       feedback.value = 'Conta criada com sucesso. Agora entre com seus dados.'
       feedbackType.value = 'success'
@@ -169,17 +220,30 @@ const LOGOUT_MESSAGES = Object.freeze({
   'session-expired': { text: 'Sua sessão expirou. Entre novamente para continuar.', type: 'error' },
 })
 
-function logout(reason) {
+async function logout(reason) {
+  if (endingSession.value) return
+  endingSession.value = true
+  sessionVersion++
+  clearTimeout(renewTimer)
+  logoutPending(true)
+  let failed = false
+  try {
+    await sessionRequest('logout')
+    logoutPending(false)
+  } catch { failed = true }
   const message = LOGOUT_MESSAGES[reason]
 
   clearStoredTokens()
   authenticatedUser.value = null
   accessToken.value = ''
   password.value = ''
+  rememberMe.value = false
+  tokenExpiresAt = 0
+  endingSession.value = false
   // A foto do usuário anterior não pode aparecer para quem entrar em seguida.
   clearAvatar()
-  feedback.value = message?.text || ''
-  feedbackType.value = message?.type || ''
+  feedback.value = message?.text || (failed ? 'Você saiu neste navegador. Reconecte para encerrar também a sessão salva no servidor.' : '')
+  feedbackType.value = message?.type || (failed ? 'error' : '')
 
   if (reason === 'account-deleted') {
     email.value = ''
@@ -192,7 +256,7 @@ function updateAuthenticatedUser(profile) {
 }
 
 function refreshAccessToken(token) {
-  accessToken.value = token
+  sessionVersion++
   storeAccessToken(token)
 }
 
@@ -236,7 +300,8 @@ function refreshAccessToken(token) {
             <p>{{ subtitle }}</p>
           </header>
 
-          <form @submit.prevent="submit">
+          <p v-if="restoringSession" class="auth-feedback" role="status">Verificando sua sessão...</p>
+          <form :aria-busy="loading || restoringSession" @submit.prevent="submit">
             <label v-if="!isLogin">
               Nome completo
               <span class="auth-input-wrap">
@@ -282,19 +347,20 @@ function refreshAccessToken(token) {
 
             <div v-if="isLogin" class="auth-form-options">
               <label class="auth-checkbox">
-                <input v-model="rememberMe" type="checkbox">
+                <input v-model="rememberMe" type="checkbox" :disabled="loading || restoringSession" aria-describedby="remember-me-help">
                 <span>Lembrar de mim</span>
               </label>
               <button class="auth-text-button" type="button" :disabled="loading" @click="switchMode('recovery')">Esqueci minha senha</button>
             </div>
+            <p v-if="isLogin" id="remember-me-help" class="auth-session-help">Marque para continuar conectado por até 30 dias neste navegador.</p>
 
             <label v-else class="auth-checkbox auth-terms">
               <input v-model="acceptedTerms" type="checkbox" required>
               <span>Li e concordo com os <span class="terms-highlight">Termos de Uso e a Política de Privacidade</span>.</span>
             </label>
 
-            <button class="auth-primary-button" type="submit" :disabled="loading">
-              <span>{{ loading ? 'Aguarde...' : isLogin ? 'Entrar' : 'Criar minha conta' }}</span>
+            <button class="auth-primary-button" type="submit" :disabled="loading || restoringSession">
+              <span>{{ loading || restoringSession ? 'Aguarde...' : isLogin ? 'Entrar' : 'Criar minha conta' }}</span>
               <svg v-if="!loading" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
             </button>
           </form>
