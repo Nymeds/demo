@@ -94,6 +94,7 @@ button { cursor: pointer; }
 .recovery-success-button { margin-top: 28px; width: 100%; }
 .auth-form-panel h2:focus { outline: none; }
 .auth-terms { margin: 0; }
+.auth-session-help { color: #646171; font-size: .75rem; line-height: 1.5; margin: -8px 0 0; }
 .terms-highlight { color: #6849d7; }
 
 .auth-primary-button { align-items: center; background: linear-gradient(100deg, #6847dc, #7957ec); border: 0; border-radius: 8px; box-shadow: 0 8px 18px rgba(103, 71, 220, .2); color: #fff; display: flex; font-weight: 700; justify-content: center; margin-top: 5px; min-height: 48px; padding: 13px 20px; position: relative; transition: box-shadow .18s, transform .18s; }

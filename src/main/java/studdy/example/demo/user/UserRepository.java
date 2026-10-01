@@ -12,7 +12,7 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<AppUser, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from AppUser u where u.id = :id")
-    Optional<AppUser> findByIdForUpdate(UUID id);
+    Optional<AppUser> findByIdForUpdate(@Param("id") UUID id);
 
     Optional<AppUser> findByEmail(String email);
 

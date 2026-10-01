@@ -88,6 +88,7 @@ function onWindowFocus() {
 }
 
 async function restoreSession() {
+  const version = sessionVersion
   clearStoredTokens()
   try {
     if (logoutPending()) {
@@ -103,7 +104,9 @@ async function restoreSession() {
     if (!response.ok) {
       throw new Error('Não foi possível carregar sua sessão. Entre novamente ou tente recarregar a página.')
     }
-    authenticatedUser.value = await response.json()
+    const user = await response.json()
+    if (version !== sessionVersion) return
+    authenticatedUser.value = user
     rememberMe.value = auth.rememberMe
     storeAccessToken(auth.accessToken, auth.expiresIn)
   } catch (error) {
@@ -112,7 +115,7 @@ async function restoreSession() {
       feedbackType.value = 'error'
     }
   } finally {
-    restoringSession.value = false
+    if (version === sessionVersion) restoringSession.value = false
   }
 }
 
