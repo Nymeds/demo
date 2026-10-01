@@ -250,6 +250,22 @@ function updateAuthenticatedUser(profile) {
           width="794"
           height="1979"
         >
+        <!-- Tablet e celular: a arte vertical cortava o título; o mesmo conteúdo em texto se ajusta à largura. -->
+        <div class="auth-compact-brand" aria-hidden="true">
+          <template v-if="isLogin">
+            <svg class="auth-compact-cap" viewBox="0 0 64 48">
+              <path d="M32 4 2 17l30 13 30-13Z" />
+              <path d="M14 23v12c0 4 8 8 18 8s18-4 18-8V23L32 31Z" />
+              <path class="auth-compact-tassel" d="M57 19v14" />
+            </svg>
+            <strong>AcadOrganize</strong>
+            <span>Seu aliado na organização da vida acadêmica.</span>
+          </template>
+          <template v-else>
+            <strong>Organize seus estudos e alcance seus objetivos</strong>
+            <span>Com o AcadOrganize, você tem tudo o que precisa para se manter no controle da sua vida acadêmica.</span>
+          </template>
+        </div>
       </aside>
 
       <section class="auth-form-panel">

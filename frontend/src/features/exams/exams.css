@@ -357,7 +357,7 @@
 /* Breakpoints padrão do projeto: 1100 / 760 / 520. */
 @media (max-width: 1100px) {
   .exams-page .exams-layout { grid-template-columns: 1fr; }
-  .exams-page .exams-side-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .exams-page .exams-side-column { align-items: start; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .exams-page .exams-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .exams-page .exams-filters { grid-template-columns: 1fr 1fr; }
 }
@@ -432,6 +432,10 @@
   .exams-page .exams-table-footer { flex-wrap: wrap; gap: 10px; justify-content: center; }
   .exams-page .exams-table-footer nav { flex-wrap: wrap; justify-content: center; }
 
+}
+
+/* Tablet e celular: a tabela não cabe inteira abaixo de 1100 px (a barra lateral ocupa parte da tela). */
+@media (max-width: 1100px) {
   /* Tabela vira lista de cards: uma prova por card, com as mesmas informações e ações.
      Sem rolagem horizontal; o menu de ações abre para cima, pois o cartão não tem mais rolagem própria. */
   .exams-page .exams-main-column { overflow: visible; }
@@ -457,4 +461,11 @@
   .exams-page .exams-header-actions .exams-button { width: 100%; }
   .exams-page .exams-summary-grid { grid-template-columns: 1fr; }
   .exams-page .exams-filters { grid-template-columns: 1fr; }
+}
+
+/* Tablet (761–1100 px): os cards da tabela usam a largura em 4 colunas, em vez de 2 como no celular. */
+@media (min-width: 761px) and (max-width: 1100px) {
+  .exams-page .exams-table tbody tr { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /* O conteúdo (texto longo) vai para a última linha, ocupando a largura toda. */
+  .exams-page .exams-table td:nth-child(4) { order: 1; }
 }

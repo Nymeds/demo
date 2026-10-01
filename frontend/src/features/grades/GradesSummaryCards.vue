@@ -58,7 +58,7 @@ const generalGoalMessage = computed(() => goalMessage(props.summary.generalAvera
 </template>
 
 <style scoped>
-.grades-summary { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr)); }
+.grades-summary { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr)); }
 .grades-summary-card { align-items: center; background: #fff; border: 1px solid #e7e8f0; border-radius: 10px; box-shadow: 0 5px 16px rgba(30, 36, 65, .035); display: flex; gap: 16px; min-width: 0; padding: 18px; }
 .grades-summary-card > div { min-width: 0; }
 .grades-summary-icon { align-items: center; background: #f1edff; border-radius: 50%; color: #6739e7; display: flex; flex: 0 0 52px; height: 52px; justify-content: center; }

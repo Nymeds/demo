@@ -24,6 +24,17 @@
 :root[data-theme="night"] #app .user-menu-item.is-current { color: #c4b5fd; }
 :root[data-theme="night"] #app .user-menu-switch span { background: #fff; }
 
+/* Folha "Mais" do celular (a mesma caixa escura do menu da conta): sem isto ela ficava branca à noite */
+:root[data-theme="night"] #app .dashboard-more-sheet { background: #18223a; border-color: rgba(255, 255, 255, .09); }
+:root[data-theme="night"] #app .dashboard-more-item { color: rgba(236, 239, 246, .92); }
+:root[data-theme="night"] #app .dashboard-more-item:hover,
+:root[data-theme="night"] #app .dashboard-more-item.active { color: #fff; }
+:root[data-theme="night"] #app .dashboard-more-item[aria-pressed="true"] { color: #c4b5fd; }
+
+/* Cabeçalho do login no tablet/celular: o fundo roxo não muda à noite, então os textos claros também não */
+:root[data-theme="night"] #app .auth-presentation:not(.is-register) .auth-compact-brand strong { color: #fff; }
+:root[data-theme="night"] #app .auth-presentation:not(.is-register) .auth-compact-brand span { color: #c9c2ff; }
+
 /* Prévia da caixa do usuário no recorte da foto de perfil (acompanha a barra lateral) */
 :root[data-theme="night"] #app .crop-sidebar-preview { background: #111a2f; }
 :root[data-theme="night"] #app .crop-sidebar-text strong { color: #fff; }

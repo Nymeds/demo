@@ -669,6 +669,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* A etiqueta "Prova" fica ao lado do título, não como uma linha esticada. */
+.calendar-screen .upcoming-body .readonly-tag {
+  display: inline-block;
+  margin: 0 0 0 6px;
+  vertical-align: 1px;
+}
 .calendar-screen .upcoming-body small.is-deleted {
   color: #c2415f;
   font-style: italic;
@@ -732,8 +738,11 @@
   font-size: .68rem;
   font-weight: 650;
   height: 30px;
+  justify-self: center;
   padding: 0;
   position: relative;
+  /* Largura igual à altura: na célula larga do tablet o círculo virava uma elipse. */
+  width: 30px;
 }
 .calendar-screen .mini-calendar-day:hover {
   background: #f2effc;
@@ -1065,8 +1074,10 @@
     min-width: 44px;
   }
   .calendar-screen .mini-calendar-day {
+    aspect-ratio: 1;
     font-size: .75rem;
-    height: 44px;
+    height: auto;
+    width: min(44px, 100%);
   }
   .calendar-screen .filter-chip {
     font-size: .75rem;

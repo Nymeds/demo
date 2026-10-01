@@ -219,10 +219,10 @@ async function toggleGrades(entry) {
 .is-grid .grades-detail-row { grid-column: 1/-1; display: block; }
 .is-grid .grades-detail-row > td { display: block; }
 
-/* Celular (padrão do projeto: 760): a tabela vira lista de cards, como em Provas. Sem rolagem horizontal,
+/* Tablet e celular (até 1100 px): a tabela vira lista de cards, como em Provas. Sem rolagem horizontal,
    com as mesmas informações e ações; o cabeçalho fica só para leitores de tela. Fontes de pelo menos 12px
    e alvos de toque de 44px. O modo "grade" mantém seus cards e ganha só os ajustes de texto e toque. */
-@media (max-width: 760px) {
+@media (max-width: 1100px) {
   .grades-table-wrap { overflow: visible; }
   .grades-table,
   .grades-table tbody { display: block; min-width: 0; width: 100%; }
@@ -264,5 +264,11 @@ async function toggleGrades(entry) {
   .grades-detail-list li > span { grid-column: 1 / -1; min-width: 0; overflow-wrap: anywhere; }
   .grades-detail-list li > time { grid-column: 1; }
   .grades-detail-list li > strong { grid-column: 2; }
+}
+
+/* Tablet (761–1100 px): os cards da tabela usam a largura em 4 colunas, em vez de 2 como no celular. */
+@media (min-width: 761px) and (max-width: 1100px) {
+  .grades-table-wrap:not(.is-grid) .grades-table tbody > tr { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .grades-table-wrap:not(.is-grid) .grades-table td:nth-child(5) { grid-column: auto; }
 }
 </style>

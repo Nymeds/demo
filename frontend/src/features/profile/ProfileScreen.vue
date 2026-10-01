@@ -646,7 +646,7 @@ onBeforeUnmount(() => {
 .profile-card-heading p { color: #6f7689; font-size: .76rem; margin: 0; }
 .profile-card-heading > small { color: #969bad; flex: 0 0 auto; font-size: .62rem; padding-top: 4px; }
 .profile-photo-section { align-items: center; display: flex; gap: 25px; padding: 25px 0 4px; }
-.profile-avatar { align-items: center; background: linear-gradient(145deg, #6b35ec, #4c16d7); border-radius: 50%; color: #fff; display: flex; flex: 0 0 112px; height: 112px; justify-content: center; position: relative; }
+.profile-avatar { align-items: center; background: linear-gradient(145deg, #6b35ec, #4c16d7); border-radius: 50%; color: #fff; display: flex; flex: 0 0 auto; height: 112px; justify-content: center; overflow: hidden; position: relative; width: 112px; }
 .profile-avatar > strong { font-size: 2.35rem; font-weight: 650; letter-spacing: -.05em; }
 .profile-avatar > img { border-radius: inherit; height: 100%; object-fit: cover; width: 100%; }
 .profile-photo-copy h3 { color: #1b2033; font-size: .86rem; margin: 0 0 5px; }
@@ -715,7 +715,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   .profile-card-heading { display: block; }
   .profile-card-heading > small { display: block; margin-top: 8px; }
   .profile-photo-section { align-items: flex-start; }
-  .profile-avatar { flex-basis: 88px; height: 88px; }
+  .profile-avatar { height: 88px; width: 88px; }
   .profile-avatar > strong { font-size: 1.8rem; }
   .profile-fields,
   .profile-side-column { grid-template-columns: 1fr; }

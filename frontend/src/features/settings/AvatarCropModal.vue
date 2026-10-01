@@ -260,7 +260,7 @@ onBeforeUnmount(() => URL.revokeObjectURL(sourceUrl))
           <small class="crop-preview-caption">Na barra lateral</small>
 
           <span class="crop-avatar is-large" :style="profilePreview"></span>
-          <small class="crop-preview-caption">Em Configurações</small>
+          <small class="crop-preview-caption">No Perfil</small>
         </aside>
       </div>
 

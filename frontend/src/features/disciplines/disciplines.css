@@ -177,7 +177,7 @@
 .disciplines-page .disciplines-summary-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr));
 }
 
 .disciplines-page .disciplines-total-card > span {
@@ -951,7 +951,7 @@
 
 }
 
-@container disciplines (max-width: 650px) {
+@container disciplines (max-width: 600px) {
   .disciplines-page .disciplines-actions,
   .disciplines-page .disciplines-view-options,
   .disciplines-page .disciplines-footer {
@@ -1037,6 +1037,10 @@
   .disciplines-page .disciplines-view-buttons button { height: 44px; }
   .disciplines-page .discipline-actions-cell button { height: 44px; width: 44px; }
 
+}
+
+/* Tablet e celular: a tabela não cabe inteira abaixo de 1100 px (a barra lateral ocupa parte da tela). */
+@media (max-width: 1100px) {
   /* Tabela vira lista de cards: uma disciplina por card, com as mesmas informações e ações (mesmo padrão de Provas).
      Sem rolagem horizontal; o menu de situação é teletransportado para o body e não é cortado. */
   .disciplines-page .disciplines-table-scroll { overflow: visible; }
@@ -1096,3 +1100,11 @@
 .disciplines-page .de-ffff { fill: #fff; }
 .disciplines-page .de-s8d6cdd { stroke: #8d6cdd; }
 .disciplines-page .de-sd5c8f5 { stroke: #d5c8f5; }
+
+/* Tablet (761–1100 px): os cards da tabela usam a largura em 4 colunas, em vez de 2 como no celular. */
+@media (min-width: 761px) and (max-width: 1100px) {
+  .disciplines-page .disciplines-table-card tbody tr { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .disciplines-page .disciplines-table-card tbody td:nth-child(2),
+  .disciplines-page .disciplines-table-card tbody td:nth-child(3) { grid-column: auto; }
+  .disciplines-page .disciplines-table-card tbody td.actions-cell { grid-column: span 3; }
+}

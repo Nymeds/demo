@@ -730,7 +730,7 @@
   }
 
   .frequency-page .frequency-summary-grid {
-    grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr));
   }
 }
 
@@ -748,6 +748,9 @@
     max-width: none;
     width: 100%;
   }
+
+  /* Em coluna, a base de 245 px da busca viraria altura. */
+  .frequency-page .frequency-search { flex: 0 0 auto; }
 
   .frequency-page .frequency-period-filter {
     justify-content: space-between;
@@ -779,6 +782,10 @@
   .frequency-page .frequency-refresh-warning button { min-height: 44px; }
   .frequency-page .frequency-actions-cell button { height: 44px; width: 44px; }
 
+}
+
+/* Tablet e celular: a tabela não cabe inteira abaixo de 1100 px (a barra lateral ocupa parte da tela). */
+@media (max-width: 1100px) {
   /* Tabelas viram listas de cards: uma disciplina (ou falta) por card, com as mesmas informações e ações
      (mesmo padrão de Disciplinas e Provas). Sem rolagem horizontal. */
   .frequency-page .frequency-table-scroll { overflow: visible; }
@@ -806,4 +813,10 @@
   .frequency-page .discipline-name-cell > span:last-child { min-width: 0; overflow-wrap: anywhere; }
   .frequency-page .attendance-cell { margin-inline: 0; max-width: none; }
   .frequency-page .frequency-actions-cell { justify-content: flex-end; }
+}
+
+/* Tablet (761–1100 px): os cards da tabela usam a largura em 4 colunas, em vez de 2 como no celular. */
+@media (min-width: 761px) and (max-width: 1100px) {
+  .frequency-page .frequency-table-card tbody tr { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .frequency-page .frequency-table-card tbody td.actions-cell { grid-column: span 3; }
 }
