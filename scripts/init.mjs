@@ -3,7 +3,7 @@
 // e mantém backend e frontend rodando. Sem dependências além do Node. Veja o README (Início rápido).
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DEMO_EMAIL, DEMO_PASSWORD, REQUIRED_TABLES, inspectDatabase, startContainer, waitForSeed, waitUntilHealthy } from './init/database.mjs';
+import { DEMO_EMAIL, DEMO_PASSWORD, REQUIRED_TABLES, dropLegacyTables, inspectDatabase, startContainer, waitForSeed, waitUntilHealthy } from './init/database.mjs';
 import { ENV_HELP, loadEnv } from './init/env.mjs';
 import { createLogger } from './init/log.mjs';
 import { checkPrerequisites } from './init/prerequisites.mjs';
@@ -91,6 +91,9 @@ async function run() {
 
   await startContainer({ root, env, log: db });
   await waitUntilHealthy({ log: db });
+  if (await dropLegacyTables(env)) {
+    db.ok('Tabela antiga refresh_tokens removida (a sessão agora é o cookie HttpOnly; todos entram de novo).');
+  }
 
   const before = await inspectDatabase(env);
   describeBefore(before);

@@ -73,6 +73,17 @@ async function psql(env, sql) {
   return result.stdout.trim();
 }
 
+/**
+ * Pré-boot obrigatório (o mesmo de docs/migrations/2026-10-01-drop-refresh-tokens.sql): a tabela antiga
+ * refresh_tokens tem chave estrangeira para app_users sem ON DELETE CASCADE e ninguém mais apaga essas
+ * linhas, então excluir uma conta que já teve sessão falharia. Devolve true se a tabela existia.
+ */
+export async function dropLegacyTables(env) {
+  const existed = (await psql(env, `SELECT to_regclass('public.refresh_tokens') IS NOT NULL`)) === 't';
+  if (existed) await psql(env, 'DROP TABLE IF EXISTS refresh_tokens');
+  return existed;
+}
+
 /** Consulta information_schema e o usuário demo. Só lê; nunca altera o banco. */
 export async function inspectDatabase(env) {
   const names = REQUIRED_TABLES.map((table) => `'${table}'`).join(',');

@@ -317,7 +317,7 @@ O projeto usa `spring.jpa.hibernate.ddl-auto=update`: o Hibernate cria tabelas e
 
 Pontos de atenção ao atualizar um banco existente:
 - Faça **backup antes do primeiro boot** da nova versão: o migrador de avatares legados apaga as linhas antigas de `user_avatars` após converter as fotos.
-- `activities.type`, as tabelas `browser_sessions` e `password_recoveries` e as colunas `terms_*`/`privacy_version` são criadas automaticamente pelo `ddl-auto`; não precisam de script. A antiga tabela `refresh_tokens` deixou de ser usada (veja `docs/migrations/2026-10-01-drop-refresh-tokens.sql`).
+- `activities.type`, as tabelas `browser_sessions` e `password_recoveries` e as colunas `terms_*`/`privacy_version` são criadas automaticamente pelo `ddl-auto`; não precisam de script. A antiga tabela `refresh_tokens` deixou de ser usada e **precisa ser removida antes de subir a nova versão** com `docs/migrations/2026-10-01-drop-refresh-tokens.sql` (pré-boot, obrigatório): a chave estrangeira dela não tem `ON DELETE CASCADE` e faria a exclusão de conta falhar com erro 500. O `npm run init` aplica esse script sozinho.
 - Ordem: backup, scripts pré-boot com a aplicação parada, subir a aplicação, script pós-boot.
 - Qualquer mudança em enum exige um script (a restrição CHECK do banco não é atualizada pelo Hibernate).
 - Sessões vencidas ou revogadas de uma conta são apagadas no próximo login dela (no máximo 10 por conta).
