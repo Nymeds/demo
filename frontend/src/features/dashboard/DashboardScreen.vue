@@ -358,7 +358,6 @@ onBeforeUnmount(() => {
       <GradesScreen
         v-if="activeSection === 'grades'"
         @navigate="activeSection = $event"
-        @session-expired="emit('logout', 'session-expired')"
       />
       <SimulatorScreen
         v-if="activeSection === 'simulator'"

@@ -320,7 +320,7 @@ async function logout(reason) {
   sessionVersion++
   clearTimeout(renewTimer)
   // Saída intencional: nenhuma resposta 401 em voo pode virar "acesso negado".
-  if (reason !== 'session-expired') beginDeliberateLogout()
+  beginDeliberateLogout()
 
   let failed = false
   // O cookie é o mesmo para todas as abas: só a aba que iniciou a saída o revoga no servidor.
@@ -337,9 +337,7 @@ async function logout(reason) {
   rememberMe.value = false
   endingSession.value = false
 
-  if (reason === 'session-expired') {
-    denyAccess()
-  } else if (!deniedStatus.value) {
+  if (!deniedStatus.value) {
     window.history.replaceState(null, '', '/login')
     route.value = currentRoute()
     switchMode('login')
@@ -536,7 +534,6 @@ function updateAuthenticatedUser(profile) {
 .auth-form-panel .auth-terms label { color: #646171; cursor: default; display: block; font-size: .75rem; font-weight: 450; }
 
 @media (max-width: 760px) {
-  .auth-form-options .auth-text-button { min-height: 44px; }
   .auth-helper { font-size: .75rem; }
 }
 </style>

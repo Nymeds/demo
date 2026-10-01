@@ -154,5 +154,5 @@ onBeforeUnmount(stopMedia)
 .denied-actions button:disabled { opacity: .65; cursor: wait; }
 .denied-secondary { border: 1px solid #dfd1f3; background: #fff; color: #7141cc; }
 .denied-actions button:focus-visible { outline: 3px solid #ba9be8; outline-offset: 3px; }
-@media (max-width: 480px) { .denied-page { padding: 14px; } .denied-card { padding: 24px 16px; } .buddy-message { padding: 14px; } }
+@media (max-width: 520px) { .denied-page { padding: 14px; } .denied-card { padding: 24px 16px; } .buddy-message { padding: 14px; } }
 </style>

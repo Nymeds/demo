@@ -129,9 +129,15 @@ button { cursor: pointer; }
   .is-register .auth-compact-brand strong { font-size: clamp(1.35rem, 5.5vw, 1.9rem); }
   .is-register .auth-compact-brand span { color: #4b5068; }
   .auth-form-panel { padding: 40px 32px 44px; }
-  .auth-card.is-recovery .auth-input-wrap input:not(.recovery-code) { font-size: 1rem; }
-  .auth-card.is-recovery .auth-text-button, .auth-card.is-recovery .auth-switch button { min-height: 44px; }
-  .auth-card.is-recovery .password-toggle { min-height: 44px; min-width: 44px; justify-content: center; right: 4px; }
+}
+
+/* Celular (login, cadastro e recuperação): o "font: inherit" acima anula os 16 px de form-controls.css,
+   então a fonte mínima dos campos é reaplicada aqui; botões auxiliares com alvo de toque de 44 px. */
+@media (max-width: 760px) {
+  .auth-input-wrap input:not(.recovery-code) { font-size: max(16px, 1rem); padding-right: 48px; }
+  .auth-text-button, .auth-switch button { min-height: 44px; }
+  .password-toggle { justify-content: center; min-height: 44px; min-width: 44px; right: 2px; }
+  .recovery-progress li { font-size: .75rem; }
 }
 
 @media (max-width: 460px) {
