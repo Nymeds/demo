@@ -340,7 +340,8 @@
   padding: 0 9px 0 14px;
 }
 
-.disciplines-page .disciplines-sort span {
+/* Só o rótulo "Ordenar por:"; sem o ">" a regra deixava em negrito também o texto do AppSelect. */
+.disciplines-page .disciplines-sort > span {
   font-weight: 700;
 }
 
@@ -951,6 +952,12 @@
 
 }
 
+/* "Limpar filtros" encostado no "Ordenar por" e os botões de visualização à direita (com space-between
+   ele ficava solto no meio da barra). Abaixo de 600 px os itens já ficam um embaixo do outro. */
+@container disciplines (min-width: 601px) and (max-width: 900px) {
+  .disciplines-page .disciplines-view-options .clear-filters { margin-right: auto; }
+}
+
 @container disciplines (max-width: 600px) {
   .disciplines-page .disciplines-actions,
   .disciplines-page .disciplines-view-options,
@@ -1028,7 +1035,8 @@
   .disciplines-page .disciplines-add-button,
   .disciplines-page .disciplines-empty-button { font-size: .875rem; min-height: 44px; }
   .disciplines-page .disciplines-search input { font-size: 1rem; min-height: 44px; }
-  .disciplines-page .disciplines-sort { --app-select-height: 44px; --app-select-font-size: 1rem; }
+  /* O AppSelect é um botão (não um campo de texto), então não precisa de 16 px contra o zoom do iOS. */
+  .disciplines-page .disciplines-sort { --app-select-height: 44px; --app-select-font-size: .875rem; }
   .disciplines-page .disciplines-filters button,
   .disciplines-page .clear-filters,
   .disciplines-page .disciplines-request-error button { min-height: 44px; }
@@ -1037,6 +1045,17 @@
   .disciplines-page .disciplines-view-buttons button { height: 44px; }
   .disciplines-page .discipline-actions-cell button { height: 44px; width: 44px; }
 
+}
+
+/* Celular: um card de resumo por linha (como no Dashboard). Em duas colunas o texto ficava espremido. */
+@media (max-width: 520px) {
+  .disciplines-page .disciplines-summary-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Valor em texto ("Sem frequência cadastrada") não usa o tamanho dos números. */
+.disciplines-page .disciplines-total-card strong.is-text {
+  font-size: 1rem;
+  line-height: 1.25;
 }
 
 /* Tablet e celular: a tabela não cabe inteira abaixo de 1100 px (a barra lateral ocupa parte da tela). */
@@ -1107,4 +1126,6 @@
   .disciplines-page .disciplines-table-card tbody td:nth-child(2),
   .disciplines-page .disciplines-table-card tbody td:nth-child(3) { grid-column: auto; }
   .disciplines-page .disciplines-table-card tbody td.actions-cell { grid-column: span 3; }
+  /* Média centralizada entre Horários e Frequência (alinhada à esquerda parecia colada em Horários). */
+  .disciplines-page .disciplines-table-card tbody td.discipline-average { text-align: center; }
 }

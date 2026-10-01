@@ -31,17 +31,11 @@ const title = ref(props.activity?.title ?? '')
 const description = ref(props.activity?.description ?? '')
 const dueDate = ref(props.activity?.dueDate ?? '')
 const status = ref(props.activity?.status ?? 'PENDING')
-const type = ref(props.activity?.type ?? 'ACTIVITY')
 
 const statuses = [
   { value: 'PENDING', label: 'Pendente' },
   { value: 'IN_PROGRESS', label: 'Em andamento' },
   { value: 'COMPLETED', label: 'Concluída' },
-]
-
-const types = [
-  { value: 'ACTIVITY', label: 'Atividade' },
-  { value: 'EXAM', label: 'Prova' },
 ]
 
 const disciplineOptions = computed(() => props.disciplines.map(discipline => ({
@@ -72,7 +66,8 @@ function submitForm() {
     description: description.value.trim(),
     dueDate: dueDate.value,
     status: status.value,
-    type: type.value,
+    // A tela Atividades só cria atividades; provas são cadastradas na tela Provas.
+    type: 'ACTIVITY',
   })
 }
 </script>
@@ -145,21 +140,6 @@ function submitForm() {
             :disabled="saving"
           >
         </label>
-
-        <fieldset class="activity-form-field activity-type-field">
-          <legend>Tipo <strong>*</strong></legend>
-          <div class="activity-type-options">
-            <label
-              v-for="option in types"
-              :key="option.value"
-              class="activity-type-option"
-              :class="{ selected: type === option.value }"
-            >
-              <input v-model="type" type="radio" name="activity-type" :value="option.value" :disabled="saving">
-              {{ option.label }}
-            </label>
-          </div>
-        </fieldset>
 
         <label class="activity-form-field">
           <span>Descrição <small>(opcional)</small></span>
@@ -378,14 +358,6 @@ function submitForm() {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.activity-type-field { border: 0; margin: 0; padding: 0; }
-.activity-type-field legend { color: #282d40; font-size: .74rem; font-weight: 700; margin-bottom: 8px; padding: 0; }
-.activity-type-options { display: flex; flex-wrap: wrap; gap: 8px; }
-.activity-type-option { align-items: center; border: 1px solid #dfe1e8; border-radius: 999px; color: #4a5066; cursor: pointer; display: flex; font-size: .72rem; font-weight: 650; gap: 7px; padding: 9px 14px; position: relative; }
-.activity-type-option input { opacity: 0; pointer-events: none; position: absolute; }
-.activity-type-option.selected { background: #eaf2ff; border-color: #3a7fd9; color: #26599c; }
-.activity-type-option:focus-within { outline: 2px solid rgba(105, 54, 224, .28); outline-offset: 2px; }
-
 .activity-modal-footer {
   border-top: 1px solid #ececf1;
   gap: 12px;
@@ -470,8 +442,7 @@ textarea:focus-visible {
     font-size: .75rem;
   }
 
-  .activity-form-field,
-  .activity-type-field legend {
+  .activity-form-field {
     font-size: .875rem;
   }
 
@@ -487,7 +458,6 @@ textarea:focus-visible {
     min-height: 44px;
   }
 
-  .activity-type-option,
   .activity-cancel-button,
   .activity-save-button {
     font-size: .875rem;

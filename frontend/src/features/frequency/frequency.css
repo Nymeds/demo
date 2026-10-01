@@ -212,7 +212,8 @@
   padding: 0 4px 0 14px;
 }
 
-.frequency-page .frequency-period-filter span {
+/* Só o rótulo "Período:"; sem o ">" a regra deixava em negrito também o texto do AppSelect. */
+.frequency-page .frequency-period-filter > span {
   font-weight: 700;
 }
 
@@ -260,6 +261,8 @@
   background: #f0eaff;
   border-radius: 50%;
   color: #6d38e8;
+  /* Sem isto o círculo do ícone era espremido quando o texto ao lado era longo. */
+  flex: 0 0 52px;
   display: flex;
   height: 52px;
   justify-content: center;
@@ -507,6 +510,18 @@
   color: #555c70;
   font-size: .78rem;
   line-height: 1.4;
+}
+
+/* Observação longa (inclusive palavra sem espaço) quebra e fica em até 2 linhas, sem invadir as outras
+   colunas; o texto inteiro aparece ao passar o mouse (title). */
+.frequency-page .frequency-history-card .note-cell { max-width: 280px; }
+.frequency-page .frequency-history-card .note-text {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 
 .frequency-page .frequency-table-card tbody tr:last-child td,
@@ -774,7 +789,8 @@
   .frequency-page .primary-button,
   .frequency-page .retry-button { font-size: .875rem; min-height: 44px; }
   .frequency-page .frequency-search input { font-size: 1rem; min-height: 44px; }
-  .frequency-page .frequency-period-filter .app-select { --app-select-height: 44px; --app-select-font-size: 1rem; }
+  /* O AppSelect é um botão (não um campo de texto), então não precisa de 16 px contra o zoom do iOS. */
+  .frequency-page .frequency-period-filter .app-select { --app-select-height: 44px; --app-select-font-size: .875rem; }
   .frequency-page .frequency-situation-filters button,
   .frequency-page .clear-filters,
   .frequency-page .see-all,
@@ -782,6 +798,17 @@
   .frequency-page .frequency-refresh-warning button { min-height: 44px; }
   .frequency-page .frequency-actions-cell button { height: 44px; width: 44px; }
 
+}
+
+/* Celular: um card de resumo por linha (como no Dashboard). Em duas colunas o texto ficava espremido. */
+@media (max-width: 520px) {
+  .frequency-page .frequency-summary-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Valor em texto ("Sem frequência cadastrada") não usa o tamanho dos números. */
+.frequency-page .frequency-total-card strong.is-text {
+  font-size: 1rem;
+  line-height: 1.25;
 }
 
 /* Tablet e celular: a tabela não cabe inteira abaixo de 1100 px (a barra lateral ocupa parte da tela). */

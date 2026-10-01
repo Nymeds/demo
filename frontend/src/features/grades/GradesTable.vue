@@ -36,25 +36,41 @@ function setGradesState(disciplineId, state) {
   gradesByDiscipline.value = { ...gradesByDiscipline.value, [disciplineId]: state }
 }
 
+async function ensureGrades(entry) {
+  if (gradesState(entry.disciplineId).status === 'ready') return true
+
+  setGradesState(entry.disciplineId, { status: 'loading', items: [] })
+
+  try {
+    setGradesState(entry.disciplineId, { status: 'ready', items: await props.loadGrades(entry.disciplineId) })
+    return true
+  } catch (error) {
+    setGradesState(entry.disciplineId, { status: 'error', items: [] })
+    emit('failed', error)
+    return false
+  }
+}
+
 async function toggleGrades(entry) {
-
-
   if (expandedId.value === entry.disciplineId) {
     expandedId.value = null
     return
   }
 
   expandedId.value = entry.disciplineId
-  if (gradesState(entry.disciplineId).status === 'ready') return
+  await ensureGrades(entry)
+}
 
-  setGradesState(entry.disciplineId, { status: 'loading', items: [] })
-
-  try {
-    setGradesState(entry.disciplineId, { status: 'ready', items: await props.loadGrades(entry.disciplineId) })
-  } catch (error) {
-    setGradesState(entry.disciplineId, { status: 'error', items: [] })
-    emit('failed', error)
+// Com uma nota só, editar/excluir vai direto para ela; a lista para escolher só abre quando há mais de uma.
+async function actOnGrade(entry, action) {
+  if (entry.gradeCount === 1 && await ensureGrades(entry)) {
+    const [grade] = gradesState(entry.disciplineId).items
+    if (grade) {
+      emit(action, entry, grade)
+      return
+    }
   }
+  await toggleGrades(entry)
 }
 
 </script>
@@ -107,10 +123,10 @@ async function toggleGrades(entry) {
               </div>
             </td>
             <td class="grades-row-actions">
-              <button class="grades-icon-button is-edit" type="button" :aria-label="`Gerenciar notas de ${entry.name}`" :aria-expanded="expandedId === entry.disciplineId" @click="entry.gradeCount ? toggleGrades(entry) : emit('add', entry)">
+              <button class="grades-icon-button is-edit" type="button" :aria-label="`Gerenciar notas de ${entry.name}`" :aria-expanded="expandedId === entry.disciplineId" @click="entry.gradeCount ? actOnGrade(entry, 'edit') : emit('add', entry)">
                 <svg viewBox="0 0 24 24"><path d="m4 20 4-1L20 7l-3-3L5 16l-1 4ZM14 7l3 3" /></svg>
               </button>
-              <button class="grades-icon-button is-delete" type="button" :disabled="!entry.gradeCount" :aria-label="`Escolher nota para excluir de ${entry.name}`" @click="toggleGrades(entry)">
+              <button class="grades-icon-button is-delete" type="button" :disabled="!entry.gradeCount" :aria-label="`Escolher nota para excluir de ${entry.name}`" @click="actOnGrade(entry, 'delete')">
                 <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14M10 10v7M14 10v7" /></svg>
               </button>
             </td>

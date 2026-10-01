@@ -1,4 +1,5 @@
 <script setup>
+import { onBeforeUnmount, ref, watch } from 'vue'
 import { formatDate, formatWeekday, statusClass, statusLabel } from './examPresentation.js'
 
 const props = defineProps({
@@ -25,6 +26,42 @@ const emit = defineEmits([
 function isExamBusy(id) {
   return props.busyExamIds.has(id)
 }
+
+// O menu "⋯" fica fixo na tela, junto do botão: dentro da tabela (que tem rolagem própria) ele era
+// cortado. Abre para baixo quando cabe; senão, para cima.
+const MENU_HEIGHT = 180
+const MENU_GAP = 4
+const menuStyle = ref({})
+
+function toggleMenu(event, examId) {
+  if (props.openActionMenu !== examId) {
+    const rect = event.currentTarget.getBoundingClientRect()
+    const opensUp = window.innerHeight - rect.bottom < MENU_HEIGHT + MENU_GAP && rect.top > MENU_HEIGHT
+    menuStyle.value = {
+      right: `${Math.max(8, window.innerWidth - rect.right)}px`,
+      ...(opensUp
+        ? { bottom: `${window.innerHeight - rect.top + MENU_GAP}px` }
+        : { top: `${rect.bottom + MENU_GAP}px` }),
+    }
+  }
+  emit('toggle-menu', examId)
+}
+
+// Com o menu fixo, rolar a página o deixaria longe do botão: fecha.
+function closeMenuOnScroll() {
+  if (props.openActionMenu !== null) emit('toggle-menu', props.openActionMenu)
+}
+
+watch(() => props.openActionMenu, (open) => {
+  const method = open === null ? 'removeEventListener' : 'addEventListener'
+  window[method]('scroll', closeMenuOnScroll, true)
+  window[method]('resize', closeMenuOnScroll)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', closeMenuOnScroll, true)
+  window.removeEventListener('resize', closeMenuOnScroll)
+})
 </script>
 
 <template>
@@ -60,7 +97,9 @@ function isExamBusy(id) {
             <strong>{{ formatDate(exam.dueDate) }}</strong>
             <small>{{ formatWeekday(exam.dueDate) }}</small>
           </td>
-          <td role="cell" class="content-cell" data-label="Conteúdo">{{ exam.description || 'Conteúdo não informado' }}</td>
+          <td role="cell" class="content-cell" data-label="Conteúdo">
+            <span class="content-text">{{ exam.description || 'Conteúdo não informado' }}</span>
+          </td>
           <td role="cell" data-label="Status">
             <span class="status-pill" :class="statusClass(exam, now)">
               <svg v-if="exam.status !== 'COMPLETED'" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 10v5" /><circle cx="12" cy="7.2" r=".7" fill="currentColor" stroke="none" /></svg>
@@ -79,11 +118,11 @@ function isExamBusy(id) {
                   aria-label="Mais opções"
                   data-tooltip="Mais opções"
                   :aria-expanded="openActionMenu === exam.id"
-                  @click="emit('toggle-menu', exam.id)"
+                  @click="toggleMenu($event, exam.id)"
                 >
                   <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></svg>
                 </button>
-                <div v-if="openActionMenu === exam.id" class="row-action-menu">
+                <div v-if="openActionMenu === exam.id" class="row-action-menu" :style="menuStyle">
                   <button type="button" @click="emit('view', exam)">Visualizar</button>
                   <button type="button" @click="emit('edit', exam)">Editar</button>
                   <button type="button" :disabled="isExamBusy(exam.id)" @click="emit('toggle-status', exam)">

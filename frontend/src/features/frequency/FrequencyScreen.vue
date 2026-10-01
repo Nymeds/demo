@@ -453,6 +453,7 @@ async function confirmDeleteAbsence() {
             id="frequency-period-filter"
             v-model="periodFilter"
             :options="periodSelectOptions"
+            variant="ghost"
             aria-label="Filtrar frequência por período"
           />
         </div>

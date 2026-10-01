@@ -86,8 +86,9 @@ async function loadActivities() {
 
     if (requestId !== activitiesRequestId) return
 
+    // Só atividades: as provas (type=EXAM) têm a tela Provas.
     const loadedActivities = await apiRequest(
-      `/api/v1/dashboards/${dashboard.id}/activities`,
+      `/api/v1/dashboards/${dashboard.id}/activities?type=ACTIVITY`,
     )
 
     if (requestId !== activitiesRequestId) return

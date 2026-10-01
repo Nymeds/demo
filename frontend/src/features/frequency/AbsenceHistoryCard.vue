@@ -49,7 +49,9 @@ const visibleHistory = computed(() => visibleHistoryOf(props.entries, props.show
             <td data-label="Data">{{ formatDate(entry.date) }}</td>
             <td data-label="Disciplina">{{ entry.disciplineName }}</td>
             <td data-label="Motivo">{{ entry.reason }}</td>
-            <td data-label="Observação">{{ entry.note || '—' }}</td>
+            <td data-label="Observação" class="note-cell">
+              <span class="note-text" :title="entry.note || undefined">{{ entry.note || '—' }}</span>
+            </td>
             <td data-label="Impacto"><span class="impact-badge">-{{ entry.impact.toLocaleString('pt-BR') }}%</span></td>
             <td class="actions-cell">
               <div class="frequency-actions-cell">

@@ -10,9 +10,13 @@ test('activity toolbar switches views and clears filters while preserving the vi
     { id: '1', title: 'Zoologia', status: 'PENDING', dueDate: '2099-01-01', disciplineId: 'd1' },
     { id: '2', title: 'Algebra', status: 'COMPLETED', dueDate: '2099-02-01', disciplineId: 'd1' },
   ]
-  t.mock.method(globalThis, 'fetch', async path => ({ ok: true, json: async () => (
-    path.endsWith('/activities') ? rows : path.endsWith('/disciplines') ? [{ id: 'd1', name: 'Curso' }] : [{ id: 'dash', status: 'ACTIVE' }]
-  ) }))
+  const requested = []
+  t.mock.method(globalThis, 'fetch', async path => {
+    requested.push(path)
+    return { ok: true, json: async () => (
+      path.includes('/activities') ? rows : path.endsWith('/disciplines') ? [{ id: 'd1', name: 'Curso' }] : [{ id: 'dash', status: 'ACTIVE' }]
+    ) }
+  })
   const source = await readFile(new URL('../src/features/activities/ActivitiesScreen.vue', import.meta.url), 'utf8')
   const { descriptor } = parse(source)
   const cardUrl = new URL('../src/features/activities/ActivityCard.vue', import.meta.url)
@@ -41,6 +45,8 @@ test('activity toolbar switches views and clears filters while preserving the vi
   t.after(() => app.unmount())
   await new Promise(resolve => setImmediate(resolve))
   await nextTick()
+  // A tela Atividades lista só atividades; as provas ficam na tela Provas.
+  assert.ok(requested.some(path => path.endsWith('/activities?type=ACTIVITY')))
   const all = (el = root) => [el, ...el.children.flatMap(child => all(child))]
   const find = predicate => all().find(predicate)
   const click = async el => { el.props.onClick(); await nextTick() }

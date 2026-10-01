@@ -83,4 +83,9 @@ const generalGoalMessage = computed(() => goalMessage(props.summary.generalAvera
   .grades-summary-link { align-items: center; display: inline-flex; font-size: .75rem; min-height: 44px; }
 }
 
+/* Celular: um card por linha (como no Dashboard). Em duas colunas os textos eram cortados ("Bom dese..."). */
+@media (max-width: 520px) {
+  .grades-summary { grid-template-columns: minmax(0, 1fr); }
+}
+
 </style>

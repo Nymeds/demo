@@ -39,7 +39,7 @@ defineProps({
       </span>
       <div>
         <p>Frequência média</p>
-        <strong>{{ averageAttendance === null ? 'Sem frequência cadastrada' : `${Math.round(averageAttendance)}%` }}</strong>
+        <strong :class="{ 'is-text': averageAttendance === null }">{{ averageAttendance === null ? 'Sem frequência cadastrada' : `${Math.round(averageAttendance)}%` }}</strong>
         <small>{{ averageAttendance === null ? 'Aguardando frequência' : 'Todas as disciplinas' }}</small>
       </div>
     </article>

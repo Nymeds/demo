@@ -15,8 +15,8 @@ export const MINI_WEEK_DAY_LABELS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 export const UPCOMING_FETCH_LIMIT = 50
 export const UPCOMING_DISPLAY_LIMIT = 5
 
-// Quantos eventos cabem na célula da visão Mês antes de virar "mais N".
-export const MONTH_EVENTS_PER_DAY = 3
+// Quantos eventos cabem na célula da visão Mês antes de virar "mais N" (com 3 a célula ficava alta demais).
+export const MONTH_EVENTS_PER_DAY = 2
 
 // O que o "salvar" do modal faz. A prova de verdade é a Atividade do tipo EXAM (é ela que aparece
 // em Provas e em Notas): prova nova vira atividade, e um evento que passa a ser prova (ou um evento

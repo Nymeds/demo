@@ -330,12 +330,13 @@
   .dashboard-shell .dashboard-frequency-select { --app-select-height: 44px; --app-select-font-size: .875rem; }
 }
 @media (max-width: 520px) {
-  .dashboard-shell .dashboard-topbar { align-items: flex-start; gap: 15px; padding: 22px 19px; }
+  .dashboard-shell .dashboard-topbar { align-items: flex-start; flex-direction: column; gap: 15px; padding: 22px 19px; }
   .dashboard-shell .dashboard-topbar h1 { font-size: 1.35rem; }
   .dashboard-shell .dashboard-topbar p { font-size: .75rem; max-width: 250px; }
   .dashboard-shell .dashboard-welcome { max-width: 100%; }
   .dashboard-shell .dashboard-welcome-actions { flex-wrap: wrap; }
-  .dashboard-shell .dashboard-date { font-size: 0; padding: 9px; position: absolute; right: 16px; top: 16px; }
+  /* A data aparece inteira, abaixo dos botões (antes era só o ícone no canto, com o texto escondido). */
+  .dashboard-shell .dashboard-date { padding: 8px 12px; }
   .dashboard-shell .dashboard-summary-grid,
   .dashboard-shell .dashboard-guide-grid { grid-template-columns: 1fr; }
   .dashboard-shell .dashboard-summary-card { min-height: 100px; }

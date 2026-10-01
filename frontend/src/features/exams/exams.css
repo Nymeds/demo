@@ -183,6 +183,16 @@
 .exams-page .exams-table td > small,
 .exams-page .exams-table td small { color: #858b9e; display: block; font-size: .57rem; margin-top: 3px; }
 .exams-page .content-cell { max-width: 180px; line-height: 1.35; }
+/* Conteúdo longo (inclusive palavras sem espaço) quebra e fica em até 2 linhas na lista; o texto inteiro
+   aparece em "Visualizar". */
+.exams-page .content-text {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
 .exams-page .status-pill {
   align-items: center;
   border-radius: 999px;
@@ -202,17 +212,17 @@
 .exams-page .row-actions button:hover { background: #f2efff; border-radius: 6px; color: #6330e0; }
 .exams-page .row-actions svg { fill: none; height: 17px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; width: 17px; }
 .exams-page .row-action-menu-wrap { position: relative; }
+/* Fixo na tela (top/right/bottom vêm do ExamsTable, junto do botão): dentro da tabela, que tem rolagem
+   própria, o menu era cortado. */
 .exams-page .row-action-menu {
   background: #fff;
   border: 1px solid #e4e2ec;
   border-radius: 8px;
   box-shadow: 0 10px 28px rgba(20, 24, 48, .12);
-  min-width: 176px;
+  min-width: 200px;
   padding: 5px;
-  position: absolute;
-  right: 0;
-  top: 34px;
-  z-index: 20;
+  position: fixed;
+  z-index: 1000;
 }
 .exams-page .row-action-menu button {
   align-items: center;
@@ -223,6 +233,7 @@
   height: auto;
   justify-content: flex-start;
   padding: 8px 9px;
+  white-space: nowrap;
   width: 100%;
 }
 .exams-page .row-action-menu button:hover { background: #f6f4fb; color: #6330e0; }
@@ -345,6 +356,9 @@
   display: block;
   font-size: .68rem;
   line-height: 1.35;
+  /* Conteúdo longo, inclusive palavra sem espaço, quebra dentro do modal (antes saía pela borda). */
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 .exams-page .exam-details-full { grid-column: 1 / -1; }
 .exams-page .exam-delete-text { color: #454b60; font-size: .72rem; line-height: 1.55; margin: 0; }
@@ -453,7 +467,7 @@
   .exams-page .exam-name { min-width: 0; }
   .exams-page .exam-name > div { min-width: 0; overflow-wrap: anywhere; }
   .exams-page .content-cell { max-width: none; overflow-wrap: anywhere; }
-  .exams-page .row-action-menu { bottom: 48px; top: auto; }
+  .exams-page .content-text { -webkit-line-clamp: 3; line-clamp: 3; }
 }
 @media (max-width: 520px) {
   .exams-page .exams-header { flex-wrap: wrap; }
@@ -468,4 +482,10 @@
   .exams-page .exams-table tbody tr { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   /* O conteúdo (texto longo) vai para a última linha, ocupando a largura toda. */
   .exams-page .exams-table td:nth-child(4) { order: 1; }
+  /* Os 4 cards de resumo numa linha, como Disciplinas e Frequência (em 2 × 2 a tela ficava diferente).
+     Ícone e espaçamento menores para o texto caber. */
+  .exams-page .exams-summary-grid { gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .exams-page .exams-summary-card { gap: 10px; min-height: 96px; padding: 14px 12px; }
+  .exams-page .summary-icon { flex-basis: 38px; height: 38px; }
+  .exams-page .summary-icon svg { height: 20px; width: 20px; }
 }

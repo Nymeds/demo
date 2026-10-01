@@ -90,14 +90,14 @@ test('dias do calendário marcam hoje, mês corrente e seleção', () => {
   assert.equal(buildMiniCalendarDay(new Date(2026, 9, 1), [], reference, today).isCurrentMonth, false)
 })
 
-test('visão Mês mostra 3 eventos por dia e o resto vira "mais N"; Semana mostra todos', () => {
+test('visão Mês mostra 2 eventos por dia e o resto vira "mais N"; Semana mostra todos', () => {
   const reference = new Date(2026, 8, 16)
   const today = new Date(2026, 8, 15)
   const items = ['a', 'b', 'c', 'd', 'e'].map((id, index) => event(id, 'CLASS', `2026-09-24T0${index + 1}:00:00`))
 
   const month = buildCalendarDay(new Date(2026, 8, 24), items, reference, today, 'month')
-  assert.deepEqual(month.events.map(item => item.id), ['a', 'b', 'c'])
-  assert.equal(month.hiddenCount, 2)
+  assert.deepEqual(month.events.map(item => item.id), ['a', 'b'])
+  assert.equal(month.hiddenCount, 3)
 
   const week = buildCalendarDay(new Date(2026, 8, 24), items, reference, today, 'week')
   assert.equal(week.events.length, 5)
@@ -117,7 +117,7 @@ test('grade compacta do celular: marcadores e total contam o dia inteiro, além 
   ]
 
   const month = buildCalendarDay(new Date(2026, 8, 24), items, reference, today, 'month')
-  assert.equal(month.events.length, 3)
+  assert.equal(month.events.length, 2)
   assert.equal(month.totalCount, 6)
   assert.deepEqual(month.dots, ['CLASS', 'EXAM', 'OTHER'])
 
