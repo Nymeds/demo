@@ -76,7 +76,8 @@ ${rewriteRelativeImports(code, sfcUrl)}`,
   })
   const previousWindow = globalThis.window
   let app
-  globalThis.window = { setInterval: () => 1, clearInterval: () => {} }
+  const scrolls = []
+  globalThis.window = { setInterval: () => 1, clearInterval: () => {}, scrollTo: options => scrolls.push(options) }
   t.after(() => {
     app?.unmount()
     if (previousWindow === undefined) delete globalThis.window
@@ -142,6 +143,7 @@ ${rewriteRelativeImports(code, sfcUrl)}`,
   await nextTick()
   assert.equal(frequencyButton.props['aria-current'], 'page')
   assert.ok(all(root).find(item => item.type === 'FrequencyScreen'), 'FrequencyScreen deve ser exibida')
+  assert.deepEqual(scrolls.at(-1), { top: 0 }, 'trocar de tela deve voltar ao topo')
   assert.equal(all(root).some(item => item.props.class === 'dashboard-overview'), false)
 
   button('Dashboard').props.onClick()

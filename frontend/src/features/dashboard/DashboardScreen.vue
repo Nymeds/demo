@@ -229,6 +229,8 @@ const selectedFrequencyDetails = computed(() => frequencyDetailsOf(
 ))
 watch(activeSection, section => {
   if (section === 'dashboard') loadDashboard()
+  // Cada tela começa do topo; sem isto, no celular a tela nova abre na altura em que a anterior estava.
+  window.scrollTo({ top: 0 })
 })
 watch(
   () => [user.hasProfilePhoto, user.profilePhotoUrl, user.updatedAt],

@@ -117,12 +117,23 @@ defineExpose({ focusAddGradeButton: () => addGradeButton.value?.focus() })
 
         <button
           type="button"
-          class="more-button"
+          class="edit-button"
           data-tooltip="Editar em Notas"
           aria-label="Editar esta nota na tela Notas"
           @click="emit('navigate', 'grades')"
         >
-          Editar em Notas
+
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          >
+            <path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>
+          </svg>
+
         </button>
 
       </div>
