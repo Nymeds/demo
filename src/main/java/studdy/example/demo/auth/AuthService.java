@@ -14,6 +14,7 @@ import studdy.example.demo.user.UserRepository;
 import studdy.example.demo.user.dto.UserResponse;
 
 import java.util.Locale;
+import java.time.Instant;
 
 @Service
 public class AuthService {
@@ -62,8 +63,13 @@ public class AuthService {
             throw invalidCredentials();
         }
 
+        Instant issuedAt = Instant.now();
+        if (user.getCredentialsUpdatedAt() != null && user.getCredentialsUpdatedAt().isAfter(issuedAt)) {
+            issuedAt = user.getCredentialsUpdatedAt();
+        }
+
         return new AuthResponse(
-                jwtService.generateToken(user.getId()),
+                jwtService.generateToken(user.getId(), issuedAt),
                 "Bearer",
                 jwtService.getExpirationInSeconds()
         );

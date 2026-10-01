@@ -4,6 +4,7 @@ import loginPanelImage from '../../assets/images/login-panel.png'
 import registerPanelImage from '../../assets/images/register-panel.png'
 import { useAvatar } from '../../composables/useAvatar'
 import DashboardScreen from '../dashboard/DashboardScreen.vue'
+import PasswordRecoveryScreen from './PasswordRecoveryScreen.vue'
 
 const { clearAvatar } = useAvatar()
 
@@ -86,6 +87,14 @@ function switchMode(nextMode) {
   password.value = ''
   confirmPassword.value = ''
   showPassword.value = false
+}
+
+function recoveryCompleted(recoveredEmail) {
+  clearStoredTokens()
+  switchMode('login')
+  email.value = recoveredEmail
+  feedback.value = 'Senha recuperada com sucesso. Entre com sua nova senha.'
+  feedbackType.value = 'success'
 }
 
 async function submit() {
@@ -203,12 +212,12 @@ function refreshAccessToken(token) {
     <div class="auth-decoration auth-decoration-top" aria-hidden="true"></div>
     <div class="auth-decoration auth-decoration-bottom" aria-hidden="true"></div>
 
-    <section class="auth-card" aria-labelledby="auth-title">
-      <aside class="auth-presentation" :class="{ 'is-register': !isLogin }">
+    <section class="auth-card" :class="{ 'is-recovery': mode === 'recovery' }" aria-labelledby="auth-title">
+      <aside class="auth-presentation" :class="{ 'is-register': mode === 'register' }">
         <img
           class="auth-panel-image"
-          :src="isLogin ? loginPanelImage : registerPanelImage"
-          :alt="isLogin
+          :src="mode !== 'register' ? loginPanelImage : registerPanelImage"
+          :alt="mode !== 'register'
             ? 'Apresentação do AcadOrganize e seus recursos acadêmicos'
             : 'Ambiente de estudos com notebook, livros e proteção de dados'"
           width="794"
@@ -218,6 +227,9 @@ function refreshAccessToken(token) {
 
       <section class="auth-form-panel">
         <div class="auth-form-wrap">
+          <PasswordRecoveryScreen v-if="mode === 'recovery'" :initial-email="email"
+            @cancel="switchMode('login')" @completed="recoveryCompleted" />
+          <template v-else>
           <header>
             <p class="auth-eyebrow">{{ isLogin ? 'Acesse sua conta' : 'Comece agora' }}</p>
             <h2 id="auth-title">{{ title }} <span v-if="isLogin" aria-hidden="true">👋</span></h2>
@@ -273,7 +285,7 @@ function refreshAccessToken(token) {
                 <input v-model="rememberMe" type="checkbox">
                 <span>Lembrar de mim</span>
               </label>
-              <span class="disabled-link" title="Funcionalidade ainda não disponível">Esqueci minha senha</span>
+              <button class="auth-text-button" type="button" :disabled="loading" @click="switchMode('recovery')">Esqueci minha senha</button>
             </div>
 
             <label v-else class="auth-checkbox auth-terms">
@@ -291,10 +303,11 @@ function refreshAccessToken(token) {
 
           <p class="auth-switch">
             {{ isLogin ? 'Ainda não tem uma conta?' : 'Já tem uma conta?' }}
-            <button type="button" @click="switchMode(isLogin ? 'register' : 'login')">
+            <button type="button" :disabled="loading" @click="switchMode(isLogin ? 'register' : 'login')">
               {{ isLogin ? 'Cadastre-se' : 'Fazer login' }}
             </button>
           </p>
+          </template>
         </div>
       </section>
     </section>
