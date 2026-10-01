@@ -84,8 +84,11 @@ public class SettingsController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteAccount(
             @AuthenticationPrincipal UUID userId,
-            @Valid @RequestBody DeleteAccountRequest request
+            @Valid @RequestBody DeleteAccountRequest request,
+            HttpServletRequest httpRequest, HttpServletResponse response
     ) {
         accountDeletionService.delete(userId, request);
+        // As sessões saíram junto com a conta; o navegador também esquece o cookie.
+        cookies.clear(httpRequest, response);
     }
 }

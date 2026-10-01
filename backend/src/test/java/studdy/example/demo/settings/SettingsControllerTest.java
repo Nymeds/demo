@@ -24,6 +24,7 @@ import java.util.Date;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -151,14 +152,15 @@ class SettingsControllerTest {
     }
 
     @Test
-    void deletesTheAccountAndRejectsItsTokenAfterwards() throws Exception {
+    void deletesTheAccountRejectsItsTokenAfterwardsAndClearsTheSessionCookie() throws Exception {
         mockMvc.perform(delete("/api/v1/settings/account")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"currentPassword": "senha-atual-123"}
                                 """))
-                .andExpect(status().isNoContent());
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().maxAge(studdy.example.demo.auth.session.SessionCookies.NAME, 0));
 
         mockMvc.perform(get("/api/v1/settings/profile").header("Authorization", bearer(token)))
                 .andExpect(status().isUnauthorized());
