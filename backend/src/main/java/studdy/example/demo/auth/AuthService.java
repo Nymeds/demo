@@ -28,6 +28,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final LoginAttemptLimiter loginAttemptLimiter;
     private final RegistrationLimiter registrationLimiter;
+    private final TokenRequestLimiter tokenRequestLimiter;
     private final RefreshTokenService refreshTokenService;
     private final SessionTokens sessionTokens;
     private final LegalVersions legalVersions;
@@ -41,6 +42,7 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             LoginAttemptLimiter loginAttemptLimiter,
             RegistrationLimiter registrationLimiter,
+            TokenRequestLimiter tokenRequestLimiter,
             RefreshTokenService refreshTokenService,
             SessionTokens sessionTokens,
             LegalVersions legalVersions,
@@ -50,6 +52,7 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.loginAttemptLimiter = loginAttemptLimiter;
         this.registrationLimiter = registrationLimiter;
+        this.tokenRequestLimiter = tokenRequestLimiter;
         this.refreshTokenService = refreshTokenService;
         this.sessionTokens = sessionTokens;
         this.legalVersions = legalVersions;
@@ -107,11 +110,13 @@ public class AuthService {
 
     // Sem @Transactional aqui: a revogação da família em caso de reuso precisa ser confirmada
     // pela transação do RefreshTokenService mesmo que a chamada termine em 401.
-    public AuthResponse refresh(String refreshToken) {
+    public AuthResponse refresh(String refreshToken, String clientIp) {
+        tokenRequestLimiter.acquire(clientIp);
         return sessionTokens.rotate(refreshToken);
     }
 
-    public void logout(String refreshToken) {
+    public void logout(String refreshToken, String clientIp) {
+        tokenRequestLimiter.acquire(clientIp);
         refreshTokenService.revoke(refreshToken);
     }
 

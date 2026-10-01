@@ -35,7 +35,9 @@ export function startBackend({ root, env, log }) {
   return startStreamed(
     mvn,
     ['spring-boot:run', '-Dspring-boot.run.profiles=seed', '-Dspring-boot.run.jvmArguments=-Dstdout.encoding=UTF-8'],
-    { cwd: backendDir, env, log },
+    // O init é só local: confia no X-Forwarded-For do proxy do Vite para cada aparelho ter o próprio IP
+    // nos limites de login (FORWARD_HEADERS_STRATEGY no .env ou no shell tem prioridade).
+    { cwd: backendDir, env: { FORWARD_HEADERS_STRATEGY: 'framework', ...env }, log },
   );
 }
 

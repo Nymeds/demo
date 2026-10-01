@@ -8,8 +8,12 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Date;
+import java.util.HexFormat;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -18,6 +22,12 @@ public class JwtService {
     static final int MIN_SECRET_BYTES = 32;
     // Segredo público do perfil dev (application-dev.properties). Só pode rodar com H2.
     static final String DEV_FALLBACK_SECRET = "dev-only-insecure-jwt-secret-do-not-use-in-production";
+    // SHA-256 de segredos que já ficaram públicos no histórico do git (o JWT_SECRET do .env.example
+    // de ee4d439 e o antigo "troque-esta-chave-local-..."). Guardamos só o hash para não publicá-los de novo.
+    static final Set<String> PUBLIC_SECRET_HASHES = Set.of(
+            "2a2865d4d32d7ed54924cfe6e09245a9c354ece762601626d0922d338145fd3e",
+            "c6213fa2fde7811434b24994a9651ad94a3b7d49bf70f75666064756d427aa3a"
+    );
 
     private final SecretKey signingKey;
     private final long expirationInMs;
@@ -33,6 +43,7 @@ public class JwtService {
             @Value("${spring.datasource.url:}") String datasourceUrl
     ) {
         requireNotDevSecretOutsideH2(secret, datasourceUrl);
+        requireNotPublicSecret(secret);
         this.signingKey = Keys.hmacShaKeyFor(requireValidSecret(secret));
         this.expirationInMs = expirationInMs;
     }
@@ -46,6 +57,20 @@ public class JwtService {
                             + "(o perfil 'dev' serve apenas para desenvolvimento local).");
         }
         return bytes;
+    }
+
+    static void requireNotPublicSecret(String secret) {
+        if (secret == null) return;
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(secret.getBytes(StandardCharsets.UTF_8));
+            if (PUBLIC_SECRET_HASHES.contains(HexFormat.of().formatHex(digest))) {
+                throw new IllegalStateException(
+                        "Este JWT_SECRET já foi publicado no repositório e não protege nada. "
+                                + "Gere um novo segredo (o npm run init gera um sozinho) e defina JWT_SECRET.");
+            }
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 indisponível na JVM.", exception);
+        }
     }
 
     static void requireNotDevSecretOutsideH2(String secret, String datasourceUrl) {

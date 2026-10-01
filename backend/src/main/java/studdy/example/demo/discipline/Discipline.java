@@ -70,7 +70,11 @@ public class Discipline {
     private Dashboard dashboard;
 
     @ElementCollection
-    @CollectionTable(name = "discipline_schedules", joinColumns = @JoinColumn(name = "discipline_id"))
+    @CollectionTable(
+            name = "discipline_schedules",
+            joinColumns = @JoinColumn(name = "discipline_id"),
+            indexes = @Index(name = "idx_discipline_schedules_discipline_id", columnList = "discipline_id")
+    )
     @OrderColumn(name = "position")
     private List<ClassSchedule> schedules = new ArrayList<>();
 

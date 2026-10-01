@@ -35,6 +35,15 @@ class JwtSecretValidationTest {
     }
 
     @Test
+    void refusesSecretsThatWerePublishedInTheRepository() {
+        // O texto antigo de exemplo do application.properties; o outro segredo público só existe como hash.
+        assertThatThrownBy(() -> new JwtService("troque-esta-chave-local-por-uma-chave-com-mais-de-32-bytes", 1000L,
+                "jdbc:h2:mem:academic-organizer"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("publicado");
+    }
+
+    @Test
     void acceptsTheDevSecretWithH2AndAnyOtherSecretWithPostgres() {
         new JwtService(JwtService.DEV_FALLBACK_SECRET, 1000L, "jdbc:h2:mem:academic-organizer");
         new JwtService("x".repeat(32), 1000L, "jdbc:postgresql://localhost:5432/academic_organizer");

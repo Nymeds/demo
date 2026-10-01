@@ -174,7 +174,8 @@ class ActivityControllerTest {
     void rejectsAnInvalidTypeOnDisciplineEndpointWithBadRequest() throws Exception {
         mockMvc.perform(get(disciplineActivitiesUrl + "?type=NOT_A_TYPE")
                         .header("Authorization", "Bearer " + token))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("O valor informado para 'type' é inválido."));
     }
 
     @Test
@@ -199,11 +200,13 @@ class ActivityControllerTest {
 
         mockMvc.perform(get(dashboardActivitiesUrl + "?type=EXAM")
                         .header("Authorization", "Bearer " + intruderToken))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Dashboard não encontrado."));
 
         mockMvc.perform(get(disciplineActivitiesUrl + "?type=EXAM")
                         .header("Authorization", "Bearer " + intruderToken))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value("Dashboard não encontrado."));
     }
 
     @Test

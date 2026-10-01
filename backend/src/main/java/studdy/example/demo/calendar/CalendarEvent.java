@@ -30,7 +30,9 @@ import java.util.UUID;
 @Entity
 @Table(name = "calendar_events", indexes = {
         @Index(name = "idx_calendar_events_dashboard_id", columnList = "dashboard_id"),
-        @Index(name = "idx_calendar_events_discipline_id", columnList = "discipline_id")
+        @Index(name = "idx_calendar_events_discipline_id", columnList = "discipline_id"),
+        // As consultas do calendário filtram por dashboard e por intervalo de início.
+        @Index(name = "idx_calendar_events_dashboard_starts_at", columnList = "dashboard_id, starts_at")
 })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CalendarEvent {

@@ -1,13 +1,12 @@
 package studdy.example.demo.user.dto;
 
-import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import studdy.example.demo.user.Gender;
-import studdy.example.demo.user.PhoneNumbers;
+import studdy.example.demo.user.ValidPhone;
 
 import java.time.LocalDate;
 
@@ -28,6 +27,7 @@ public record UpdateProfileRequest(
         String username,
 
         @Size(max = 30, message = "Informe o celular completo com DDD: (DD) 9XXXX-XXXX.")
+        @ValidPhone
         String phone,
 
         @Past(message = "A data de nascimento deve estar no passado.")
@@ -48,11 +48,6 @@ public record UpdateProfileRequest(
         username = trim(username);
         phone = trim(phone);
         location = trim(location);
-    }
-
-    @AssertTrue(message = "Informe um celular válido com DDD: (DD) 9XXXX-XXXX, começando com 9 após o DDD.")
-    public boolean isPhoneValid() {
-        return PhoneNumbers.isValidOrBlank(phone);
     }
 
     private static String trim(String value) {

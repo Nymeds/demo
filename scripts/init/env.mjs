@@ -1,5 +1,7 @@
-// Leitura e validação do .env (sem dependências). Nenhum segredo é gerado aqui: quem preenche é o usuário.
-import { existsSync, readFileSync } from 'node:fs';
+// Leitura e validação do .env (sem dependências). O único segredo gerado aqui é o JWT_SECRET, quando
+// está vazio: assim ninguém fica com uma chave copiada de exemplo. O DB_PASSWORD continua com o usuário.
+import { randomBytes } from 'node:crypto';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const MIN_JWT_SECRET_BYTES = 32;
@@ -51,17 +53,35 @@ function validateEnv(env) {
   return problems;
 }
 
-/** Retorna `{ env, problems }`; `problems` vazio significa que o .env está pronto. */
+/**
+ * Grava um JWT_SECRET aleatório no .env quando ele está vazio (no shell e no arquivo).
+ * Troca a linha `JWT_SECRET=` existente ou acrescenta uma no fim. Retorna true se gerou.
+ */
+export function ensureJwtSecret(root, baseEnv = process.env) {
+  const file = envFilePath(root);
+  const text = readFileSync(file, 'utf8');
+  if (baseEnv.JWT_SECRET || parseEnvFile(text).JWT_SECRET) return false;
+
+  const line = `JWT_SECRET=${randomBytes(48).toString('base64url')}`;
+  const updated = /^\s*(?:export\s+)?JWT_SECRET\s*=.*$/m.test(text)
+    ? text.replace(/^\s*(?:export\s+)?JWT_SECRET\s*=.*$/m, line)
+    : `${text.replace(/\s*$/, '')}\n${line}\n`;
+  writeFileSync(file, updated, 'utf8');
+  return true;
+}
+
+/** Retorna `{ env, problems, generatedJwtSecret }`; `problems` vazio significa que o .env está pronto. */
 export function loadEnv(root, baseEnv = process.env) {
   if (!existsSync(envFilePath(root))) {
-    return { env: { ...baseEnv }, problems: ['Arquivo .env não encontrado na raiz do projeto.'] };
+    return { env: { ...baseEnv }, problems: ['Arquivo .env não encontrado na raiz do projeto.'], generatedJwtSecret: false };
   }
+  const generatedJwtSecret = ensureJwtSecret(root, baseEnv);
   const env = buildEnv(root, baseEnv);
-  return { env, problems: validateEnv(env) };
+  return { env, problems: validateEnv(env), generatedJwtSecret };
 }
 
 export const ENV_HELP = [
-  'Copie .env.example para .env e preencha DB_PASSWORD e JWT_SECRET:',
+  'Copie .env.example para .env e preencha DB_PASSWORD (o JWT_SECRET vazio é gerado sozinho):',
   '  Windows (PowerShell): Copy-Item .env.example .env',
   '  Linux/macOS/Git Bash: cp .env.example .env',
 ];

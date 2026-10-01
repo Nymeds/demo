@@ -92,6 +92,14 @@ class UpdateProfileRequestTest {
     }
 
     @Test
+    void reportsTheInvalidPhoneOnThePhoneField() {
+        // A tela mostra o erro embaixo do campo pelo nome dele em "errors"; "phoneValid" não aparecia.
+        assertTrue(validator.validate(validRequest("Gabriel", "gabriel@example.com", "gabrielsilva", "123", null))
+                .stream()
+                .anyMatch(violation -> violation.getPropertyPath().toString().equals("phone")));
+    }
+
+    @Test
     void rejectsFutureBirthDate() {
         assertRejects(validRequest(
                         "Gabriel",

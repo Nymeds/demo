@@ -29,6 +29,15 @@ class ValidationExceptionHandlerTest {
     }
 
     @Test
+    void responseStatusExceptionsKeepTheirReasonForEveryController() {
+        ProblemDetail problem = new ValidationExceptionHandler().handleResponseStatus(
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Disciplina não encontrada."));
+
+        assertEquals(404, problem.getStatus());
+        assertEquals("Disciplina não encontrada.", problem.getDetail());
+    }
+
+    @Test
     void tooManyRequestsHasRetryAfterAndMinutesInTheDetail() {
         ResponseEntity<ProblemDetail> response = new ValidationExceptionHandler()
                 .handleTooManyRequests(new TooManyRequestsException("Muitas tentativas.", 61));

@@ -37,12 +37,15 @@ public record UpdateDisciplineRequest(
 
         @NotNull(message = "A lista de horários é obrigatória.")
         @Size(min = 1, message = "A disciplina deve ter pelo menos um horário.")
+        @Size(max = 20, message = "A disciplina deve ter no máximo 20 horários.")
         List<@Valid ClassScheduleRequest> schedules,
 
         @NotBlank(message = "O semestre é obrigatório.")
+        @Size(max = 20, message = "O semestre deve ter no máximo 20 caracteres.")
         String semester,
 
         @NotBlank(message = "O período é obrigatório.")
+        @Size(max = 20, message = "O período deve ter no máximo 20 caracteres.")
         String periodo
 ) {
 }

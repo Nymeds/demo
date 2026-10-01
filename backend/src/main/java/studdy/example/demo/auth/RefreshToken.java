@@ -23,7 +23,10 @@ import java.util.UUID;
 @Entity
 @Table(name = "refresh_tokens", indexes = {
         @Index(name = "idx_refresh_tokens_family", columnList = "family_id"),
-        @Index(name = "idx_refresh_tokens_user_id", columnList = "user_id")
+        @Index(name = "idx_refresh_tokens_user_id", columnList = "user_id"),
+        // Limpeza diária (RefreshTokenRepository.deleteExpiredOrRevokedBefore). O índice parcial de
+        // revoked_at fica só no script docs/migrations/2026-10-01-indexes.sql (JPA não declara índice parcial).
+        @Index(name = "idx_refresh_tokens_expires_at", columnList = "expires_at")
 })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RefreshToken {

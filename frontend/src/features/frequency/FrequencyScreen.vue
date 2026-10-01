@@ -230,8 +230,10 @@ function disciplinePayload(discipline, minimumAttendancePercentage) {
     color: discipline.color,
     passingAverage: discipline.passingAverage,
     minimumAttendancePercentage,
-    periodo: String(discipline.periodo),
-    semester: String(discipline.semester),
+    // Disciplina antiga sem período/semestre: String(null) gravava o texto "null"; vazio faz o backend
+    // pedir o campo em vez de salvar lixo.
+    periodo: discipline.periodo == null ? '' : String(discipline.periodo),
+    semester: discipline.semester == null ? '' : String(discipline.semester),
     schedules: (discipline.schedules ?? []).map(({ dayOfWeek, startTime, endTime }) => ({
       dayOfWeek,
       startTime,

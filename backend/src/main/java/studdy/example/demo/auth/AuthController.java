@@ -28,14 +28,14 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
-        return authService.refresh(request.refreshToken());
+    public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest request, HttpServletRequest httpRequest) {
+        return authService.refresh(request.refreshToken(), httpRequest.getRemoteAddr());
     }
 
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void logout(@Valid @RequestBody RefreshTokenRequest request) {
-        authService.logout(request.refreshToken());
+    public void logout(@Valid @RequestBody RefreshTokenRequest request, HttpServletRequest httpRequest) {
+        authService.logout(request.refreshToken(), httpRequest.getRemoteAddr());
     }
 
     @PostMapping("/login")
