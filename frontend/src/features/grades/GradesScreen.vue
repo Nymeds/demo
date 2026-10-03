@@ -6,8 +6,12 @@ import AppSelect from '../../components/ui/AppSelect.vue'
 import GradeModal from './GradeEntryModal.vue'
 import GradesSummaryCards from './GradesSummaryCards.vue'
 import GradesTable from './GradesTable.vue'
+import AverageEvolutionChart from './AverageEvolutionChart.vue'
+import PerformanceDonut from './PerformanceDonut.vue'
 import {
   SORT_OPTIONS,
+  distributionOf,
+  evolutionOf,
   latestPeriodKey,
   matchesSearch,
   periodKeyOf,
@@ -16,17 +20,15 @@ import {
   summarize,
 } from './gradesPresentation'
 import './grades.css'
+import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
+import { loadActiveDashboard } from '../../shared/dashboards/useActiveDashboard.js'
 
 const ALL = 'all'
 const TOAST_DURATION_MS = 4500
 
-const { accessToken } = defineProps({
-  accessToken: { type: String, required: true },
-})
+const emit = defineEmits(['navigate'])
 
-const emit = defineEmits(['navigate', 'session-expired'])
-
-const { request } = createApiClient(() => accessToken)
+const { request } = createApiClient()
 const loading = ref(true)
 const loadError = ref('')
 const dashboardId = ref('')
@@ -41,29 +43,24 @@ const statuses = [
   { value: 'COMPLETED', label: 'Concluídas' },
   { value: 'LOCKED', label: 'Trancadas' },
 ]
+// Meta pessoal de média definida em Configurações. null = sem meta ou falha ao carregar (não bloqueia a tela).
+const gradeGoal = ref(null)
 const editingGrade = ref(null)
 const deletion = ref(null)
 const deleting = ref(false)
 const deleteError = ref('')
 const deleteDialog = ref(null)
 let deleteTrigger = null
-watch(deletion, async value => {
-  await nextTick()
-  if (value) deleteDialog.value?.querySelector('button')?.focus()
-  else deleteTrigger?.focus()
+useFocusTrap(() => !!deletion.value, deleteDialog, {
+  onClose: () => { deletion.value = null },
+  closeOnEscape: () => !deleting.value,
+  returnFocus: false,
 })
-function trapDeleteFocus(event) {
-  const buttons = [...deleteDialog.value.querySelectorAll('button:not(:disabled)')]
-  const first = buttons[0]
-  const last = buttons.at(-1)
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault()
-    last?.focus()
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault()
-    first?.focus()
-  }
-}
+watch(deletion, async value => {
+  if (value) return
+  await nextTick()
+  deleteTrigger?.focus()
+})
 
 const search = ref('')
 const selectedPeriod = ref(ALL)
@@ -97,6 +94,8 @@ const visibleEntries = computed(() => sortEntries(
   sortOrder.value,
 ))
 const summary = computed(() => summarize(periodEntries.value))
+const distribution = computed(() => distributionOf(periodEntries.value))
+const evolution = computed(() => evolutionOf(entries.value))
 const pageCount = computed(() => Math.max(1, Math.ceil(visibleEntries.value.length / pageSize)))
 const pagedEntries = computed(() => visibleEntries.value.slice((page.value - 1) * pageSize, page.value * pageSize))
 watch([search, activeStatus, sortOrder, selectedPeriod], () => { page.value = 1 })
@@ -139,7 +138,6 @@ function closeToast() {
 
 function handleFailure(error) {
   if (error instanceof SessionExpiredError) {
-    emit('session-expired')
     return
   }
 
@@ -151,8 +149,7 @@ async function load() {
   loadError.value = ''
 
   try {
-    const dashboards = await request('/api/v1/dashboards')
-    const dashboard = dashboards.find(item => item.status === 'ACTIVE') || dashboards[0]
+    const dashboard = await loadActiveDashboard(request)
 
     if (!dashboard) {
       entries.value = []
@@ -166,13 +163,22 @@ async function load() {
     selectedPeriod.value = latestPeriodKey(gradebook) ?? ALL
   } catch (error) {
     if (error instanceof SessionExpiredError) {
-      emit('session-expired')
       return
     }
 
     loadError.value = error.message || 'Não foi possível carregar suas notas.'
   } finally {
     loading.value = false
+  }
+}
+
+// A meta é só um complemento visual: se a busca falhar, a tela de Notas segue funcionando normalmente.
+async function loadGoal() {
+  try {
+    const preferences = await request('/api/v1/settings/preferences')
+    gradeGoal.value = preferences.gradeGoal ?? null
+  } catch (error) {
+    gradeGoal.value = null
   }
 }
 
@@ -224,7 +230,6 @@ async function selectAddDiscipline(disciplineId) {
     addActivitiesStatus.value = 'ready'
   } catch (error) {
     if (error instanceof SessionExpiredError) {
-      emit('session-expired')
       return
     }
 
@@ -274,7 +279,6 @@ async function saveGrade(formData) {
     await refreshGradebook()
   } catch (error) {
     if (error instanceof SessionExpiredError) {
-      emit('session-expired')
       return
     }
 
@@ -309,7 +313,10 @@ async function deleteGrade() {
     handleFailure(error)
   } finally { deleting.value = false }
 }
-onMounted(load)
+onMounted(() => {
+  load()
+  loadGoal()
+})
 onBeforeUnmount(() => clearTimeout(toastTimer))
 </script>
 
@@ -345,25 +352,36 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
       </div>
     </header>
 
-    <div v-if="loading" class="grades-status" role="status">
+    <div v-if="loading" class="grades-status app-state-card is-loading" role="status">
+      <span class="app-spinner" aria-hidden="true"></span>
       <h2>Carregando suas notas…</h2>
       <p>Estamos reunindo as médias das suas disciplinas.</p>
     </div>
 
-    <div v-else-if="loadError" class="grades-status" role="alert">
+    <div v-else-if="loadError" class="grades-status app-state-card is-error" role="alert">
       <h2>Não foi possível carregar suas notas</h2>
       <p>{{ loadError }}</p>
       <button class="grades-button is-primary" type="button" @click="load">Tentar novamente</button>
     </div>
 
-    <div v-else-if="entries.length === 0" class="grades-status">
+    <div v-else-if="entries.length === 0" class="grades-status app-state-card is-empty">
       <h2>Nenhuma disciplina cadastrada ainda</h2>
       <p>Cadastre suas disciplinas e lance as notas para acompanhar seu desempenho aqui.</p>
       <button class="grades-button is-primary" type="button" @click="emit('navigate', 'disciplines')">Cadastrar disciplina</button>
     </div>
 
     <template v-else>
-      <GradesSummaryCards :summary="summary" :period-label="periodLabel" />
+      <GradesSummaryCards :summary="summary" :period-label="periodLabel" :goal="gradeGoal" @navigate="section => emit('navigate', section)" />
+      <div class="grades-charts">
+        <section class="grades-panel grades-chart-card" aria-labelledby="grades-evolution-title">
+          <h2 id="grades-evolution-title">Evolução da média geral</h2>
+          <AverageEvolutionChart :points="evolution" :goal="gradeGoal" />
+        </section>
+        <section class="grades-panel grades-chart-card" aria-labelledby="grades-distribution-title">
+          <h2 id="grades-distribution-title">Distribuição por desempenho</h2>
+          <PerformanceDonut :distribution="distribution" :general-average="summary.generalAverage" />
+        </section>
+      </div>
       <div class="grades-toolbar">
         <div class="grades-tabs" aria-label="Situação da disciplina">
           <button v-for="status in statuses" :key="status.value" type="button" :class="{ active: activeStatus === status.value }" :aria-pressed="activeStatus === status.value" @click="activeStatus = status.value">{{ status.label }}</button>
@@ -379,7 +397,7 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
         </div>
       </div>
       <section class="grades-panel grades-list" aria-label="Notas por disciplina">
-        <GradesTable :key="tableVersion" :entries="pagedEntries" :view-mode="viewMode" :load-grades="loadGrades" @edit="editGrade" @delete="askDelete" @add="entry => { openAddGrade(); selectAddDiscipline(entry.disciplineId) }" @failed="handleFailure" />
+        <GradesTable :key="tableVersion" :entries="pagedEntries" :view-mode="viewMode" :load-grades="loadGrades" :goal="gradeGoal" @edit="editGrade" @delete="askDelete" @add="entry => { openAddGrade(); selectAddDiscipline(entry.disciplineId) }" @failed="handleFailure" />
       </section>
       <footer class="grades-footer">
         <p class="grades-count" aria-live="polite">Mostrando {{ pagedEntries.length }} de {{ visibleEntries.length }} disciplinas</p>
@@ -414,8 +432,8 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
       @save="saveGrade"
     />
 
-    <div v-if="deletion" class="grades-confirm-overlay" @keydown.esc="!deleting && (deletion = null)">
-      <section ref="deleteDialog" class="grades-confirm" role="alertdialog" aria-modal="true" aria-labelledby="delete-grade-title" @keydown.tab="trapDeleteFocus">
+    <div v-if="deletion" class="grades-confirm-overlay">
+      <section ref="deleteDialog" class="grades-confirm" role="alertdialog" aria-modal="true" aria-labelledby="delete-grade-title">
         <h2 id="delete-grade-title">Excluir nota?</h2>
         <p>A nota de {{ deletion.grade.assessmentName }} em {{ deletion.entry.name }} será excluída e a média será recalculada.</p>
         <p v-if="deleteError" role="alert">{{ deleteError }}</p>

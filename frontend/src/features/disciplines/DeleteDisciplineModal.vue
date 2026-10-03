@@ -1,16 +1,25 @@
 <script setup>
-defineProps({
+import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
+import { ref } from 'vue'
+const props = defineProps({
   disciplineName: { type: String, required: true },
+  deleting: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['close', 'confirm'])
+
+const trapRef = ref(null)
+useFocusTrap(() => true, trapRef, {
+  onClose: () => emit('close'),
+  closeOnEscape: () => !props.deleting,
+})
 </script>
 
 <template>
-  <div class="delete-backdrop" @mousedown.self="emit('close')">
+  <div class="delete-backdrop" @mousedown.self="!deleting && emit('close')">
     <section
       class="delete-modal"
-      role="alertdialog"
+      ref="trapRef" tabindex="-1" role="alertdialog"
       aria-modal="true"
       aria-labelledby="delete-title"
       aria-describedby="delete-description"
@@ -27,8 +36,8 @@ const emit = defineEmits(['close', 'confirm'])
       </p>
 
       <div class="delete-modal-actions">
-        <button class="cancel-delete" type="button" autofocus @click="emit('close')">Cancelar</button>
-        <button class="confirm-delete" type="button" @click="emit('confirm')">
+        <button class="cancel-delete" type="button" autofocus :disabled="deleting" @click="emit('close')">Cancelar</button>
+        <button class="confirm-delete" type="button" :disabled="deleting" @click="emit('confirm')">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" />
           </svg>
@@ -139,6 +148,12 @@ const emit = defineEmits(['close', 'confirm'])
   justify-content: center;
 }
 
+.cancel-delete:disabled,
+.confirm-delete:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
 .confirm-delete:hover {
   background: #c93429;
   border-color: #c93429;
@@ -154,7 +169,19 @@ const emit = defineEmits(['close', 'confirm'])
   outline-offset: 2px;
 }
 
-@media (max-width: 460px) {
+/* Breakpoints padrão 760 (fonte e toque) e 520 (layout; era 460). */
+@media (max-width: 760px) {
+  .delete-modal p,
+  .delete-modal-actions button {
+    font-size: .875rem;
+  }
+
+  .delete-modal-actions button {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 520px) {
   .delete-modal {
     padding: 25px 20px;
   }

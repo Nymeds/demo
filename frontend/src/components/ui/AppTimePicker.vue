@@ -315,4 +315,13 @@ onBeforeUnmount(() => toggleListeners(false))
 .app-time-option:hover { background: #f4f0ff; color: #5726ce; }
 .app-time-option.is-selected { background: #6330e0; color: #ffffff; font-weight: 700; }
 .app-time-option:focus-visible { outline: 2px solid rgba(99, 48, 224, .5); outline-offset: -2px; }
+
+/* Celular: alvos de toque de 44px e fontes de pelo menos 12px. As variáveis --app-time-* das telas
+   continuam valendo; só o valor padrão (sem variável) sobe. */
+@media (max-width: 760px) {
+  .app-time-trigger { font-size: var(--app-time-font-size, 16px); height: var(--app-time-height, 44px); }
+  .app-time-heading { font-size: .75rem; }
+  .app-time-column { max-height: 228px; }
+  .app-time-option { font-size: .875rem; min-height: 44px; }
+}
 </style>

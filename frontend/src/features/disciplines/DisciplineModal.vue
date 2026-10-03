@@ -1,13 +1,21 @@
 <script setup>
+import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
 import { computed, ref } from 'vue'
 import AppSelect from '../../components/ui/AppSelect.vue'
 import AppTimePicker from '../../components/ui/AppTimePicker.vue'
 
 const props = defineProps({
   discipline: { type: Object, default: null },
+  saving: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['close', 'save'])
+
+const trapRef = ref(null)
+useFocusTrap(() => true, trapRef, {
+  onClose: () => emit('close'),
+  closeOnEscape: () => !props.saving,
+})
 
 const isEditing = computed(() => Boolean(props.discipline))
 const name = ref(props.discipline?.name ?? '')
@@ -79,6 +87,8 @@ function removeSchedule(index) {
 }
 
 function submitForm() {
+  if (props.saving) return
+
   submitted.value = true
 
   if (schedules.value.length === 0) {
@@ -124,8 +134,8 @@ function submitForm() {
 </script>
 
 <template>
-  <div class="modal-backdrop" @mousedown.self="emit('close')">
-    <section class="discipline-modal" role="dialog" aria-modal="true" aria-labelledby="new-discipline-title">
+  <div class="modal-backdrop" @mousedown.self="!saving && emit('close')">
+    <section class="discipline-modal" ref="trapRef" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="new-discipline-title">
       <header class="modal-header">
         <div class="modal-title">
           <span aria-hidden="true">＋</span>
@@ -135,7 +145,7 @@ function submitForm() {
           </div>
         </div>
 
-        <button class="modal-close" type="button" aria-label="Fechar modal" @click="emit('close')">×</button>
+        <button class="modal-close" type="button" aria-label="Fechar modal" :disabled="saving" @click="emit('close')">×</button>
       </header>
 
       <form @submit.prevent="submitForm">
@@ -226,8 +236,8 @@ function submitForm() {
         </fieldset>
 
         <footer class="modal-footer">
-          <button class="cancel-button" type="button" @click="emit('close')">Cancelar</button>
-          <button class="save-button" type="submit">
+          <button class="cancel-button" type="button" :disabled="saving" @click="emit('close')">Cancelar</button>
+          <button class="save-button" type="submit" :disabled="saving">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h12l2 2v14H5V4Z" /><path d="M8 4v6h8V4M9 20v-6h6v6" /></svg>
             {{ isEditing ? 'Salvar alterações' : 'Salvar disciplina' }}
           </button>
@@ -546,6 +556,12 @@ function submitForm() {
   width: 17px;
 }
 
+.cancel-button:disabled,
+.save-button:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
 button:focus-visible {
   outline: 3px solid rgba(105, 54, 224, .28);
   outline-offset: 2px;
@@ -562,7 +578,9 @@ button:focus-visible {
   --app-select-radius: 7px;
   --app-select-padding: 0 14px;
 }
-@media (max-width: 680px) {
+/* Breakpoint padrão 760 (era 680). Abaixo dele: fontes de 12 px no mínimo, campos de 16 px
+   (sem zoom no iOS) e alvos de toque de 44 px. */
+@media (max-width: 760px) {
   .modal-backdrop {
     align-items: flex-start;
     padding: 12px;
@@ -582,7 +600,7 @@ button:focus-visible {
   }
 
   .schedule-row {
-    grid-template-columns: 1fr 1fr 43px;
+    grid-template-columns: 1fr 1fr 44px;
   }
 
   .performance-fields {
@@ -604,6 +622,54 @@ button:focus-visible {
 
   .save-button {
     justify-content: center;
+  }
+
+  .modal-title p,
+  .schedule-fieldset > p,
+  .color-fieldset > p,
+  .schedule-separator,
+  .time-error {
+    font-size: .75rem;
+  }
+
+  .form-field,
+  .schedule-fieldset legend,
+  .color-fieldset legend,
+  .add-schedule,
+  .cancel-button,
+  .save-button {
+    font-size: .875rem;
+  }
+
+  .form-field > input {
+    font-size: 1rem;
+    min-height: 44px;
+  }
+
+  .schedule-row,
+  .period-fields {
+    --app-select-height: 44px;
+    --app-select-font-size: 1rem;
+    --app-time-height: 44px;
+    --app-time-font-size: 1rem;
+  }
+
+  .modal-close,
+  .add-schedule,
+  .cancel-button,
+  .save-button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .remove-schedule {
+    height: 44px;
+    width: 44px;
+  }
+
+  .color-options label > span {
+    height: 44px;
+    width: 44px;
   }
 }
 </style>

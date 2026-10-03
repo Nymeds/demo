@@ -1,4 +1,5 @@
 <script setup>
+import { saveSession } from '../../shared/auth/session.js'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import AppToast from '../../components/ui/AppToast.vue'
 import DeleteAccountCard from './DeleteAccountCard.vue'
@@ -9,18 +10,9 @@ import './settings.css'
 
 const TOAST_DURATION_MS = 4500
 
-const { accessToken } = defineProps({
-  accessToken: { type: String, required: true },
-})
+const emit = defineEmits(['preferences-updated', 'account-deleted'])
 
-const emit = defineEmits([
-  'token-refreshed',
-  'preferences-updated',
-  'account-deleted',
-  'session-expired',
-])
-
-const api = createSettingsApi(() => accessToken)
+const api = createSettingsApi()
 const loading = ref(true)
 const loadError = ref('')
 const profile = ref(null)
@@ -39,10 +31,8 @@ function closeToast() {
 }
 
 function handleFailure(error) {
-  if (error instanceof SessionExpiredError) {
-    emit('session-expired')
-    return
-  }
+  // Sessão expirada é tratada pelo ouvinte global (AuthScreen).
+  if (error instanceof SessionExpiredError) return
 
   showToast(error.message || 'Não foi possível salvar as configurações.', 'error')
 }
@@ -56,10 +46,7 @@ async function load() {
     profile.value = loadedProfile
     preferences.value = loadedPreferences
   } catch (error) {
-    if (error instanceof SessionExpiredError) {
-      emit('session-expired')
-      return
-    }
+    if (error instanceof SessionExpiredError) return
 
     loadError.value = error.message || 'Não foi possível carregar as configurações.'
   } finally {
@@ -68,7 +55,7 @@ async function load() {
 }
 
 function onPasswordChanged(authResponse) {
-  emit('token-refreshed', authResponse.accessToken)
+  saveSession(authResponse)
   profile.value = { ...profile.value, passwordChangedAt: new Date().toISOString() }
   showToast('Senha alterada. Outros dispositivos conectados precisarão entrar novamente.')
 }

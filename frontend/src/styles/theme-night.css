@@ -1,42 +1,52 @@
 /* Ajustes manuais do modo noite. As demais cores são geradas por postcss/nightTheme.js; aqui
-   ficam só os pontos em que a troca automática não basta — principalmente a barra lateral,
-   que no modo noite vira a parte clara da página. O #app dá prioridade sobre as regras geradas. */
+   ficam só os pontos em que a troca automática não basta. A barra lateral já é azul-marinho de
+   dia, então à noite ela continua igual: a troca automática a deixaria clara, destoando da página
+   escura. O #app dá prioridade sobre as regras geradas. */
 
 :root[data-theme="night"] {
   color-scheme: dark;
 }
 
-/* Barra lateral */
-:root[data-theme="night"] #app .dashboard-sidebar { box-shadow: inset -1px 0 0 #e2e5ef; color: #171c30; }
-:root[data-theme="night"] #app .dashboard-brand { border-bottom-color: #e2e5ef; }
-:root[data-theme="night"] #app .dashboard-brand small { color: #626a7f; }
+/* Barra lateral: as mesmas cores do modo dia */
+:root[data-theme="night"] #app .dashboard-sidebar { background: linear-gradient(180deg, #111a2f 0%, #091326 100%); box-shadow: inset -1px 0 0 rgba(255, 255, 255, .06); color: #fff; }
+:root[data-theme="night"] #app .dashboard-brand small { color: #9faac0; }
 :root[data-theme="night"] #app .dashboard-navigation button:not(.active),
-:root[data-theme="night"] #app .dashboard-logout { color: #3b4257; }
+:root[data-theme="night"] #app .dashboard-profile-navigation button:not(.active),
+:root[data-theme="night"] #app .dashboard-logout { color: #d4d9e3; }
 :root[data-theme="night"] #app .dashboard-navigation button:not(.active):hover,
-:root[data-theme="night"] #app .dashboard-logout:hover { background: #ebe6fb; color: #171c30; }
-:root[data-theme="night"] #app .dashboard-sidebar-footer { border-top-color: #e2e5ef; }
+:root[data-theme="night"] #app .dashboard-profile-navigation button:not(.active):hover,
+:root[data-theme="night"] #app .dashboard-logout:hover { background: rgba(255, 255, 255, .07); color: #fff; }
+:root[data-theme="night"] #app .dashboard-user-details small { color: #a9b1c1; }
 
-/* Caixa do usuário e menu da conta */
-:root[data-theme="night"] #app .user-menu-trigger { background: #ffffff; border-color: #e2e5ef; color: #171c30; }
-:root[data-theme="night"] #app .user-menu-trigger:hover { background: #f1eefb; }
-:root[data-theme="night"] #app .user-menu-trigger[aria-expanded="true"] { border-color: #b9a6f3; }
-:root[data-theme="night"] #app .user-menu-details small { color: #626a7f; }
-:root[data-theme="night"] #app .user-menu-chevron { stroke: #8a90a2; }
-:root[data-theme="night"] #app .user-menu-panel { background: #ffffff; border-color: #e2e5ef; box-shadow: 0 18px 40px rgba(17, 26, 47, .16); }
-:root[data-theme="night"] #app .user-menu-item { color: #2b3146; }
-:root[data-theme="night"] #app .user-menu-item:hover,
-:root[data-theme="night"] #app .user-menu-item:focus-visible { background: #f1eefb; }
-:root[data-theme="night"] #app .user-menu-item.is-current { color: #5f2bd5; }
-:root[data-theme="night"] #app .user-menu-switch { background: #d8dbe6; }
-:root[data-theme="night"] #app .user-menu-item[aria-checked="true"] .user-menu-switch { background: #6b3ad6; }
-:root[data-theme="night"] #app .user-menu-switch span { background: #ffffff; }
-:root[data-theme="night"] #app .user-menu-separator { background: #eceef4; }
+/* Caixa do usuário e menu da conta (também como no modo dia) */
+:root[data-theme="night"] #app .user-menu-trigger { color: #fff; }
+:root[data-theme="night"] #app .user-menu-panel { background: #18223a; }
+:root[data-theme="night"] #app .user-menu-item.is-current { color: #c4b5fd; }
+:root[data-theme="night"] #app .user-menu-switch span { background: #fff; }
 
-/* Prévia da caixa do usuário no recorte da foto de perfil (acompanha a barra lateral clara) */
-:root[data-theme="night"] #app .crop-sidebar-preview { box-shadow: inset 0 0 0 1px #e2e5ef; }
-:root[data-theme="night"] #app .crop-sidebar-text strong { color: #171c30; }
-:root[data-theme="night"] #app .crop-sidebar-text small { color: #626a7f; }
+/* Folha "Mais" do celular (a mesma caixa escura do menu da conta): sem isto ela ficava branca à noite */
+:root[data-theme="night"] #app .dashboard-more-sheet { background: #18223a; border-color: rgba(255, 255, 255, .09); }
+:root[data-theme="night"] #app .dashboard-more-item { color: rgba(236, 239, 246, .92); }
+:root[data-theme="night"] #app .dashboard-more-item:hover,
+:root[data-theme="night"] #app .dashboard-more-item.active { color: #fff; }
+:root[data-theme="night"] #app .dashboard-more-item[aria-pressed="true"] { color: #c4b5fd; }
 
-@media (max-width: 760px) {
-  :root[data-theme="night"] #app .user-menu-trigger { background: transparent; border-color: transparent; }
+/* Cabeçalho do login no tablet/celular: o fundo roxo não muda à noite, então os textos claros também não */
+:root[data-theme="night"] #app .auth-presentation:not(.is-register) .auth-compact-brand strong { color: #fff; }
+:root[data-theme="night"] #app .auth-presentation:not(.is-register) .auth-compact-brand span { color: #c9c2ff; }
+
+/* Prévia da caixa do usuário no recorte da foto de perfil (acompanha a barra lateral) */
+:root[data-theme="night"] #app .crop-sidebar-preview { background: #111a2f; }
+:root[data-theme="night"] #app .crop-sidebar-text strong { color: #fff; }
+
+/* Faixa roxa do Dashboard: continua roxa à noite, então os textos claros sobre ela ficam como de
+   dia (a troca automática os escurecia e o subtítulo sumia no roxo). */
+:root[data-theme="night"] #app .dashboard-welcome-label { color: #ded3ff; }
+:root[data-theme="night"] #app .dashboard-topbar p { color: #e5ddfa; }
+
+/* Barras de rolagem no modo noite */
+:root[data-theme="night"] {
+  --scrollbar-thumb: #3b4463;
+  --scrollbar-thumb-hover: #8b6cf0;
+  --scrollbar-track: transparent;
 }

@@ -25,6 +25,8 @@
 .grades-panel { background: #fff; border: 1px solid #e7e8f0; border-radius: 14px; box-shadow: 0 8px 24px rgba(30, 36, 65, .04); min-width: 0; padding: 20px; }
 .grades-panel h2 { color: #171c30; font-size: .95rem; font-weight: 800; letter-spacing: -.02em; margin: 0 0 14px; }
 .grades-list { padding: 0; }
+.grades-charts { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
+.grades-chart-card { overflow: visible; }
 .grades-side { display: grid; gap: 16px; }
 .grades-info p { color: #6c7287; font-size: .72rem; line-height: 1.6; margin: 0; }
 
@@ -52,17 +54,13 @@
 
 .grades-visually-hidden { border: 0; clip: rect(0 0 0 0); height: 1px; margin: -1px; overflow: hidden; padding: 0; position: absolute; white-space: nowrap; width: 1px; }
 
-@media (max-width: 1180px) {
+@media (max-width: 1100px) {
   .grades-layout { grid-template-columns: 1fr; }
   .grades-side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grades-info { grid-column: 1 / -1; }
 }
 
-@media (max-width: 900px) {
-  .grades-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .grades-side,
   .grades-filters { grid-template-columns: 1fr; }
   .grades-header .grades-button { width: 100%; }
@@ -104,7 +102,36 @@
 .grades-button.is-danger { background: #cc3540; color: #fff; border: 0; }
 @media(max-width: 760px) { .grades-header-actions { width: 100%; flex-wrap: wrap; } .grades-header-actions .is-search { flex: 0 1 245px; } .grades-toolbar-actions { width: 100%; } .grades-tabs { gap: 8px; } .grades-tabs button { padding: 10px 17px; } .grades-footer { flex-wrap: wrap; } }
 
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .grades-header-actions { align-items: stretch; flex-direction: column; }
   .grades-header-actions .is-search { flex: auto; max-width: none; width: 100%; }
+}
+
+/* Celular: fontes de pelo menos 12px, alvos de toque de 44px e campos de 16px (sem zoom no iOS). */
+@media (max-width: 760px) {
+  .grades-field { font-size: .75rem; --app-select-height: 44px; --app-select-font-size: 1rem; }
+  .grades-field input,
+  .grades-header-actions .is-search input { font-size: 1rem; min-height: 44px; }
+  .grades-header-actions .is-search svg { top: 50%; }
+  .grades-button,
+  .grades-header-actions .grades-button,
+  .grades-toolbar .grades-button { font-size: .875rem; min-height: 44px; }
+  .grades-tip p,
+  .grades-info p { font-size: .75rem; }
+  .grades-tabs button { font-size: .875rem; min-height: 44px; }
+  .grades-sort { flex: 1 1 100%; padding: 0 9px 0 14px; }
+  .grades-sort > span { font-size: .75rem; }
+  .grades-sort .app-select { --app-select-height: 44px; --app-select-font-size: 1rem; flex: 1; width: auto; }
+  .grades-period { --app-select-height: 44px; --app-select-font-size: 1rem; flex: 1 1 140px; width: auto; }
+  .grades-toolbar .grades-button { flex: 1 1 auto; }
+  .grades-view-toggle button { height: 44px; width: 44px; }
+  .grades-pagination button,
+  .grades-pagination > span { font-size: .875rem; min-height: 44px; min-width: 44px; }
+  .grades-tip-icon { align-self: flex-start; width: 42px; }
+  .grades-confirm > div { flex-wrap: wrap; }
+}
+
+@media (max-width: 520px) {
+  .grades-panel:not(.grades-list) { padding: 16px; }
+  .grades-footer { justify-content: center; }
 }

@@ -1,0 +1,17 @@
+{
+  "name": "acadorganize-mailer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "start": "node --env-file=.env src/index.js",
+    "test": "node --test",
+    "verify": "node --env-file=.env src/verify.js"
+  },
+  "dependencies": {
+    "nodemailer": "^10.0.13"
+  }
+}

@@ -26,3 +26,11 @@ input[type="number"]::-webkit-outer-spin-button {
   background-color: #111a2f;
   color: #e7ebf5;
 }
+
+/* No celular, campos com menos de 16px fazem o navegador aproximar a tela ao receber o foco. Seletor
+   simples de propósito: as telas que já definem a fonte do campo (classe) continuam valendo. */
+@media (max-width: 760px) {
+  input,
+  select,
+  textarea { font-size: max(16px, 1em); }
+}

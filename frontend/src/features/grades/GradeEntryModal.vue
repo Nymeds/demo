@@ -1,5 +1,7 @@
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useFocusTrap, getFocusableElements } from '../../shared/a11y/useFocusTrap.js'
+import { todayIso } from '../../shared/date/localDate.js'
 import AppDatePicker from '../../components/ui/AppDatePicker.vue'
 import AppSelect from '../../components/ui/AppSelect.vue'
 
@@ -58,15 +60,7 @@ const emit = defineEmits([
   'select-discipline'
 ])
 
-// Data de hoje no fuso do navegador. Com toISOString (UTC), à noite no Brasil a data já seria a
-// de amanhã, e o backend recusaria a nota por estar "no futuro".
-function localIsoDate() {
-  const now = new Date()
-  now.setMinutes(now.getMinutes() - now.getTimezoneOffset())
-  return now.toISOString().slice(0, 10)
-}
-
-const today = localIsoDate()
+const today = todayIso()
 const activityId = ref(props.grade?.activityId ?? '')
 const observation = ref(props.grade?.observation ?? '')
 const score = ref(props.grade?.score ?? '')
@@ -83,6 +77,13 @@ const disciplineOptions = computed(() => props.disciplines.map(discipline => ({
 
 const selectedActivity = computed(() => (
   props.activities.find(activity => activity.id === activityId.value) ?? null
+))
+
+// Editando uma nota já vinculada a uma avaliação: se a lista de avaliações não carregou (ou ainda
+// está carregando), a edição não pode depender dela. O seletor fica bloqueado e o vínculo atual
+// (mostrado a partir dos próprios dados da nota) é preservado ao salvar.
+const lockActivitySelector = computed(() => (
+  Boolean(props.grade) && (!props.grade.activityId || props.activitiesStatus !== 'ready')
 ))
 
 function isGraded(activity) {
@@ -113,19 +114,20 @@ function statusLabel(status) {
 const activityOptions = computed(() => props.activities.map(activity => {
   const graded = isGraded(activity)
   const future = isFuture(activity)
+  const isExam = activity.type === 'EXAM'
 
   return {
     value: activity.id,
-    label: activity.title,
+    label: isExam ? `${activity.title} (Prova)` : activity.title,
     meta: `${future ? 'Acontece em' : 'Realizada em'} ${formatDate(activity.dueDate)}`,
     disabled: graded || future,
-    badge: graded ? 'Nota já lançada' : (future ? 'Ainda não aconteceu' : undefined),
-    badgeTone: graded ? 'neutral' : 'warning'
+    badge: graded ? 'Nota já lançada' : (future ? 'Ainda não aconteceu' : (isExam ? 'Prova' : undefined)),
+    badgeTone: graded ? 'neutral' : (isExam ? 'neutral' : 'warning')
   }
 }))
 
 const activityError = computed(() => (
-  (selectedActivity.value || (props.grade && !props.grade.activityId)) ? '' : 'Selecione a prova ou trabalho desta nota.'
+  (selectedActivity.value || lockActivitySelector.value) ? '' : 'Selecione a prova ou trabalho desta nota.'
 ))
 
 const scoreError = computed(() => {
@@ -166,32 +168,11 @@ function closeIfIdle() {
   if (!props.saving) emit('close')
 }
 
-function focusableElements() {
-  return [...(card.value?.querySelectorAll('input:not([disabled]), textarea:not([disabled]), button:not([disabled]):not([tabindex="-1"])') ?? [])]
-}
-
-// Mantém o Tab dentro do diálogo enquanto ele estiver aberto.
-function trapFocus(event) {
-  const elements = focusableElements()
-  if (elements.length === 0) return
-
-  const first = elements[0]
-  const last = elements[elements.length - 1]
-
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault()
-    last.focus()
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault()
-    first.focus()
-  }
-}
-
 // Quando as avaliações aparecem, o foco vai direto para a escolha da prova.
 async function focusFirstField() {
   await nextTick()
   const activityPicker = card.value?.querySelector('#grade-modal-activity')
-  const target = activityPicker ?? focusableElements()[0]
+  const target = activityPicker ?? getFocusableElements(card.value)[0]
   target?.focus()
 }
 
@@ -203,7 +184,7 @@ function submit() {
   }
 
   emit('save', {
-    activityId: selectedActivity.value?.id ?? null,
+    activityId: lockActivitySelector.value ? (props.grade?.activityId ?? null) : (selectedActivity.value?.id ?? null),
     assessmentName: (selectedActivity.value?.title ?? props.grade?.assessmentName ?? '').trim().slice(0, ASSESSMENT_NAME_LIMIT),
     observation: observation.value.trim() || null,
     score: Number(score.value),
@@ -223,10 +204,15 @@ watch(() => props.activitiesStatus, () => {
   if (!card.value?.contains(document.activeElement)) focusFirstField()
 })
 
-onMounted(focusFirstField)
+useFocusTrap(() => true, card, {
+  onClose: closeIfIdle,
+  initialFocus: () => card.value?.querySelector('#grade-modal-activity'),
+  closeOnEscape: () => !props.saving,
+})
+
 </script>
 <template>
-  <div class="grade-entry-overlay" @click.self="closeIfIdle" @keydown.esc="closeIfIdle" @keydown.tab="trapFocus">
+  <div class="grade-entry-overlay" @click.self="closeIfIdle" >
     <section ref="card" class="grade-entry-modal" role="dialog" aria-modal="true" aria-labelledby="grade-modal-title">
       <header class="grade-entry-header">
         <span class="grade-entry-icon" aria-hidden="true">{{ grade ? '✎' : '+' }}</span>
@@ -239,9 +225,13 @@ onMounted(focusFirstField)
             <AppSelect id="grade-modal-discipline" :model-value="disciplineId" :options="disciplineOptions" :disabled="saving || Boolean(grade)" placeholder="Selecione a disciplina" @update:model-value="value => emit('select-discipline', value)" />
           </label>
           <div class="grade-entry-field"><label for="grade-modal-activity">Avaliação <strong>*</strong></label>
-            <input v-if="grade && !grade.activityId" :value="grade.assessmentName" readonly aria-label="Avaliação">
+            <input v-if="lockActivitySelector" :value="grade.assessmentName" readonly aria-label="Avaliação">
             <AppSelect v-else id="grade-modal-activity" v-model="activityId" :options="activityOptions" :disabled="!disciplineId || activitiesStatus !== 'ready' || saving" :invalid="submitted && Boolean(activityError)" placeholder="Selecione a prova ou trabalho" />
             <small v-if="activitiesStatus === 'loading'" role="status">Carregando avaliações...</small>
+            <small v-else-if="activitiesStatus === 'error' && grade" role="status" class="grade-entry-warning">
+              Não foi possível atualizar a lista de avaliações. A nota mantém a avaliação já vinculada.
+              <button type="button" class="grade-entry-link" @click="emit('retry')">Tentar novamente</button>
+            </small>
             <small v-else-if="activitiesStatus === 'error'" role="alert">Não foi possível carregar. <button type="button" class="grade-entry-link" @click="emit('retry')">Tentar novamente</button></small>
             <small v-else>Se não encontrar, cadastre primeiro em <button type="button" class="grade-entry-link" @click="emit('go-to-activities')">Atividades</button>.</small>
             <small v-if="submitted && activityError" class="grade-entry-error">{{ activityError }}</small>
@@ -262,7 +252,7 @@ onMounted(focusFirstField)
         <p v-if="errorMessage" class="grade-entry-error" role="alert">{{ errorMessage }}</p>
         <footer class="grade-entry-actions">
           <button class="grades-button is-secondary" type="button" :disabled="saving" @click="closeIfIdle">Cancelar</button>
-          <button class="grades-button is-primary" type="submit" :disabled="saving || !disciplineId || (activitiesStatus !== 'ready')">✓ {{ saving ? 'Salvando...' : 'Salvar nota' }}</button>
+          <button class="grades-button is-primary" type="submit" :disabled="saving || !disciplineId || (!grade && activitiesStatus !== 'ready')">✓ {{ saving ? 'Salvando...' : 'Salvar nota' }}</button>
         </footer>
       </form>
     </section>
@@ -285,9 +275,24 @@ onMounted(focusFirstField)
 .grade-entry-field textarea { resize: vertical; }
 .grade-entry-field small { display: block; color: #7b8197; font-size: .66rem; font-weight: 400; margin-top: 5px; }
 .grade-entry-field .grade-entry-error, .grade-entry-error { color: #c53f43; font-size: .72rem; }
+.grade-entry-warning { color: #b76315; }
 .grade-entry-field.is-wide { grid-column: 1/-1; }
 .grade-entry-counter { text-align: right; }
 .grade-entry-link { padding: 0; background: none; border: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }
 .grade-entry-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 22px; }
-@media(max-width: 520px) { .grade-entry-fields { grid-template-columns: 1fr; } .grade-entry-header { gap: 10px; } }
+/* Celular: fontes de pelo menos 12px, campos de 16px (sem zoom no iOS) e alvos de toque de 44px. */
+@media (max-width: 760px) {
+  .grade-entry-overlay { padding: 12px; }
+  .grade-entry-header p { font-size: .75rem; }
+  .grade-entry-close { align-items: center; display: inline-flex; flex: 0 0 44px; font-size: 1.7rem; height: 44px; justify-content: center; width: 44px; }
+  .grade-entry-field { font-size: .875rem; --app-select-height: 44px; --app-select-font-size: 1rem; --app-date-height: 44px; --app-date-font-size: 1rem; }
+  .grade-entry-field input, .grade-entry-field textarea { font-size: 1rem; min-height: 44px; }
+  .grade-entry-link { margin: -14px 0; padding: 14px 0; }
+  .grade-entry-field small, .grade-entry-field .grade-entry-error, .grade-entry-error { font-size: .75rem; }
+}
+@media (max-width: 520px) {
+  .grade-entry-fields { grid-template-columns: 1fr; }
+  .grade-entry-header { gap: 10px; }
+  .grade-entry-actions > button { flex: 1 1 0; }
+}
 </style>

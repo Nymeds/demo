@@ -1,46 +1,45 @@
 <script setup>
+import { apiRequest } from '../../shared/http/apiRequest.js'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import ActivitiesSummaryCards from './ActivitiesSummaryCards.vue'
+import ActivityCard from './ActivityCard.vue'
 import ActivityModal from './ActivityModal.vue'
 import AppSelect from '../../components/ui/AppSelect.vue'
 import AppToast from '../../components/ui/AppToast.vue'
 import DeleteActivityModal from './DeleteActivityModal.vue'
+import {
+  countByStatus,
+  filterActivities,
+  filters,
+  normalizeActivity as normalizeActivityWith,
+  sortOptions,
+} from './activitiesPresentation.js'
+import { loadActiveDashboard } from '../../shared/dashboards/useActiveDashboard.js'
+import './activities.css'
 
-const props = defineProps({
-  accessToken: { type: String, required: true },
-})
 const emit = defineEmits(['navigate'])
 
 const dashboardId = ref('')
 const disciplines = ref([])
 const activities = ref([])
 const loading = ref(true)
+const loadError = ref('')
 const requestError = ref('')
 const saveFeedback = ref('')
+let activitiesRequestId = 0
 
 const searchTerm = ref('')
 const activeFilter = ref('all')
 const sortOrder = ref('dueAsc')
 const viewMode = ref('list')
-const sortOptions = [
-  { value: 'dueAsc', label: 'Prazo mais próximo' },
-  { value: 'dueDesc', label: 'Prazo mais distante' },
-  { value: 'titleAsc', label: 'Título A–Z' },
-  { value: 'titleDesc', label: 'Título Z–A' },
-]
 
 const showActivityModal = ref(false)
 const editingActivity = ref(null)
 const activityToDelete = ref(null)
 const saving = ref(false)
+const activityModalError = ref('')
 const toast = ref({ message: '', type: 'success' })
 let toastTimer
-
-const filters = [
-  { value: 'all', label: 'Todas' },
-  { value: 'pending', label: 'Pendentes' },
-  { value: 'progress', label: 'Em andamento' },
-  { value: 'completed', label: 'Concluídas' },
-]
 
 function showToast(message, type = 'success') {
   toast.value = { message, type }
@@ -55,52 +54,17 @@ function closeToast() {
   toast.value.message = ''
 }
 
-async function apiRequest(path, options = {}) {
-  const response = await fetch(path, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${props.accessToken}`,
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-      ...options.headers,
-    },
-  })
-
-  const data = response.status === 204
-    ? null
-    : await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    const fieldErrors = data.errors && typeof data.errors === 'object'
-      ? Object.values(data.errors).filter(Boolean).join(' ')
-      : ''
-
-    throw new Error(fieldErrors || data.detail || data.message || 'Não foi possível concluir a solicitação.')
-  }
-
-  return data
-}
-
-function disciplineById(id) {
-  return disciplines.value.find(discipline => discipline.id === id)
-}
-
 function normalizeActivity(activity) {
-  const discipline = disciplineById(activity.disciplineId)
-
-  return {
-    ...activity,
-    disciplineName: discipline?.name || 'Disciplina',
-    disciplineColor: discipline?.color || '#6432df',
-  }
+  return normalizeActivityWith(activity, disciplines.value)
 }
 
 async function loadActivities() {
+  const requestId = ++activitiesRequestId
   loading.value = true
-  requestError.value = ''
+  loadError.value = ''
 
   try {
-    const dashboards = await apiRequest('/api/v1/dashboards')
-    let dashboard = dashboards.find(item => item.status === 'ACTIVE') || dashboards[0]
+    let dashboard = await loadActiveDashboard(apiRequest)
 
     if (!dashboard) {
       dashboard = await apiRequest('/api/v1/dashboards', {
@@ -112,38 +76,33 @@ async function loadActivities() {
       })
     }
 
+    if (requestId !== activitiesRequestId) return
+
     dashboardId.value = dashboard.id
 
     disciplines.value = await apiRequest(
       `/api/v1/dashboards/${dashboard.id}/disciplines`,
     )
 
-    if (disciplines.value.length === 0) {
-      activities.value = []
-      return
-    }
+    if (requestId !== activitiesRequestId) return
 
-    const activityLists = await Promise.all(
-      disciplines.value.map(async discipline => {
-        const savedActivities = await apiRequest(
-          `/api/v1/dashboards/${dashboard.id}/disciplines/${discipline.id}/activities`,
-        )
-
-        return savedActivities.map(activity => ({
-          ...activity,
-          disciplineName: discipline.name,
-          disciplineColor: discipline.color || '#6432df',
-        }))
-      }),
+    // Só atividades: as provas (type=EXAM) têm a tela Provas.
+    const loadedActivities = await apiRequest(
+      `/api/v1/dashboards/${dashboard.id}/activities?type=ACTIVITY`,
     )
 
-    const loadedActivities = activityLists.flat()
-    activities.value = [...new Map(loadedActivities.map(activity => [activity.id, activity])).values()]
+    if (requestId !== activitiesRequestId) return
+
+    activities.value = loadedActivities.map(activity => normalizeActivity(activity))
+    loadError.value = ''
   } catch (error) {
-    requestError.value = error.message || 'Não foi possível carregar as atividades.'
-    showToast(requestError.value, 'error')
+    if (requestId !== activitiesRequestId) return
+
+    loadError.value = error.message || 'Não foi possível carregar as atividades.'
   } finally {
-    loading.value = false
+    if (requestId === activitiesRequestId) {
+      loading.value = false
+    }
   }
 }
 
@@ -156,12 +115,14 @@ function openAddModal() {
 
   saveFeedback.value = ''
   requestError.value = ''
+  activityModalError.value = ''
   editingActivity.value = null
   showActivityModal.value = true
 }
 
 function openEditModal(activity) {
   saveFeedback.value = ''
+  activityModalError.value = ''
   editingActivity.value = activity
   showActivityModal.value = true
 }
@@ -169,12 +130,14 @@ function openEditModal(activity) {
 function closeActivityModal() {
   showActivityModal.value = false
   editingActivity.value = null
+  activityModalError.value = ''
 }
 
 async function saveActivity(formData) {
   if (saving.value) return
 
   requestError.value = ''
+  activityModalError.value = ''
   saving.value = true
 
   try {
@@ -192,6 +155,7 @@ async function saveActivity(formData) {
         description: formData.description,
         dueDate: formData.dueDate,
         status: formData.status,
+        type: formData.type,
       }),
     })
 
@@ -211,8 +175,7 @@ async function saveActivity(formData) {
     showToast(saveFeedback.value)
     closeActivityModal()
   } catch (error) {
-    requestError.value = error.message || 'Não foi possível salvar a atividade.'
-    showToast(requestError.value, 'error')
+    activityModalError.value = error.message || 'Não foi possível salvar a atividade.'
   } finally {
     saving.value = false
   }
@@ -249,10 +212,24 @@ async function confirmDeleteActivity() {
   }
 }
 
+const busyActivityIds = ref(new Set())
+
+function isActivityBusy(id) {
+  return busyActivityIds.value.has(id)
+}
+
+function setActivityBusy(id, busy) {
+  const next = new Set(busyActivityIds.value)
+  if (busy) next.add(id)
+  else next.delete(id)
+  busyActivityIds.value = next
+}
+
 async function completeActivity(activity) {
-  if (activity.status === 'COMPLETED') return
+  if (activity.status === 'COMPLETED' || isActivityBusy(activity.id)) return
 
   requestError.value = ''
+  setActivityBusy(activity.id, true)
 
   try {
     const updatedActivity = await apiRequest(
@@ -279,6 +256,8 @@ async function completeActivity(activity) {
   } catch (error) {
     requestError.value = error.message || 'Não foi possível concluir a atividade.'
     showToast(requestError.value, 'error')
+  } finally {
+    setActivityBusy(activity.id, false)
   }
 }
 
@@ -288,84 +267,15 @@ function clearFilters() {
   sortOrder.value = 'dueAsc'
 }
 
-const filteredActivities = computed(() => {
-  const search = searchTerm.value.trim().toLocaleLowerCase('pt-BR')
-
-  return activities.value
-    .filter(activity => {
-      const matchesSearch = !search
-        || activity.title.toLocaleLowerCase('pt-BR').includes(search)
-        || (activity.description || '').toLocaleLowerCase('pt-BR').includes(search)
-        || activity.disciplineName.toLocaleLowerCase('pt-BR').includes(search)
-
-      const matchesFilter = activeFilter.value === 'all'
-        || (activeFilter.value === 'pending' && activity.status === 'PENDING')
-        || (activeFilter.value === 'progress' && activity.status === 'IN_PROGRESS')
-        || (activeFilter.value === 'completed' && activity.status === 'COMPLETED')
-
-      return matchesSearch && matchesFilter
-    })
-    .sort((first, second) => {
-      if (sortOrder.value === 'dueDesc') {
-        return second.dueDate.localeCompare(first.dueDate)
-      }
-
-      if (sortOrder.value === 'titleAsc') {
-        return first.title.localeCompare(second.title, 'pt-BR')
-      }
-
-      if (sortOrder.value === 'titleDesc') {
-        return second.title.localeCompare(first.title, 'pt-BR')
-      }
-
-      return first.dueDate.localeCompare(second.dueDate)
-    })
-})
-
-const totalPending = computed(() => (
-  activities.value.filter(activity => activity.status === 'PENDING').length
+const filteredActivities = computed(() => (
+  filterActivities(activities.value, searchTerm.value, activeFilter.value, sortOrder.value)
 ))
 
-const totalInProgress = computed(() => (
-  activities.value.filter(activity => activity.status === 'IN_PROGRESS').length
-))
+const totalPending = computed(() => countByStatus(activities.value, 'PENDING'))
 
-const totalCompleted = computed(() => (
-  activities.value.filter(activity => activity.status === 'COMPLETED').length
-))
+const totalInProgress = computed(() => countByStatus(activities.value, 'IN_PROGRESS'))
 
-function statusDetails(status) {
-  const statuses = {
-    PENDING: { label: 'Pendente', className: 'is-pending' },
-    IN_PROGRESS: { label: 'Em andamento', className: 'is-progress' },
-    COMPLETED: { label: 'Concluída', className: 'is-completed' },
-  }
-
-  return statuses[status] || statuses.PENDING
-}
-
-function formatDate(date) {
-  if (!date) return '—'
-
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(`${date}T12:00:00`))
-}
-
-function isOverdue(activity) {
-  if (activity.status === 'COMPLETED' || !activity.dueDate) return false
-
-  const today = new Date()
-  const todayIso = [
-    today.getFullYear(),
-    String(today.getMonth() + 1).padStart(2, '0'),
-    String(today.getDate()).padStart(2, '0'),
-  ].join('-')
-
-  return activity.dueDate < todayIso
-}
+const totalCompleted = computed(() => countByStatus(activities.value, 'COMPLETED'))
 
 onMounted(loadActivities)
 onBeforeUnmount(() => clearTimeout(toastTimer))
@@ -405,7 +315,7 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
         <button
           class="activities-add-button"
           type="button"
-          :disabled="loading || !dashboardId || disciplines.length === 0"
+          :disabled="loading || !!loadError || !dashboardId || disciplines.length === 0"
           @click="openAddModal"
         >
           <span aria-hidden="true">＋</span>
@@ -414,62 +324,12 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
       </div>
     </header>
 
-    <div class="activities-summary-grid">
-      <article class="activities-summary-card is-purple">
-        <span class="activities-summary-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <rect x="5" y="4" width="14" height="17" rx="2" />
-            <path d="M9 4V2m6 2V2M8 9h8" />
-          </svg>
-        </span>
-        <div>
-          <p>Total de atividades</p>
-          <strong>{{ activities.length }}</strong>
-          <small>Todas as disciplinas</small>
-        </div>
-      </article>
-
-      <article class="activities-summary-card is-orange">
-        <span class="activities-summary-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 7v5l3 2" />
-          </svg>
-        </span>
-        <div>
-          <p>Pendentes</p>
-          <strong>{{ totalPending }}</strong>
-          <small>Aguardando início</small>
-        </div>
-      </article>
-
-      <article class="activities-summary-card is-blue">
-        <span class="activities-summary-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <path d="M4 12h16M12 4v16" />
-          </svg>
-        </span>
-        <div>
-          <p>Em andamento</p>
-          <strong>{{ totalInProgress }}</strong>
-          <small>Em execução</small>
-        </div>
-      </article>
-
-      <article class="activities-summary-card is-green">
-        <span class="activities-summary-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="9" />
-            <path d="m8 12 3 3 5-6" />
-          </svg>
-        </span>
-        <div>
-          <p>Concluídas</p>
-          <strong>{{ totalCompleted }}</strong>
-          <small>Finalizadas</small>
-        </div>
-      </article>
-    </div>
+    <ActivitiesSummaryCards
+      :total="activities.length"
+      :pending="totalPending"
+      :in-progress="totalInProgress"
+      :completed="totalCompleted"
+    />
 
     <div class="activities-toolbar">
       <div class="activities-filters" aria-label="Filtrar atividades">
@@ -509,6 +369,20 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
         <p>Aguarde enquanto buscamos os dados.</p>
       </div>
 
+      <div v-else-if="loadError" class="activities-state-card">
+        <span class="activities-state-icon is-error" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v5m0 3h.01" />
+          </svg>
+        </span>
+        <h2>Não foi possível carregar as atividades</h2>
+        <p>{{ loadError }}</p>
+        <button class="activities-empty-button" type="button" @click="loadActivities">
+          Tentar novamente
+        </button>
+      </div>
+
       <div v-else-if="disciplines.length === 0" class="activities-state-card">
         <span class="activities-state-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24">
@@ -541,101 +415,18 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
 
       <template v-else>
         <div v-if="filteredActivities.length > 0" class="activities-list" :class="{ 'is-grid': viewMode === 'grid' }">
-          <article
+          <ActivityCard
             v-for="activity in filteredActivities"
             :key="activity.id"
-            class="activity-card"
-            :class="{ 'is-overdue': isOverdue(activity) }"
-          >
-            <span
-              class="activity-discipline-bar"
-              :style="{ background: activity.disciplineColor }"
-              aria-hidden="true"
-            ></span>
-
-            <div class="activity-main">
-              <div class="activity-title-row">
-                <div>
-                  <span
-                    class="activity-discipline"
-                    :style="{
-                      '--discipline-color': activity.disciplineColor,
-                    }"
-                  >
-                    <span aria-hidden="true"></span>
-                    {{ activity.disciplineName }}
-                  </span>
-
-                  <h2>{{ activity.title }}</h2>
-                </div>
-
-              </div>
-
-              <p v-if="activity.description" class="activity-description">
-                {{ activity.description }}
-              </p>
-
-              <div class="activity-meta">
-                <span :class="{ overdue: isOverdue(activity) }">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="3" y="5" width="18" height="16" rx="2" />
-                    <path d="M7 3v4m10-4v4M3 10h18" />
-                  </svg>
-                  {{ isOverdue(activity) ? 'Atrasada: ' : 'Entrega: ' }}
-                  {{ formatDate(activity.dueDate) }}
-                </span>
-              </div>
-            </div>
-
-            <div class="activity-card-actions">
-              <span
-                class="activity-status"
-                :class="statusDetails(activity.status).className"
-              >
-                {{ statusDetails(activity.status).label }}
-              </span>
-              <button
-                v-if="activity.status !== 'COMPLETED'"
-                class="activity-complete"
-                type="button"
-                title="Marcar como concluída"
-                @click="completeActivity(activity)"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="m5 12 4 4 10-10" />
-                </svg>
-                Concluir
-              </button>
-
-              <button
-                class="activity-icon-button"
-                type="button"
-                title="Editar atividade"
-                aria-label="Editar atividade"
-                @click="openEditModal(activity)"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="m4 20 4-1 11-11-3-3L5 16l-1 4Z" />
-                  <path d="m14 7 3 3" />
-                </svg>
-              </button>
-
-              <button
-                class="activity-icon-button is-delete"
-                type="button"
-                title="Excluir atividade"
-                aria-label="Excluir atividade"
-                @click="askToDeleteActivity(activity)"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" />
-                </svg>
-              </button>
-            </div>
-          </article>
+            :activity="activity"
+            :busy="isActivityBusy(activity.id)"
+            @complete="completeActivity"
+            @edit="openEditModal"
+            @delete="askToDeleteActivity"
+          />
         </div>
 
-        <div v-else class="activities-no-results">
+        <div v-else class="activities-no-results app-state-card is-empty">
           <h2>Nenhuma atividade encontrada</h2>
           <p>Altere a busca ou os filtros para visualizar outros resultados.</p>
           <button type="button" @click="clearFilters">Limpar filtros</button>
@@ -650,6 +441,7 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
       :activity="editingActivity"
       :disciplines="disciplines"
       :saving="saving"
+      :server-error="activityModalError"
       @close="closeActivityModal"
       @save="saveActivity"
     />
@@ -662,676 +454,3 @@ onBeforeUnmount(() => clearTimeout(toastTimer))
     />
   </section>
 </template>
-
-<style scoped>
-.activities-page {
-  display: grid;
-  gap: 22px;
-}
-
-.activities-header {
-  align-items: center;
-  display: flex;
-  gap: 22px;
-  justify-content: space-between;
-}
-
-.activities-heading,
-.activities-heading-icon,
-.activities-actions,
-.activities-search,
-.activities-add-button,
-.activities-summary-card,
-.activities-summary-icon,
-.activities-toolbar,
-.activities-filters,
-.activity-title-row,
-.activity-discipline,
-.activity-meta,
-.activity-card-actions,
-.activity-complete,
-.activity-icon-button {
-  align-items: center;
-  display: flex;
-}
-
-.activities-heading {
-  gap: 13px;
-}
-
-.activities-heading-icon {
-  background: #e9f8ef;
-  border-radius: 11px;
-  color: #2daf68;
-  height: 48px;
-  justify-content: center;
-  width: 48px;
-}
-
-.activities-heading-icon svg,
-.activities-summary-icon svg,
-.activities-search svg,
-.activity-meta svg,
-.activity-card-actions svg,
-.activities-state-icon svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-}
-
-.activities-heading-icon svg {
-  height: 25px;
-  width: 25px;
-}
-
-.activities-heading h1 {
-  color: #171c30;
-  font-size: 1.65rem;
-  font-weight: 800;
-  letter-spacing: -.04em;
-  line-height: 1.1;
-  margin: 0 0 6px;
-}
-
-.activities-heading p {
-  color: #70778b;
-  font-size: .76rem;
-}
-
-.activities-actions {
-  gap: 11px;
-}
-
-.activities-search {
-  background: #fff;
-  border: 1px solid #dfe1e8;
-  border-radius: 8px;
-  gap: 8px;
-  min-width: 245px;
-  padding: 0 12px;
-}
-
-.activities-search:focus-within {
-  border-color: #7544eb;
-  box-shadow: 0 0 0 3px rgba(117, 68, 235, .1);
-}
-
-.activities-search svg {
-  color: #82889a;
-  height: 18px;
-  width: 18px;
-}
-
-.activities-search input {
-  background: transparent;
-  border: 0;
-  color: #262c40;
-  font-size: .72rem;
-  min-width: 0;
-  outline: 0;
-  padding: 11px 0;
-  width: 100%;
-}
-
-.activities-search input::placeholder {
-  color: #9ba0af;
-}
-
-.activities-add-button,
-.activities-empty-button {
-  background: linear-gradient(100deg, #5d20df, #7419f5);
-  border: 0;
-  border-radius: 7px;
-  box-shadow: 0 8px 18px rgba(101, 31, 225, .18);
-  color: #fff;
-  font-size: .72rem;
-  font-weight: 700;
-  gap: 7px;
-  padding: 11px 15px;
-}
-
-.activities-add-button:disabled {
-  cursor: not-allowed;
-  opacity: .5;
-}
-
-.activities-add-button span,
-.activities-empty-button span {
-  font-size: 1.05rem;
-  line-height: .8;
-}
-
-.activities-summary-grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
-}
-
-.activities-summary-card {
-  background: #fff;
-  border: 1px solid #ebeaf1;
-  border-radius: 10px;
-  box-shadow: 0 5px 16px rgba(30, 36, 65, .035);
-  gap: 16px;
-  min-width: 0;
-  padding: 18px;
-  width: 100%;
-}
-
-.activities-summary-card > div {
-  min-width: 0;
-}
-
-.activities-summary-icon {
-  background: #f1edff;
-  border-radius: 50%;
-  color: #6739e7;
-  flex: 0 0 52px;
-  height: 52px;
-  justify-content: center;
-}
-
-.activities-summary-icon svg {
-  height: 26px;
-  width: 26px;
-}
-
-.activities-summary-card p {
-  color: #51586c;
-  font-size: .7rem;
-  font-weight: 650;
-}
-
-.activities-summary-card strong {
-  color: #151a2d;
-  display: block;
-  font-size: 1.35rem;
-  line-height: 1;
-  margin-top: 7px;
-}
-
-.activities-summary-card small {
-  color: #858b9e;
-  display: block;
-  font-size: .62rem;
-  margin-top: 6px;
-}
-
-.activities-summary-card.is-orange .activities-summary-icon {
-  background: #fff0e2;
-  color: #ee831e;
-}
-
-.activities-summary-card.is-blue .activities-summary-icon {
-  background: #eaf2ff;
-  color: #347bd8;
-}
-
-.activities-summary-card.is-green .activities-summary-icon {
-  background: #e8f8ef;
-  color: #2daf68;
-}
-
-.activities-content {
-  min-width: 0;
-  background: #fff;
-  border: 1px solid #ebeaf1;
-  border-radius: 12px;
-  box-shadow: 0 5px 16px rgba(30, 36, 65, .035);
-  overflow: hidden;
-}
-
-.activities-toolbar {
-  flex-wrap: wrap;
-  gap: 20px;
-  justify-content: space-between;
-  min-width: 0;
-}
-
-.activities-filters {
-  flex-wrap: wrap;
-  gap: 10px;
-  min-width: 0;
-}
-
-.activities-filters button {
-  background: #fff;
-  border: 1px solid #e1e2e9;
-  border-radius: 7px;
-  color: #34394c;
-  font-size: .7rem;
-  padding: 10px 17px;
-}
-
-.activities-filters button.active {
-  border-color: #6f36e7;
-  color: #6126d8;
-  font-weight: 700;
-}
-
-.activities-sort {
-  align-items: center;
-  background: #fff;
-  border: 1px solid #e1e2e9;
-  border-radius: 7px;
-  color: #34394c;
-  display: flex;
-  font-size: .68rem;
-  gap: 8px;
-  min-width: 0;
-  padding: 0 9px 0 14px;
-}
-
-.activities-sort {
-  --app-select-height: 36px;
-  --app-select-font-size: .68rem;
-  --app-select-radius: 7px;
-  --app-select-padding: 0 8px;
-}
-
-.activities-sort .app-select {
-  width: 150px;
-}
-
-.activities-sort > span {
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-
-.activities-list {
-  display: grid;
-}
-
-.activity-card {
-  align-items: stretch;
-  border-bottom: 1px solid #efeff4;
-  display: grid;
-  grid-template-columns: 4px minmax(0, 1fr) 328px;
-  min-height: 112px;
-  position: relative;
-}
-
-.activity-card:last-child {
-  border-bottom: 0;
-}
-
-.activity-card:hover {
-  background: #fcfbff;
-}
-
-.activity-card.is-overdue {
-  background: #fffafa;
-}
-
-.activity-discipline-bar {
-  width: 4px;
-}
-
-.activity-main {
-  min-width: 0;
-  padding: 15px 20px;
-}
-
-.activity-title-row {
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 15px;
-  justify-content: space-between;
-}
-
-.activity-title-row > div {
-  flex: 1 1 180px;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.activity-discipline {
-  color: #6b7185;
-  font-size: .62rem;
-  font-weight: 700;
-  gap: 6px;
-}
-
-.activity-discipline > span {
-  background: var(--discipline-color);
-  border-radius: 50%;
-  height: 7px;
-  width: 7px;
-}
-
-.activity-card h2 {
-  color: #202538;
-  font-size: .87rem;
-  font-weight: 800;
-  letter-spacing: -.015em;
-  margin: 7px 0 0;
-}
-
-.activity-status {
-  align-items: center;
-  border-radius: 999px;
-  box-sizing: border-box;
-  display: inline-flex;
-  flex: 0 0 auto;
-  font-size: .59rem;
-  font-weight: 750;
-  justify-content: center;
-  line-height: 1.4;
-  margin-right: auto;
-  min-width: 108px;
-  padding: 6px 9px;
-  white-space: nowrap;
-}
-
-.activity-status.is-pending {
-  background: #fff0e2;
-  color: #b76110;
-}
-
-.activity-status.is-progress {
-  background: #eaf2ff;
-  color: #2f6fc3;
-}
-
-.activity-status.is-completed {
-  background: #e8f8ef;
-  color: #218950;
-}
-
-.activity-description {
-  color: #747b8e;
-  font-size: .68rem;
-  line-height: 1.55;
-  margin: 10px 0 0;
-  max-width: 760px;
-  overflow-wrap: anywhere;
-}
-
-.activity-meta {
-  color: #7b8295;
-  font-size: .63rem;
-  gap: 14px;
-  margin-top: 13px;
-}
-
-.activity-meta span {
-  align-items: center;
-  display: flex;
-  gap: 6px;
-}
-
-.activity-meta span.overdue {
-  color: #ca403c;
-  font-weight: 700;
-}
-
-.activity-meta svg {
-  height: 15px;
-  width: 15px;
-}
-
-.activity-card-actions {
-  align-items: center;
-  gap: 7px;
-  justify-content: flex-end;
-  padding: 15px 18px;
-}
-
-.activity-complete {
-  background: #eff9f3;
-  border: 1px solid #cfeeda;
-  border-radius: 7px;
-  color: #248f55;
-  font-size: .64rem;
-  font-weight: 750;
-  gap: 6px;
-  padding: 8px 10px;
-}
-
-.activity-complete svg {
-  height: 15px;
-  width: 15px;
-}
-
-.activity-icon-button {
-  background: #fff;
-  border: 1px solid #dfe1e8;
-  border-radius: 7px;
-  color: #62697d;
-  height: 34px;
-  justify-content: center;
-  width: 34px;
-}
-
-.activity-icon-button svg {
-  height: 16px;
-  width: 16px;
-}
-
-.activity-icon-button:hover {
-  border-color: #cfc4ef;
-  color: #6231cf;
-}
-
-.activity-icon-button.is-delete:hover {
-  background: #fff5f4;
-  border-color: #efc7c3;
-  color: #cf4035;
-}
-
-.activities-state-card,
-.activities-no-results {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  min-height: 330px;
-  justify-content: center;
-  padding: 35px;
-  text-align: center;
-}
-
-.activities-state-icon {
-  align-items: center;
-  background: #f1edff;
-  border-radius: 50%;
-  color: #6739e7;
-  display: flex;
-  height: 58px;
-  justify-content: center;
-  width: 58px;
-}
-
-.activities-state-icon.is-green {
-  background: #e8f8ef;
-  color: #2daf68;
-}
-
-.activities-state-icon svg {
-  height: 29px;
-  width: 29px;
-}
-
-.activities-state-card h2,
-.activities-no-results h2 {
-  color: #202538;
-  font-size: 1rem;
-  font-weight: 800;
-  margin: 16px 0 7px;
-}
-
-.activities-state-card p,
-.activities-no-results p {
-  color: #777e91;
-  font-size: .7rem;
-  line-height: 1.5;
-  max-width: 410px;
-}
-
-.activities-empty-button {
-  align-items: center;
-  display: flex;
-  margin-top: 18px;
-}
-
-.activities-no-results button {
-  background: transparent;
-  border: 0;
-  color: #6330d8;
-  font-size: .68rem;
-  font-weight: 750;
-  margin-top: 13px;
-}
-
-.activities-loader {
-  animation: activities-spin .8s linear infinite;
-  border: 3px solid #e7e0fb;
-  border-radius: 50%;
-  border-top-color: #6b37df;
-  height: 34px;
-  width: 34px;
-}
-
-.activities-request-error,
-.activities-save-feedback {
-  border-radius: 8px;
-  font-size: .68rem;
-  padding: 11px 14px;
-}
-
-.activities-request-error {
-  background: #fff1f0;
-  border: 1px solid #f1d3d0;
-  color: #ad3834;
-}
-
-.activities-request-error button {
-  background: transparent;
-  border: 0;
-  color: inherit;
-  font-weight: 800;
-  margin-left: 5px;
-  text-decoration: underline;
-}
-
-.activities-save-feedback {
-  background: #edf9f2;
-  border: 1px solid #cdebd9;
-  color: #237b4a;
-}
-
-.sr-only {
-  clip: rect(0, 0, 0, 0);
-  clip-path: inset(50%);
-  height: 1px;
-  overflow: hidden;
-  position: absolute;
-  white-space: nowrap;
-  width: 1px;
-}
-
-button {
-  cursor: pointer;
-}
-
-button:focus-visible,
-select:focus-visible,
-input:focus-visible {
-  outline: 3px solid rgba(105, 54, 224, .24);
-  outline-offset: 2px;
-}
-
-@keyframes activities-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (max-width: 1100px) {
-  .activities-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .activities-actions {
-    width: 100%;
-  }
-
-  .activities-search {
-    flex: 1;
-  }
-}
-
-@media (max-width: 760px) {
-  .activities-actions,
-  .activities-toolbar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .activities-search {
-    min-width: 0;
-    width: 100%;
-  }
-
-  .activities-add-button {
-    justify-content: center;
-  }
-
-  .activities-filters {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .activities-sort {
-    justify-content: space-between;
-  }
-
-  .activity-card {
-    grid-template-columns: 4px minmax(0, 1fr);
-  }
-
-  .activity-card-actions {
-    grid-column: 2;
-    justify-content: flex-start;
-    padding: 0 20px 17px;
-  }
-}
-
-@media (max-width: 520px) {
-  .activity-title-row {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .activity-title-row > div {
-    flex-basis: auto;
-  }
-
-  .activity-card-actions {
-    flex-wrap: wrap;
-  }
-}
-
-.activities-view-options { align-items: center; display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-end; min-width: 0; }
-.activities-clear-filters { background: #fff; border: 1px solid #e1e2e9; border-radius: 7px; color: #535a70; font-size: .68rem; padding: 11px 13px; cursor: pointer; }
-.activities-clear-filters:hover { border-color: #7650df; color: #6030cb; }
-.activities-view-buttons { display: flex; }
-.activities-view-buttons button { align-items: center; background: #fff; border: 1px solid #e1e2e9; color: #34394c; cursor: pointer; display: flex; height: 40px; justify-content: center; width: 44px; }
-.activities-view-buttons button:first-child { border-radius: 7px 0 0 7px; }
-.activities-view-buttons button:last-child { border-left: 0; border-radius: 0 7px 7px 0; }
-.activities-view-buttons button.active { background: #eee7ff; color: #6f36e7; }
-.activities-view-buttons svg { fill: none; height: 18px; width: 18px; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.activities-content.is-grid { background: transparent; border: 0; box-shadow: none; overflow: visible; }
-.activities-list.is-grid { gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); }
-.activities-list.is-grid .activity-card { background: #fff; border: 1px solid #ebeaf1; border-radius: 10px; box-shadow: 0 5px 16px rgba(30, 36, 65, .035); grid-template-columns: 4px minmax(0, 1fr); overflow: hidden; min-width: 0; }
-.activities-list.is-grid .activity-card.is-overdue { background: #fffafa; }
-.activities-list.is-grid .activity-discipline-bar { grid-row: 1 / 3; }
-.activities-list.is-grid .activity-card-actions { align-self: end; flex-wrap: wrap; grid-column: 2; justify-content: flex-start; padding: 0 20px 17px; }
-@media (max-width: 760px) {
-  .activities-view-options { justify-content: flex-start; }
-  .activities-view-options .activities-sort { flex: 1 1 245px; }
-}
-</style>

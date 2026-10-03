@@ -4,15 +4,15 @@ services:
     container_name: studdy-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-studdy}
-      POSTGRES_USER: ${POSTGRES_USER:-studdy}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-studdy_dev}
+      POSTGRES_DB: ${DB_NAME:-academic_organizer}
+      POSTGRES_USER: ${DB_USERNAME:-academic_organizer}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - studdy_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-studdy} -d ${POSTGRES_DB:-studdy}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-academic_organizer} -d ${DB_NAME:-academic_organizer}"]
       interval: 5s
       timeout: 5s
       retries: 10

@@ -1,7 +1,15 @@
 <script setup>
-// Calendário no visual do site. O calendário nativo do <input type="date"> é desenhado pelo
+// Calendário no visual do site.
+// Props: modelValue ("AAAA-MM-DD"), min/max ("AAAA-MM-DD", opcionais; dias fora ficam desabilitados
+// e o mês não navega para fora dos limites), id (associa <label for>), ariaLabel, labelledby,
+// describedby, invalid, disabled, placeholder. Emite update:modelValue com "AAAA-MM-DD".
+// yearNavigation (desligada por padrão) troca o título do mês por seletores de mês e ano, para datas
+// distantes como a de nascimento; initialView ("AAAA-MM-DD") é o mês mostrado ao abrir sem data.
+// O calendário é position: fixed (z-index 1100), então não é cortado por modais.
+// O calendário nativo do <input type="date"> é desenhado pelo
 // navegador, com cores e layout diferentes de cada navegador e do modo noite.
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
+import { clampToBounds, isIsoDate, isOutOfBounds, monthHasDaysInBounds, yearsInBounds } from '../../shared/date/dateBounds.js'
 
 const WEEKDAYS = Object.freeze([
   { short: 'D', long: 'domingo' },
@@ -16,7 +24,6 @@ const DAYS_IN_WEEK = 7
 const POPUP_WIDTH = 300
 const POPUP_GAP = 6
 const VIEWPORT_MARGIN = 12
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 const props = defineProps({
   // Datas no formato "AAAA-MM-DD", o mesmo que o backend recebe.
@@ -27,17 +34,20 @@ const props = defineProps({
   invalid: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
   describedby: { type: String, default: undefined },
+  ariaLabel: { type: String, default: undefined },
+  labelledby: { type: String, default: undefined },
   placeholder: { type: String, default: 'Selecione a data' },
+  yearNavigation: { type: Boolean, default: false },
+  initialView: { type: String, default: '' },
 })
 
 const emit = defineEmits(['update:modelValue'])
 
 const monthFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' })
+const monthNameFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'long' })
 const dayLabelFormatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
-function isIso(value) {
-  return ISO_DATE.test(value ?? '')
-}
+const isIso = isIsoDate
 
 function toIso(date) {
   return [
@@ -82,13 +92,11 @@ const viewMonth = ref(monthStartOf(todayIso))
 const focusedIso = ref(todayIso)
 
 function isOutOfRange(iso) {
-  return (isIso(props.min) && iso < props.min) || (isIso(props.max) && iso > props.max)
+  return isOutOfBounds(iso, props.min, props.max)
 }
 
 function clampIso(iso) {
-  if (isIso(props.min) && iso < props.min) return props.min
-  if (isIso(props.max) && iso > props.max) return props.max
-  return iso
+  return clampToBounds(iso, props.min, props.max)
 }
 
 const displayValue = computed(() => {
@@ -131,12 +139,22 @@ const weeks = computed(() => {
 })
 
 const canGoPrevious = computed(() => (
-  !isIso(props.min) || toIso(new Date(viewMonth.value.getFullYear(), viewMonth.value.getMonth(), 0)) >= props.min
+  monthHasDaysInBounds(viewMonth.value.getFullYear(), viewMonth.value.getMonth() - 1, props.min, props.max)
 ))
 const canGoNext = computed(() => (
-  !isIso(props.max) || toIso(new Date(viewMonth.value.getFullYear(), viewMonth.value.getMonth() + 1, 1)) <= props.max
+  monthHasDaysInBounds(viewMonth.value.getFullYear(), viewMonth.value.getMonth() + 1, props.min, props.max)
 ))
 const canPickToday = computed(() => !isOutOfRange(todayIso))
+
+const yearOptions = computed(() => yearsInBounds(props.min, props.max))
+const monthOptions = computed(() => Array.from({ length: 12 }, (_, month) => {
+  const name = monthNameFormatter.format(new Date(2000, month, 1))
+  return {
+    value: month,
+    label: name.charAt(0).toUpperCase() + name.slice(1),
+    disabled: !monthHasDaysInBounds(viewMonth.value.getFullYear(), month, props.min, props.max),
+  }
+}))
 
 function focusFocusedDay() {
   popup.value?.querySelector(`[data-iso="${focusedIso.value}"]`)?.focus()
@@ -170,7 +188,8 @@ function position() {
 async function openCalendar() {
   if (props.disabled || open.value) return
 
-  focusedIso.value = clampIso(isIso(props.modelValue) ? props.modelValue : todayIso)
+  const emptyIso = isIso(props.initialView) ? props.initialView : todayIso
+  focusedIso.value = clampIso(isIso(props.modelValue) ? props.modelValue : emptyIso)
   viewMonth.value = monthStartOf(focusedIso.value)
   popupStyle.value = { width: `${POPUP_WIDTH}px`, visibility: 'hidden' }
   open.value = true
@@ -207,6 +226,12 @@ async function showMonth(step) {
   // e o teclado (setas, Esc) deixaria de funcionar no calendário.
   await nextTick()
   if (open.value && !root.value?.contains(document.activeElement)) focusFocusedDay()
+}
+
+// Seletores de mês/ano: pula direto para o mês escolhido. O foco continua no seletor
+// (ele está dentro do calendário), então showMonth não o move para os dias.
+function showMonthOf(year, month) {
+  showMonth((year - viewMonth.value.getFullYear()) * 12 + month - viewMonth.value.getMonth())
 }
 
 function onTriggerKeydown(event) {
@@ -294,6 +319,8 @@ onBeforeUnmount(() => toggleListeners(false))
       :aria-controls="open ? dialogId : undefined"
       :aria-invalid="invalid"
       :aria-describedby="describedby"
+      :aria-label="ariaLabel"
+      :aria-labelledby="labelledby"
       :disabled="disabled"
       @click="toggle"
       @keydown="onTriggerKeydown"
@@ -321,7 +348,34 @@ onBeforeUnmount(() => toggleListeners(false))
         <button type="button" class="app-date-nav" :disabled="!canGoPrevious" aria-label="Mês anterior" @click="showMonth(-1)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 6-6 6 6 6" /></svg>
         </button>
-        <strong :id="titleId" aria-live="polite">{{ monthTitle }}</strong>
+        <strong v-if="!yearNavigation" :id="titleId" aria-live="polite">{{ monthTitle }}</strong>
+        <!-- O popup cancela mousedown/click para o foco não sair do calendário; o .stop evita que isso
+             chegue lá e impeça o <select> nativo de abrir. O foco fica dentro do calendário, então não fecha. -->
+        <div v-else class="app-date-jump">
+          <strong :id="titleId" class="app-date-sr" aria-live="polite">{{ monthTitle }}</strong>
+          <select
+            class="app-date-select"
+            aria-label="Mês"
+            :value="viewMonth.getMonth()"
+            @mousedown.stop
+            @click.stop
+            @change="showMonthOf(viewMonth.getFullYear(), Number($event.target.value))"
+          >
+            <option v-for="option in monthOptions" :key="option.value" :value="option.value" :disabled="option.disabled">
+              {{ option.label }}
+            </option>
+          </select>
+          <select
+            class="app-date-select"
+            aria-label="Ano"
+            :value="viewMonth.getFullYear()"
+            @mousedown.stop
+            @click.stop
+            @change="showMonthOf(Number($event.target.value), viewMonth.getMonth())"
+          >
+            <option v-for="year in yearOptions" :key="year" :value="year">{{ year }}</option>
+          </select>
+        </div>
         <button type="button" class="app-date-nav" :disabled="!canGoNext" aria-label="Próximo mês" @click="showMonth(1)">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
         </button>
@@ -346,6 +400,7 @@ onBeforeUnmount(() => toggleListeners(false))
                 :data-iso="cell.iso"
                 :tabindex="cell.iso === focusedIso ? 0 : -1"
                 :disabled="cell.disabled"
+                :aria-disabled="cell.disabled || undefined"
                 :aria-label="cell.label"
                 :aria-pressed="cell.isSelected"
                 :aria-current="cell.isToday ? 'date' : undefined"
@@ -377,7 +432,7 @@ onBeforeUnmount(() => toggleListeners(false))
 .app-date-placeholder { color: #8a879b; }
 .app-date-icon { fill: none; flex: 0 0 18px; height: 18px; stroke: #6330e0; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 18px; }
 
-.app-date-popup { background: #ffffff; border: 1px solid #e3dff0; border-radius: 12px; box-shadow: 0 18px 44px rgba(20, 18, 35, .2); box-sizing: border-box; padding: 12px; position: fixed; z-index: 1000; }
+.app-date-popup { background: #ffffff; border: 1px solid #e3dff0; border-radius: 12px; box-shadow: 0 18px 44px rgba(20, 18, 35, .2); box-sizing: border-box; padding: 12px; position: fixed; z-index: 1100; }
 
 .app-date-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: 8px; }
 .app-date-header strong { color: #202033; font-size: 14px; }
@@ -385,6 +440,13 @@ onBeforeUnmount(() => toggleListeners(false))
 .app-date-nav svg { fill: none; height: 16px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; width: 16px; }
 .app-date-nav:hover:not(:disabled) { background: #f4f0ff; color: #5726ce; }
 .app-date-nav:disabled { cursor: not-allowed; opacity: .35; }
+
+.app-date-jump { display: flex; flex: 1; gap: 6px; justify-content: center; margin: 0 4px; min-width: 0; }
+.app-date-select { background: #ffffff; border: 1px solid #dedce8; border-radius: 8px; color: #202033; cursor: pointer; font: inherit; font-size: 14px; font-weight: 700; height: 32px; min-width: 0; padding: 0 6px; }
+.app-date-select:first-of-type { flex: 1; }
+.app-date-select:hover { border-color: #c9c1ea; }
+.app-date-select:focus-visible { border-color: #6330e0; box-shadow: 0 0 0 3px rgba(99, 48, 224, .14); outline: none; }
+.app-date-sr { clip: rect(0 0 0 0); clip-path: inset(50%); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
 
 .app-date-grid { border-collapse: collapse; table-layout: fixed; width: 100%; }
 .app-date-grid th { color: #8a879b; font-size: 11px; font-weight: 700; padding: 4px 0 6px; text-align: center; }
@@ -405,4 +467,18 @@ onBeforeUnmount(() => toggleListeners(false))
 .app-date-day:focus-visible,
 .app-date-nav:focus-visible,
 .app-date-link:focus-visible { outline: 2px solid rgba(99, 48, 224, .5); outline-offset: 1px; }
+
+/* Celular: alvos de toque de 44px e fontes de pelo menos 12px. As variáveis --app-date-* das telas
+   continuam valendo; só o valor padrão (sem variável) sobe. */
+@media (max-width: 760px) {
+  .app-date-trigger { font-size: var(--app-date-font-size, 16px); height: var(--app-date-height, 44px); }
+  .app-date-popup { padding: 8px; }
+  .app-date-header strong { font-size: 1rem; }
+  .app-date-nav { height: 44px; width: 44px; }
+  .app-date-select { font-size: 16px; height: 44px; }
+  .app-date-grid th { font-size: .75rem; }
+  .app-date-grid td { padding: 0; }
+  .app-date-day { aspect-ratio: auto; font-size: .875rem; height: 44px; }
+  .app-date-link { font-size: .875rem; min-height: 44px; padding: 4px 14px; }
+}
 </style>

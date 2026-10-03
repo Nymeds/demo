@@ -1,12 +1,10 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { exceedsPasswordBytes, PASSWORD_TOO_LONG_MESSAGE } from '../../shared/auth/passwordRules.js'
 import { formatLongDate } from './settingsApi'
 
 const MIN_PASSWORD_LENGTH = 8
 const MAX_PASSWORD_LENGTH = 72
-// O BCrypt do backend limita a senha em bytes; letras acentuadas ocupam 2 bytes em UTF-8.
-const BCRYPT_MAX_BYTES = 72
-const utf8 = new TextEncoder()
 
 const props = defineProps({
   api: { type: Object, required: true },
@@ -22,7 +20,7 @@ const showPasswords = ref(false)
 const saving = ref(false)
 
 const newPasswordTooShort = computed(() => newPassword.value.length > 0 && newPassword.value.length < MIN_PASSWORD_LENGTH)
-const newPasswordTooLong = computed(() => utf8.encode(newPassword.value).length > BCRYPT_MAX_BYTES)
+const newPasswordTooLong = computed(() => exceedsPasswordBytes(newPassword.value))
 const newPasswordInvalid = computed(() => newPasswordTooShort.value || newPasswordTooLong.value)
 const confirmationMismatch = computed(() => confirmPassword.value.length > 0 && confirmPassword.value !== newPassword.value)
 const canSubmit = computed(() => (
@@ -109,7 +107,7 @@ async function submit() {
         >
         <span id="settings-new-password-hint" :class="['settings-hint', { 'is-error': newPasswordInvalid }]">
           {{ newPasswordTooLong
-            ? 'Senha longa demais. Letras acentuadas ocupam mais espaço; use menos caracteres.'
+            ? PASSWORD_TOO_LONG_MESSAGE
             : `Use de ${MIN_PASSWORD_LENGTH} a ${MAX_PASSWORD_LENGTH} caracteres.` }}
         </span>
       </label>

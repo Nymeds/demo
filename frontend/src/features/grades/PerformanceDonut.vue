@@ -91,6 +91,16 @@ const description = computed(() => props.distribution
 .donut-dot.is-insufficient { background: #e0443a; }
 .donut-empty { color: #7b8192; font-size: .72rem; line-height: 1.5; margin: 0; }
 
+/* Celular: o texto do SVG escala com o viewBox (120 unidades em 124px), então a legenda do anel sobe
+   para 12px de verdade sem mudar o tamanho do gráfico. */
+@media (max-width: 760px) {
+  .donut-caption { font-size: 11.7px; }
+  .donut-label,
+  .donut-label small,
+  .donut-legend strong,
+  .donut-empty { font-size: .75rem; }
+}
+
 @media (max-width: 380px) {
   .donut { grid-template-columns: 1fr; justify-items: center; }
 }

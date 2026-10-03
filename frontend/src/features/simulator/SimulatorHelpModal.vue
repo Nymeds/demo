@@ -1,5 +1,7 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { formatAverage as formatGrade } from '../../shared/format/grade.js'
+import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
+import { computed, ref } from 'vue'
 
 // Duração de cada passo na reprodução automática, como um vídeo curto.
 const STEP_DURATION_MS = 7000
@@ -9,9 +11,6 @@ const EXAMPLE = Object.freeze({ grades: [5, 7], goal: 7 })
 const exampleSum = EXAMPLE.grades.reduce((total, grade) => total + grade, 0)
 const exampleCount = EXAMPLE.grades.length
 
-function formatGrade(value) {
-  return value.toFixed(1).replace('.', ',')
-}
 
 const EXAMPLE_AVERAGE = formatGrade(exampleSum / exampleCount)
 const EXAMPLE_GOAL = formatGrade(EXAMPLE.goal)
@@ -92,31 +91,15 @@ function onStepFinished() {
   next()
 }
 
-function keepFocusInside(event) {
-  const focusable = [...dialog.value.querySelectorAll('button:not([disabled])')]
-  if (focusable.length === 0) return
-
-  const first = focusable[0]
-  const last = focusable[focusable.length - 1]
-  const active = document.activeElement
-
-  if (event.shiftKey && (active === first || active === dialog.value)) {
-    event.preventDefault()
-    last.focus()
-  } else if (!event.shiftKey && active === last) {
-    event.preventDefault()
-    first.focus()
-  }
-}
-
 function handleKeydown(event) {
-  if (event.key === 'Escape') emit('close')
-  else if (event.key === 'ArrowRight') next()
+  if (event.key === 'ArrowRight') next()
   else if (event.key === 'ArrowLeft') previous()
-  else if (event.key === 'Tab') keepFocusInside(event)
 }
 
-onMounted(() => dialog.value?.focus())
+useFocusTrap(() => true, dialog, {
+  onClose: () => emit('close'),
+  initialFocus: () => dialog.value,
+})
 </script>
 
 <template>
@@ -299,6 +282,14 @@ onMounted(() => dialog.value?.focus())
 @keyframes help-press {
   0%, 100% { box-shadow: 0 0 0 0 rgba(105, 54, 224, 0); transform: none; }
   45% { box-shadow: 0 0 0 7px rgba(105, 54, 224, .18); transform: scale(.94); }
+}
+
+@media (max-width: 760px) {
+  .help-eyebrow, .help-example, .mock-field small, .mock-row.is-head, .mock-result small, .help-counter, .mock-chip { font-size: .75rem; }
+  .help-example { position: static; justify-self: end; }
+  .mock-row, .mock-button, .mock-formula, .mock-caption, .help-button { font-size: .8rem; }
+  .help-close { align-items: center; display: inline-flex; justify-content: center; min-height: 44px; min-width: 44px; padding: 4px; }
+  .help-button { min-height: 44px; }
 }
 
 @media (max-width: 520px) {

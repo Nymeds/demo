@@ -87,4 +87,15 @@ const description = computed(() => props.points
 .evolution-point { fill: #6832df; stroke: #fff; stroke-width: 2; }
 .evolution-value { fill: #30364a; font-size: 9.5px; font-weight: 700; }
 .evolution-empty { color: #7b8192; font-size: .72rem; line-height: 1.5; margin: 0; }
+
+/* Celular: o texto do SVG escala com o viewBox (320 unidades, ~290px na tela), então as fontes sobem em
+   unidades do viewBox para ficarem com pelo menos 12px de verdade. A largura máxima evita que o texto
+   cresça demais em telas maiores que o celular estreito. */
+@media (max-width: 760px) {
+  .evolution-chart { margin-inline: auto; max-width: 360px; }
+  .evolution-axis { font-size: 13.5px; }
+  .evolution-goal-label { font-size: 13.5px; }
+  .evolution-value { font-size: 13.5px; }
+  .evolution-empty { font-size: .75rem; }
+}
 </style>

@@ -1,8 +1,6 @@
 <template>
   <div
     class="modal-overlay"
-    @keydown.esc="closeIfIdle"
-    @keydown.tab="trapFocus"
     @click.self="closeIfIdle"
   >
     <div
@@ -43,9 +41,10 @@
         </div>
       </div>
 
-      <p v-else-if="activitiesStatus === 'loading' || activitiesStatus === 'idle'" class="modal-status" role="status">
-        Carregando as avaliações de {{ disciplineName }}…
-      </p>
+      <div v-else-if="activitiesStatus === 'loading' || activitiesStatus === 'idle'" class="app-state-card is-loading" role="status">
+        <span class="app-spinner" aria-hidden="true"></span>
+        <div><h2>Carregando avaliações…</h2><p>Buscando as avaliações de {{ disciplineName }}.</p></div>
+      </div>
 
       <div v-else-if="activitiesStatus === 'error'" class="modal-empty" role="alert">
         <p>Não foi possível carregar as avaliações desta disciplina.</p>
@@ -166,6 +165,7 @@
 
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useFocusTrap, getFocusableElements } from '../../shared/a11y/useFocusTrap.js'
 import AppDatePicker from '../../components/ui/AppDatePicker.vue'
 import AppSelect from '../../components/ui/AppSelect.vue'
 
@@ -330,32 +330,11 @@ function closeIfIdle() {
   if (!props.saving) emit('close')
 }
 
-function focusableElements() {
-  return [...(card.value?.querySelectorAll('input:not([disabled]), button:not([disabled]):not([tabindex="-1"])') ?? [])]
-}
-
-// Mantém o Tab dentro do diálogo enquanto ele estiver aberto.
-function trapFocus(event) {
-  const elements = focusableElements()
-  if (elements.length === 0) return
-
-  const first = elements[0]
-  const last = elements[elements.length - 1]
-
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault()
-    last.focus()
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault()
-    first.focus()
-  }
-}
-
 // Quando as avaliações aparecem, o foco vai direto para a escolha da prova.
 async function focusFirstField() {
   await nextTick()
   const activityPicker = card.value?.querySelector('#grade-modal-activity')
-  const target = activityPicker ?? focusableElements()[0]
+  const target = activityPicker ?? getFocusableElements(card.value)[0]
   target?.focus()
 }
 
@@ -386,7 +365,12 @@ watch(() => props.activitiesStatus, () => {
   if (!card.value?.contains(document.activeElement)) focusFirstField()
 })
 
-onMounted(focusFirstField)
+useFocusTrap(() => true, card, {
+  onClose: closeIfIdle,
+  initialFocus: () => card.value?.querySelector('#grade-modal-activity'),
+  closeOnEscape: () => !props.saving,
+})
+
 </script>
 
 
@@ -396,7 +380,8 @@ onMounted(focusFirstField)
   position: fixed;
   inset: 0;
 
-  z-index: 9999;
+  /* Mesmo nível dos demais modais (styles/modal.css); o AppToast (200) fica acima. */
+  z-index: 100;
 
   display: flex;
   align-items: center;
@@ -412,6 +397,7 @@ onMounted(focusFirstField)
   width: 100%;
   max-width: 460px;
   max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
 
   overflow-y: auto;
 
@@ -640,6 +626,27 @@ onMounted(focusFirstField)
   opacity: 0.6;
 
   cursor: not-allowed;
+}
+
+/* Celular: fonte de 12 px no rótulo, campos de 16 px (evita zoom no iOS) e alvos de toque de 44 px. */
+@media (max-width: 760px) {
+  .modal-card {
+    padding: 22px 18px;
+  }
+
+  .proof-label {
+    font-size: 12px;
+  }
+
+  .field input {
+    height: 44px;
+
+    font-size: 16px;
+  }
+
+  .actions button {
+    min-height: 44px;
+  }
 }
 
 </style>

@@ -1,13 +1,30 @@
 <script setup>
 import { computed, ref } from 'vue'
+import AppDatePicker from '../../components/ui/AppDatePicker.vue'
+import AppSelect from '../../components/ui/AppSelect.vue'
+import AppTimePicker from '../../components/ui/AppTimePicker.vue'
+import { normalizeLocalDateTime } from '../../shared/date/localDate.js'
+import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
 
 const props = defineProps({
   event: { type: Object, default: null },
   disciplines: { type: Array, default: () => [] },
   defaultDate: { type: String, default: '' },
+  saving: { type: Boolean, default: false },
+  serverError: { type: String, default: '' },
 })
 
 const emit = defineEmits(['close', 'save', 'delete'])
+
+const modalRef = ref(null)
+const titleInputRef = ref(null)
+useFocusTrap(() => true, modalRef, {
+  onClose: () => emit('close'),
+  initialFocus: () => titleInputRef.value,
+  closeOnEscape: () => !props.saving,
+})
+
+const DEFAULT_TIME = '08:00'
 
 const categories = [
   { value: 'CLASS', label: 'Aula' },
@@ -18,32 +35,75 @@ const categories = [
 ]
 
 const isEditing = computed(() => Boolean(props.event))
+const isExamCategory = computed(() => category.value === 'EXAM')
 
-// O input datetime-local trabalha com "AAAA-MM-DDTHH:mm", que é exatamente o
-// formato que o LocalDateTime da API entende — nada de fuso horário pelo meio.
-function toInputValue(value) {
-  return value ? value.slice(0, 16) : ''
+// A API troca datas como "AAAA-MM-DDTHH:mm:ss" (LocalDateTime, sem fuso horário pelo meio).
+// Os seletores do site trabalham com as duas metades separadas: "AAAA-MM-DD" e "HH:mm".
+function toDatePart(value) {
+  return value ? value.slice(0, 10) : ''
+}
+
+function toTimePart(value) {
+  return value ? value.slice(11, 16) : ''
+}
+
+function joinDateTime(date, time) {
+  return `${date}T${time}:00`
 }
 
 const title = ref(props.event?.title ?? '')
 const description = ref(props.event?.description ?? '')
 const category = ref(props.event?.category ?? 'CLASS')
 const disciplineId = ref(props.event?.disciplineId ?? '')
-const startsAt = ref(toInputValue(props.event?.startsAt) || props.defaultDate)
-const endsAt = ref(toInputValue(props.event?.endsAt))
+const startDate = ref(toDatePart(props.event?.startsAt) || toDatePart(props.defaultDate))
+const startTime = ref(toTimePart(props.event?.startsAt) || toTimePart(props.defaultDate) || DEFAULT_TIME)
+const endDate = ref(toDatePart(props.event?.endsAt))
+const endTime = ref(toTimePart(props.event?.endsAt))
+const submitted = ref(false)
 const formError = ref('')
 
 // Evento cuja disciplina foi apagada: o aviso explica por que o campo está vazio.
 const disciplineWasDeleted = computed(() => Boolean(props.event?.disciplineDeleted))
 
+const disciplineOptions = computed(() => [
+  // Prova exige disciplina: a opção vazia deixa de ser uma escolha válida e vira só o pedido.
+  { value: '', label: isExamCategory.value ? 'Selecione a disciplina' : 'Sem disciplina' },
+  ...props.disciplines.map(discipline => ({ value: discipline.id, label: discipline.name })),
+])
+
+// O término é opcional, mas é uma data e um horário só: preencher metade não vale.
+const hasEnd = computed(() => Boolean(endDate.value || endTime.value))
+
+function clearEnd() {
+  endDate.value = ''
+  endTime.value = ''
+}
+
 function submitForm() {
-  if (!startsAt.value) {
-    formError.value = 'A data e hora de início são obrigatórias.'
+  if (props.saving) return
+
+  submitted.value = true
+
+  if (!startDate.value || !startTime.value) {
+    formError.value = 'A data e a hora de início são obrigatórias.'
     return
   }
 
-  if (endsAt.value && endsAt.value <= startsAt.value) {
+  if (hasEnd.value && (!endDate.value || !endTime.value)) {
+    formError.value = 'Informe a data e a hora do término, ou deixe os dois em branco.'
+    return
+  }
+
+  const startsAt = joinDateTime(startDate.value, startTime.value)
+  const endsAt = hasEnd.value ? joinDateTime(endDate.value, endTime.value) : null
+
+  if (endsAt && endsAt <= startsAt) {
     formError.value = 'A data e hora de término devem ser posteriores às de início.'
+    return
+  }
+
+  if (isExamCategory.value && !disciplineId.value) {
+    formError.value = 'Selecione a disciplina desta prova.'
     return
   }
 
@@ -53,16 +113,23 @@ function submitForm() {
     title: title.value.trim(),
     description: description.value.trim() || null,
     category: category.value,
-    startsAt: `${startsAt.value}:00`,
-    endsAt: endsAt.value ? `${endsAt.value}:00` : null,
+    startsAt: normalizeLocalDateTime(startsAt),
+    endsAt: endsAt ? normalizeLocalDateTime(endsAt) : null,
     disciplineId: disciplineId.value || null,
   })
 }
 </script>
 
 <template>
-  <div class="modal-backdrop" @mousedown.self="emit('close')">
-    <section class="event-modal" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">
+  <div class="modal-backdrop" @mousedown.self="!saving && emit('close')">
+    <section
+      ref="modalRef"
+      class="event-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="event-modal-title"
+      tabindex="-1"
+    >
       <header class="modal-header">
         <div class="modal-title">
           <span aria-hidden="true">＋</span>
@@ -72,13 +139,15 @@ function submitForm() {
           </div>
         </div>
 
-        <button class="modal-close" type="button" aria-label="Fechar modal" @click="emit('close')">×</button>
+        <button class="modal-close" type="button" aria-label="Fechar modal" :disabled="saving" @click="emit('close')">×</button>
       </header>
 
       <form @submit.prevent="submitForm">
+        <p v-if="serverError" class="form-error" role="alert">{{ serverError }}</p>
+
         <label class="form-field">
           <span>Título <strong>*</strong></span>
-          <input v-model.trim="title" type="text" maxlength="120" placeholder="Ex.: Prova 1 - Estruturas" required autofocus>
+          <input ref="titleInputRef" v-model.trim="title" type="text" maxlength="120" placeholder="Ex.: Prova 1 - Estruturas" required :disabled="saving">
         </label>
 
         <fieldset class="form-field">
@@ -90,49 +159,70 @@ function submitForm() {
               class="category-option"
               :class="[`is-${option.value.toLowerCase()}`, { selected: category === option.value }]"
             >
-              <input v-model="category" type="radio" name="category" :value="option.value">
+              <input v-model="category" type="radio" name="category" :value="option.value" :disabled="saving">
               <span aria-hidden="true" class="category-dot"></span>
               {{ option.label }}
             </label>
           </div>
         </fieldset>
 
-        <label class="form-field">
-          <span>Disciplina <small>(opcional)</small></span>
-          <select v-model="disciplineId">
-            <option value="">Sem disciplina</option>
-            <option v-for="discipline in disciplines" :key="discipline.id" :value="discipline.id">
-              {{ discipline.name }}
-            </option>
-          </select>
+        <div class="form-field">
+          <label for="event-discipline">
+            <template v-if="isExamCategory">Disciplina <strong>*</strong></template>
+            <template v-else>Disciplina <small>(opcional)</small></template>
+          </label>
+          <AppSelect
+            id="event-discipline"
+            v-model="disciplineId"
+            :options="disciplineOptions"
+            :placeholder="isExamCategory ? 'Selecione a disciplina' : 'Sem disciplina'"
+            :invalid="submitted && isExamCategory && !disciplineId"
+            :disabled="saving"
+          />
           <small v-if="disciplineWasDeleted" class="field-warning">
             Essa disciplina não existe mais. Se você salvar assim, o evento fica sem disciplina.
           </small>
-        </label>
+          <small v-if="isExamCategory && !isEditing" class="form-hint">
+            Provas precisam de uma disciplina e também aparecem na tela Provas.
+          </small>
+          <small v-if="isExamCategory && isEditing" class="field-warning" role="status">
+            Ao salvar, este evento vira uma prova: ele sai da lista de eventos e passa a aparecer na tela Provas,
+            onde também pode receber nota.
+          </small>
+        </div>
 
         <div class="form-row">
-          <label class="form-field">
-            <span>Início <strong>*</strong></span>
-            <input v-model="startsAt" type="datetime-local" required>
-          </label>
+          <div class="form-field">
+            <label for="event-start-date">Início <strong>*</strong></label>
+            <div class="datetime-pair">
+              <AppDatePicker id="event-start-date" v-model="startDate" placeholder="dd/mm/aaaa" :invalid="submitted && !startDate" :disabled="saving" />
+              <AppTimePicker v-model="startTime" aria-label="Horário de início" :invalid="submitted && !startTime" :disabled="saving" />
+            </div>
+          </div>
 
-          <label class="form-field">
-            <span>Término <small>(opcional)</small></span>
-            <input v-model="endsAt" type="datetime-local">
-          </label>
+          <div class="form-field">
+            <label for="event-end-date">
+              Término <small>(opcional)</small>
+              <button v-if="hasEnd" class="field-clear" type="button" :disabled="saving" @click="clearEnd">Limpar</button>
+            </label>
+            <div class="datetime-pair">
+              <AppDatePicker id="event-end-date" v-model="endDate" placeholder="dd/mm/aaaa" :min="startDate" :invalid="submitted && hasEnd && !endDate" :disabled="saving" />
+              <AppTimePicker v-model="endTime" aria-label="Horário de término" :invalid="submitted && hasEnd && !endTime" :disabled="saving" />
+            </div>
+          </div>
         </div>
 
         <p class="form-hint">Prazos de entrega não precisam de término — basta informar o horário limite no início.</p>
 
         <label class="form-field">
           <span>Descrição <small>(opcional)</small></span>
-          <textarea v-model.trim="description" maxlength="500" rows="3" placeholder="Ex.: Conteúdo das aulas 1 a 6."></textarea>
+          <textarea v-model.trim="description" maxlength="500" rows="3" placeholder="Ex.: Conteúdo das aulas 1 a 6." :disabled="saving"></textarea>
         </label>
 
         <p v-if="formError" class="form-error" role="alert">{{ formError }}</p>
 
         <footer class="modal-actions">
-          <button v-if="isEditing" class="delete-event" type="button" @click="emit('delete')">
+          <button v-if="isEditing" class="delete-event" type="button" :disabled="saving" @click="emit('delete')">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" />
             </svg>
@@ -141,8 +231,10 @@ function submitForm() {
 
           <span class="modal-actions-spacer"></span>
 
-          <button class="cancel-action" type="button" @click="emit('close')">Cancelar</button>
-          <button class="save-action" type="submit">{{ isEditing ? 'Salvar alterações' : 'Criar evento' }}</button>
+          <button class="cancel-action" type="button" :disabled="saving" @click="emit('close')">Cancelar</button>
+          <button class="save-action" type="submit" :disabled="saving">
+            {{ saving ? 'Salvando…' : (isEditing ? (isExamCategory ? 'Mover para Provas' : 'Salvar alterações') : 'Criar evento') }}
+          </button>
         </footer>
       </form>
     </section>
@@ -161,12 +253,16 @@ function submitForm() {
   z-index: 110;
 }
 
+.event-modal:focus {
+  outline: none;
+}
+
 .event-modal {
   background: #fff;
   border-radius: 15px;
   box-shadow: 0 24px 70px rgba(15, 18, 35, .28);
   max-height: 92vh;
-  max-width: 545px;
+  max-width: 580px;
   overflow-y: auto;
   padding: 26px 28px 24px;
   width: 100%;
@@ -182,14 +278,31 @@ function submitForm() {
 
 .form-field { display: block; margin-bottom: 15px; }
 .form-field > span,
-.form-field legend { color: #3b4055; display: block; font-size: .72rem; font-weight: 700; margin-bottom: 7px; }
+.form-field > label,
+.form-field legend { align-items: center; color: #3b4055; display: flex; font-size: .72rem; font-weight: 700; gap: 5px; margin-bottom: 7px; }
 .form-field strong { color: #d1436a; }
 .form-field small { color: #9096a8; font-weight: 500; }
 fieldset.form-field { border: 0; padding: 0; }
 
+/* Data, horário e disciplina usam os seletores do site (components/ui) em vez dos nativos do
+   navegador: os nativos mudam de desenho a cada navegador e não acompanham o modo noite.
+   Altura, fonte e arredondamento vêm daqui, para ficarem do tamanho dos outros campos do modal. */
+.form-field {
+  --app-date-height: 40px;
+  --app-date-font-size: .78rem;
+  --app-date-radius: 8px;
+  --app-date-padding: 0 12px;
+  --app-time-height: 40px;
+  --app-time-font-size: .78rem;
+  --app-time-radius: 8px;
+  --app-time-padding: 0 10px;
+  --app-select-height: 40px;
+  --app-select-font-size: .78rem;
+  --app-select-radius: 8px;
+  --app-select-padding: 0 12px;
+}
+
 .form-field input[type="text"],
-.form-field input[type="datetime-local"],
-.form-field select,
 .form-field textarea {
   background: #fff;
   border: 1px solid #dfe1ea;
@@ -197,14 +310,19 @@ fieldset.form-field { border: 0; padding: 0; }
   color: #1d2236;
   font-family: inherit;
   font-size: .78rem;
-  padding: 11px 12px;
-  resize: vertical;
   width: 100%;
 }
 
+.form-field input[type="text"] { height: 40px; padding: 0 12px; }
+.form-field textarea { padding: 11px 12px; resize: vertical; }
+
 .form-field input:focus,
-.form-field select:focus,
 .form-field textarea:focus { border-color: #7d55f2; outline: 2px solid rgba(105, 54, 224, .18); outline-offset: 0; }
+
+.datetime-pair { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr) 100px; }
+
+.field-clear { background: none; border: 0; color: #6330e0; font-size: .68rem; font-weight: 700; margin-left: auto; padding: 0; }
+.field-clear:hover { text-decoration: underline; }
 
 .field-warning { color: #c2415f; display: block; font-size: .67rem; font-weight: 600; margin-top: 6px; }
 
@@ -235,7 +353,35 @@ fieldset.form-field { border: 0; padding: 0; }
 .delete-event:hover { background: #fff5f7; }
 .delete-event svg { fill: none; height: 15px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 15px; }
 
-@media (max-width: 520px) {
+/* Celular: campos com 16px (o iOS amplia a página ao focar campo com fonte menor), alvos de toque
+   de 44px e textos de pelo menos 12px. */
+@media (max-width: 760px) {
+  .form-field {
+    --app-date-height: 44px;
+    --app-date-font-size: 1rem;
+    --app-time-height: 44px;
+    --app-time-font-size: 1rem;
+    --app-select-height: 44px;
+    --app-select-font-size: 1rem;
+  }
+  .form-field input[type="text"],
+  .form-field textarea { font-size: 1rem; }
+  .form-field input[type="text"] { height: 44px; }
+  .form-field > span,
+  .form-field > label,
+  .form-field legend,
+  .modal-title p,
+  .field-clear,
+  .field-warning,
+  .form-hint,
+  .form-error { font-size: .75rem; }
+  .field-clear { min-height: 44px; }
+  .modal-close { min-height: 44px; min-width: 44px; }
+  .category-option { font-size: .75rem; min-height: 44px; }
+  .modal-actions button { font-size: .8rem; min-height: 44px; }
+}
+
+@media (max-width: 560px) {
   .form-row { grid-template-columns: 1fr; }
   .modal-actions { flex-wrap: wrap; }
   .modal-actions-spacer { display: none; }

@@ -1,14 +1,17 @@
 <script setup>
 import { computed } from 'vue'
-import { bandInfo, bandOf, formatGrade } from './gradesPresentation'
+import { bandInfo, bandOf, formatGrade, goalMessage } from './gradesPresentation'
 
 const props = defineProps({
   summary: { type: Object, required: true },
   periodLabel: { type: String, required: true },
+  goal: { type: Number, default: null },
 })
 
+const emit = defineEmits(['navigate'])
 
 const generalBand = computed(() => bandInfo(bandOf(props.summary.generalAverage)))
+const generalGoalMessage = computed(() => goalMessage(props.summary.generalAverage, props.goal))
 </script>
 
 <template>
@@ -21,6 +24,10 @@ const generalBand = computed(() => bandInfo(bandOf(props.summary.generalAverage)
         <p>Média geral</p>
         <strong>{{ formatGrade(summary.generalAverage) }}</strong>
         <small>{{ generalBand.summary }}</small>
+        <small v-if="generalGoalMessage" class="grades-summary-goal">{{ generalGoalMessage }}</small>
+        <button v-else-if="goal === null" type="button" class="grades-summary-link" @click="emit('navigate', 'settings')">
+          Defina uma meta de média em Configurações
+        </button>
       </div>
     </article>
 
@@ -51,7 +58,7 @@ const generalBand = computed(() => bandInfo(bandOf(props.summary.generalAverage)
 </template>
 
 <style scoped>
-.grades-summary { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr)); }
+.grades-summary { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr)); }
 .grades-summary-card { align-items: center; background: #fff; border: 1px solid #e7e8f0; border-radius: 10px; box-shadow: 0 5px 16px rgba(30, 36, 65, .035); display: flex; gap: 16px; min-width: 0; padding: 18px; }
 .grades-summary-card > div { min-width: 0; }
 .grades-summary-icon { align-items: center; background: #f1edff; border-radius: 50%; color: #6739e7; display: flex; flex: 0 0 52px; height: 52px; justify-content: center; }
@@ -67,5 +74,18 @@ const generalBand = computed(() => bandInfo(bandOf(props.summary.generalAverage)
 .grades-summary-card.is-blue small { color: #2f65b8; }
 .grades-summary-link { background: none; border: 0; color: #2f65b8; cursor: pointer; font-size: .64rem; font-weight: 700; padding: 0; text-align: left; text-decoration: underline; }
 .grades-summary-link:focus-visible { outline: 2px solid rgba(105, 54, 224, .4); outline-offset: 2px; }
+.grades-summary-goal { font-weight: 700; }
+
+/* Celular: fontes de pelo menos 12px e alvo de toque de 44px no link. */
+@media (max-width: 760px) {
+  .grades-summary-card p,
+  .grades-summary-card small { font-size: .75rem; }
+  .grades-summary-link { align-items: center; display: inline-flex; font-size: .75rem; min-height: 44px; }
+}
+
+/* Celular: um card por linha (como no Dashboard). Em duas colunas os textos eram cortados ("Bom dese..."). */
+@media (max-width: 520px) {
+  .grades-summary { grid-template-columns: minmax(0, 1fr); }
+}
 
 </style>

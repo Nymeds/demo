@@ -112,7 +112,8 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOnOutside
       aria-haspopup="menu"
       :aria-expanded="open"
       :aria-controls="open ? 'sidebar-user-menu' : undefined"
-      :title="name"
+      :data-tooltip="name"
+      :aria-label="`Menu do usuário ${name}`"
       @click="toggleMenu"
     >
       <span class="user-menu-avatar" aria-hidden="true">
@@ -161,12 +162,12 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', closeOnOutside
 .user-menu-enter-from,
 .user-menu-leave-to { opacity: 0; transform: translateY(6px); }
 
-@media (max-width: 760px) {
-  .user-menu { margin: 0; }
-  .user-menu-trigger { background: transparent; height: 100%; justify-content: center; padding: 6px; }
+/* Barra compacta (761–1100 px): só o avatar; o nome segue no aria-label e no tooltip.
+   No celular o rodapé some e as mesmas opções ficam na folha "Mais" da barra inferior. */
+@media (max-width: 1100px) {
+  .user-menu-trigger { background: transparent; justify-content: center; padding-inline: 0; }
   .user-menu-details,
   .user-menu-chevron { display: none; }
-  .user-menu-avatar { flex-basis: 32px; height: 32px; }
-  .user-menu-panel { bottom: calc(100% + 14px); left: auto; right: -4px; width: 230px; }
+  .user-menu-panel { right: auto; width: 230px; }
 }
 </style>

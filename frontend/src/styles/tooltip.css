@@ -1,0 +1,60 @@
+/* Tooltip visual: <button data-tooltip="Editar" aria-label="Editar">. Posição padrão: acima;
+   data-tooltip-position="bottom|left|right". Só visual: mantenha aria-label nos botões. */
+[data-tooltip] { position: relative; }
+
+[data-tooltip]::after,
+[data-tooltip]::before {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity .12s ease;
+  visibility: hidden;
+  z-index: 1200;
+}
+
+[data-tooltip]::after {
+  background: #1f2437;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(16, 20, 34, .25);
+  bottom: calc(100% + 8px);
+  color: #ffffff;
+  content: attr(data-tooltip);
+  font-size: 12px;
+  font-weight: 600;
+  left: 50%;
+  line-height: 1.3;
+  max-width: 220px;
+  padding: 5px 9px;
+  text-align: center;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  width: max-content;
+}
+
+[data-tooltip]::before {
+  border: 5px solid transparent;
+  border-top-color: #1f2437;
+  bottom: calc(100% - 2px);
+  content: "";
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+[data-tooltip][data-tooltip-position="bottom"]::after { bottom: auto; top: calc(100% + 8px); }
+[data-tooltip][data-tooltip-position="bottom"]::before { border-color: transparent transparent #1f2437; bottom: auto; top: calc(100% - 2px); }
+
+[data-tooltip][data-tooltip-position="left"]::after { bottom: auto; left: auto; right: calc(100% + 8px); top: 50%; transform: translateY(-50%); }
+[data-tooltip][data-tooltip-position="left"]::before { border-color: transparent transparent transparent #1f2437; bottom: auto; left: auto; right: calc(100% - 2px); top: 50%; transform: translateY(-50%); }
+
+[data-tooltip][data-tooltip-position="right"]::after { bottom: auto; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); }
+[data-tooltip][data-tooltip-position="right"]::before { border-color: transparent #1f2437 transparent transparent; bottom: auto; left: calc(100% - 2px); top: 50%; transform: translateY(-50%); }
+
+[data-tooltip]:hover::after,
+[data-tooltip]:hover::before,
+[data-tooltip]:focus-visible::after,
+[data-tooltip]:focus-visible::before { opacity: 1; visibility: visible; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-tooltip]::after,
+  [data-tooltip]::before { transition: none; }
+}

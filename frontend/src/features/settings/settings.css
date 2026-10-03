@@ -20,10 +20,8 @@
 .settings-form { display: grid; gap: 14px; }
 .settings-form-row { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .settings-field { color: #30364a; display: grid; font-size: .72rem; font-weight: 700; gap: 6px; min-width: 0; }
-.settings-field input,
-.settings-field select { background: #fff; border: 1px solid #dfe1e8; border-radius: 9px; color: #171c30; font-size: .78rem; font-weight: 500; min-height: 42px; padding: 9px 12px; transition: border-color .18s, box-shadow .18s; width: 100%; }
-.settings-field input:focus,
-.settings-field select:focus { border-color: #7a4de6; box-shadow: 0 0 0 3px rgba(105, 54, 224, .16); outline: none; }
+.settings-field input { background: #fff; border: 1px solid #dfe1e8; border-radius: 9px; color: #171c30; font-size: .78rem; font-weight: 500; min-height: 42px; padding: 9px 12px; transition: border-color .18s, box-shadow .18s; width: 100%; }
+.settings-field input:focus { border-color: #7a4de6; box-shadow: 0 0 0 3px rgba(105, 54, 224, .16); outline: none; }
 .settings-field input[aria-invalid="true"] { border-color: #df3f32; }
 .settings-hint { color: #7b8192; font-size: .64rem; font-weight: 500; line-height: 1.45; }
 .settings-hint.is-error { color: #b93a32; }

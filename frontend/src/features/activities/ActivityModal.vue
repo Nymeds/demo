@@ -1,4 +1,5 @@
 <script setup>
+import { useFocusTrap } from '../../shared/a11y/useFocusTrap.js'
 import { computed, ref } from 'vue'
 import AppDatePicker from '../../components/ui/AppDatePicker.vue'
 import AppSelect from '../../components/ui/AppSelect.vue'
@@ -7,9 +8,16 @@ const props = defineProps({
   activity: { type: Object, default: null },
   disciplines: { type: Array, required: true },
   saving: { type: Boolean, default: false },
+  serverError: { type: String, default: '' },
 })
 
 const emit = defineEmits(['close', 'save'])
+
+const trapRef = ref(null)
+useFocusTrap(() => true, trapRef, {
+  onClose: () => emit('close'),
+  closeOnEscape: () => !props.saving,
+})
 
 const isEditing = computed(() => Boolean(props.activity))
 
@@ -41,6 +49,8 @@ const submitted = ref(false)
 const formError = ref('')
 
 function submitForm() {
+  if (props.saving) return
+
   submitted.value = true
 
   if (!disciplineId.value || !dueDate.value) {
@@ -56,6 +66,8 @@ function submitForm() {
     description: description.value.trim(),
     dueDate: dueDate.value,
     status: status.value,
+    // A tela Atividades só cria atividades; provas são cadastradas na tela Provas.
+    type: 'ACTIVITY',
   })
 }
 </script>
@@ -64,7 +76,7 @@ function submitForm() {
   <div class="activity-modal-backdrop" @mousedown.self="emit('close')">
     <section
       class="activity-modal"
-      role="dialog"
+      ref="trapRef" tabindex="-1" role="dialog"
       aria-modal="true"
       aria-labelledby="activity-modal-title"
     >
@@ -107,7 +119,7 @@ function submitForm() {
           <AppSelect
             v-model="disciplineId"
             :options="disciplineOptions"
-            :disabled="isEditing"
+            :disabled="isEditing || saving"
             :invalid="submitted && !disciplineId"
             placeholder="Selecione uma disciplina"
           />
@@ -125,6 +137,7 @@ function submitForm() {
             placeholder="Ex.: Entregar trabalho de Engenharia de Software"
             required
             autofocus
+            :disabled="saving"
           >
         </label>
 
@@ -135,6 +148,7 @@ function submitForm() {
             maxlength="2000"
             rows="5"
             placeholder="Adicione detalhes importantes sobre a atividade..."
+            :disabled="saving"
           ></textarea>
           <small>{{ description.length }}/2000 caracteres</small>
         </label>
@@ -142,12 +156,13 @@ function submitForm() {
         <div class="activity-form-grid">
           <label class="activity-form-field">
             <span>Data de entrega <strong>*</strong></span>
-            <AppDatePicker v-model="dueDate" :invalid="submitted && !dueDate" />
+            <AppDatePicker v-model="dueDate" :disabled="saving" :invalid="(submitted && !dueDate) || Boolean(serverError)" />
+            <p v-if="serverError" class="activity-form-error" role="alert">{{ serverError }}</p>
           </label>
 
           <label class="activity-form-field">
             <span>Status <strong>*</strong></span>
-            <AppSelect v-model="status" :options="statuses" />
+            <AppSelect v-model="status" :disabled="saving" :options="statuses" />
           </label>
         </div>
 
@@ -157,6 +172,7 @@ function submitForm() {
           <button
             class="activity-cancel-button"
             type="button"
+            :disabled="saving"
             @click="emit('close')"
           >
             Cancelar
@@ -386,7 +402,7 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
-@media (max-width: 620px) {
+@media (max-width: 760px) {
   .activity-modal-backdrop {
     align-items: flex-start;
     padding: 12px;
@@ -408,6 +424,44 @@ textarea:focus-visible {
 
   .activity-save-button {
     justify-content: center;
+  }
+
+  /* Fontes de pelo menos 12px, campos de 16px (sem zoom no iOS) e alvos de toque de 44px. */
+  .activity-modal-close {
+    align-items: center;
+    display: inline-flex;
+    flex: 0 0 44px;
+    height: 44px;
+    justify-content: center;
+    width: 44px;
+  }
+
+  .activity-modal-title p,
+  .activity-form-field small,
+  .activity-form-error {
+    font-size: .75rem;
+  }
+
+  .activity-form-field {
+    font-size: .875rem;
+  }
+
+  .activity-form-field {
+    --app-select-font-size: 1rem;
+    --app-date-font-size: 1rem;
+  }
+
+  .activity-form-field input,
+  .activity-form-field select,
+  .activity-form-field textarea {
+    font-size: 1rem;
+    min-height: 44px;
+  }
+
+  .activity-cancel-button,
+  .activity-save-button {
+    font-size: .875rem;
+    min-height: 44px;
   }
 }
 </style>
