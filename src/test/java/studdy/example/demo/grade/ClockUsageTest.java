@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;
 import studdy.example.demo.activities.Activity;
 import studdy.example.demo.activities.ActivityRepository;
+import studdy.example.demo.activities.ActivityStatus;
 import studdy.example.demo.calendar.CalendarEventRepository;
 import studdy.example.demo.calendar.CalendarEventService;
 import studdy.example.demo.discipline.AcademicPerformanceService;
@@ -51,7 +52,7 @@ class ClockUsageTest {
         Discipline discipline = mock(Discipline.class);
         when(discipline.getId()).thenReturn(disciplineId);
         when(access.findOwnedDiscipline(userId, dashboardId, disciplineId)).thenReturn(discipline);
-        Activity activity = new Activity("Prova", null, LocalDate.of(2026, 9, 29), null, null, discipline);
+        Activity activity = new Activity("Prova", null, LocalDate.of(2026, 9, 29), ActivityStatus.PENDING, discipline);
         when(activityRepository.findByIdAndDiscipline_Id(activityId, disciplineId)).thenReturn(Optional.of(activity));
         when(gradeRepository.saveAndFlush(any(Grade.class))).thenAnswer(i -> i.getArgument(0));
         return new GradeService(gradeRepository, activityRepository, access, new AcademicPerformanceService(), clock);

@@ -12,10 +12,7 @@ import studdy.example.demo.dashboard.Dashboard;
 import studdy.example.demo.discipline.Discipline;
 import studdy.example.demo.discipline.DisciplineAccessService;
 
-<<<<<<< Updated upstream
-=======
 import java.time.Clock;
->>>>>>> Stashed changes
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -27,15 +24,6 @@ public class CalendarEventService {
 
     private final CalendarEventRepository calendarEventRepository;
     private final DisciplineAccessService disciplineAccessService;
-<<<<<<< Updated upstream
-
-    public CalendarEventService(
-            CalendarEventRepository calendarEventRepository,
-            DisciplineAccessService disciplineAccessService
-    ) {
-        this.calendarEventRepository = calendarEventRepository;
-        this.disciplineAccessService = disciplineAccessService;
-=======
     private final Clock clock;
 
     public CalendarEventService(
@@ -46,7 +34,6 @@ public class CalendarEventService {
         this.calendarEventRepository = calendarEventRepository;
         this.disciplineAccessService = disciplineAccessService;
         this.clock = clock;
->>>>>>> Stashed changes
     }
 
     @Transactional
@@ -110,11 +97,7 @@ public class CalendarEventService {
         return calendarEventRepository
                 .findAllByDashboard_IdAndStartsAtGreaterThanEqualOrderByStartsAtAsc(
                         dashboardId,
-<<<<<<< Updated upstream
-                        LocalDateTime.now(),
-=======
                         LocalDateTime.now(clock),
->>>>>>> Stashed changes
                         PageRequest.of(0, limit)
                 )
                 .stream()

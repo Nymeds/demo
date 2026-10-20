@@ -19,6 +19,7 @@ import studdy.example.demo.user.AppUser;
 import studdy.example.demo.user.UserRepository;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -48,12 +49,9 @@ class CalendarEventServiceTest {
     @Autowired
     private CalendarEventService calendarEventService;
 
-<<<<<<< Updated upstream
-=======
     @Autowired
-    private java.time.Clock clock;
+    private Clock clock;
 
->>>>>>> Stashed changes
     private AppUser owner;
     private AppUser intruder;
     private Dashboard dashboard;
@@ -405,15 +403,9 @@ class CalendarEventServiceTest {
 
     @Test
     void listsTheNextEventsIgnoringThePast() {
-<<<<<<< Updated upstream
-        create("Ontem", CalendarEventCategory.CLASS, LocalDateTime.now().minusDays(1), null, null);
-        create("Depois de amanhã", CalendarEventCategory.EXAM, LocalDateTime.now().plusDays(2), null, null);
-        create("Amanhã", CalendarEventCategory.CLASS, LocalDateTime.now().plusDays(1), null, null);
-=======
         create("Ontem", CalendarEventCategory.CLASS, LocalDateTime.now(clock).minusDays(1), null, null);
         create("Depois de amanhã", CalendarEventCategory.EXAM, LocalDateTime.now(clock).plusDays(2), null, null);
         create("Amanhã", CalendarEventCategory.CLASS, LocalDateTime.now(clock).plusDays(1), null, null);
->>>>>>> Stashed changes
 
         List<CalendarEventResponse> upcoming = calendarEventService.findUpcoming(
                 owner.getId(),
@@ -429,15 +421,9 @@ class CalendarEventServiceTest {
 
     @Test
     void limitsTheNumberOfUpcomingEvents() {
-<<<<<<< Updated upstream
-        create("Primeiro", CalendarEventCategory.CLASS, LocalDateTime.now().plusDays(1), null, null);
-        create("Segundo", CalendarEventCategory.CLASS, LocalDateTime.now().plusDays(2), null, null);
-        create("Terceiro", CalendarEventCategory.CLASS, LocalDateTime.now().plusDays(3), null, null);
-=======
         create("Primeiro", CalendarEventCategory.CLASS, LocalDateTime.now(clock).plusDays(1), null, null);
         create("Segundo", CalendarEventCategory.CLASS, LocalDateTime.now(clock).plusDays(2), null, null);
         create("Terceiro", CalendarEventCategory.CLASS, LocalDateTime.now(clock).plusDays(3), null, null);
->>>>>>> Stashed changes
 
         List<CalendarEventResponse> upcoming = calendarEventService.findUpcoming(
                 owner.getId(),
