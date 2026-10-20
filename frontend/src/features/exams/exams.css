@@ -1,0 +1,491 @@
+/* Estilos da tela Provas. Todo seletor é prefixado por .exams-page para não vazar para as outras telas. */
+
+.exams-page {
+  --purple: #6330e0;
+  --purple-dark: #5c20de;
+  --text: #151a2d;
+  --muted: #73798e;
+  --border: #ebeaf1;
+  --surface: #fff;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.exams-page .exams-header,
+.exams-page .exams-heading,
+.exams-page .exams-header-actions {
+  align-items: center;
+  display: flex;
+}
+
+.exams-page .exams-header {
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.exams-page .exams-heading { gap: 14px; }
+.exams-page .exams-title-icon {
+  align-items: center;
+  background: #f0ebff;
+  border-radius: 11px;
+  color: var(--purple);
+  display: flex;
+  flex: 0 0 46px;
+  height: 46px;
+  justify-content: center;
+}
+.exams-page .exams-title-icon svg { fill: none; height: 25px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; width: 25px; }
+.exams-page .exams-heading h1 { color: #13182a; font-size: 1.75rem; font-weight: 800; letter-spacing: -.04em; margin: 0 0 4px; }
+.exams-page .exams-heading p { color: #687086; font-size: .78rem; margin: 0; }
+
+.exams-page .exams-header-actions { gap: 12px; }
+
+.exams-page .exams-button {
+  align-items: center;
+  border: 0;
+  border-radius: 7px;
+  display: inline-flex;
+  font-size: .74rem;
+  font-weight: 750;
+  gap: 7px;
+  justify-content: center;
+  padding: 11px 16px;
+  transition: transform .15s, box-shadow .15s, background .15s;
+}
+.exams-page .exams-button.is-primary { background: linear-gradient(100deg, #5c20de, #741dff); box-shadow: 0 8px 19px rgba(102, 36, 225, .2); color: #fff; }
+.exams-page .exams-button.is-primary:hover { box-shadow: 0 11px 24px rgba(102, 36, 225, .28); transform: translateY(-1px); }
+.exams-page .exams-button.is-primary:disabled { cursor: not-allowed; opacity: .55; transform: none; box-shadow: none; }
+.exams-page .exams-button.is-secondary { background: #f3f1f8; color: #4c4560; }
+.exams-page .exams-button.is-danger { background: #e0433c; color: #fff; }
+.exams-page .exams-button.is-danger:hover { background: #c7362f; }
+
+.exams-page .exams-request-error {
+  background: #fff1f0;
+  border: 1px solid #f1d3d0;
+  border-radius: 8px;
+  color: #ad3834;
+  font-size: .68rem;
+  margin: 0;
+  padding: 11px 14px;
+}
+
+.exams-page .exams-summary-grid { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.exams-page .exams-summary-card {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 5px 16px rgba(30, 36, 65, .035);
+  display: flex;
+  gap: 13px;
+  min-height: 112px;
+  padding: 17px;
+}
+.exams-page .summary-icon {
+  align-items: center;
+  background: #f1edff;
+  border-radius: 50%;
+  color: #6739e7;
+  display: flex;
+  flex: 0 0 48px;
+  height: 48px;
+  justify-content: center;
+}
+.exams-page .summary-icon svg { fill: none; height: 24px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 24px; }
+.exams-page .summary-icon svg .hourglass-sand { fill: currentColor; stroke: none; }
+.exams-page .exams-summary-card p { color: #596078; font-size: .67rem; margin: 0; }
+.exams-page .exams-summary-card strong { color: #171c30; display: block; font-size: 1.28rem; line-height: 1; margin: 7px 0 5px; }
+.exams-page .exams-summary-card small { color: #858b9e; display: block; font-size: .61rem; }
+.exams-page .exams-summary-card.is-green .summary-icon { background: #e8f8ef; color: #2daf68; }
+.exams-page .exams-summary-card.is-orange .summary-icon { background: #fff0e2; color: #ee831e; }
+.exams-page .exams-summary-card.is-blue .summary-icon { background: #eaf2ff; color: #347bd8; }
+
+.exams-page .exams-layout { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) 292px; align-items: start; }
+.exams-page .exams-main-column { min-width: 0; overflow: hidden; }
+.exams-page .exams-panel,
+.exams-page .upcoming-card,
+.exams-page .mini-calendar {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 5px 16px rgba(30, 36, 65, .035);
+}
+
+.exams-page .exams-filters {
+  align-items: start;
+  border-bottom: 1px solid #f0eff4;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  min-width: 0;
+  padding: 16px;
+}
+.exams-page .exams-filters label {
+  color: #596078;
+  display: grid;
+  font-size: .61rem;
+  font-weight: 700;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+}
+.exams-page .exams-filters label > span {
+  height: 15px;
+  line-height: 15px;
+}
+.exams-page .exams-search { align-self: end; height: 32px; min-width: 0; position: relative; }
+.exams-page .exams-search svg { color: #8b91a1; fill: none; height: 17px; left: 11px; position: absolute; stroke: currentColor; stroke-linecap: round; stroke-width: 1.7; top: 50%; transform: translateY(-50%); width: 17px; }
+.exams-page .exams-search input {
+  background: #fff;
+  border: 1px solid #dedfe5;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(32, 37, 56, .06);
+  box-sizing: border-box;
+  height: 32px;
+  padding-left: 34px;
+  width: 100%;
+}
+.exams-page .exams-search input:focus { border-color: #8b6cf1; box-shadow: 0 0 0 3px rgba(99, 48, 224, .08); }
+
+
+.exams-page .exams-table-wrap { overflow-x: auto; overflow-y: visible; }
+.exams-page .exams-table { border-collapse: collapse; min-width: 870px; width: 100%; }
+.exams-page .exams-table th {
+  background: #fbfbfd;
+  color: #6d7386;
+  font-size: .59rem;
+  font-weight: 750;
+  padding: 13px 11px;
+  text-align: left;
+  white-space: nowrap;
+}
+.exams-page .exams-table td { border-top: 1px solid #f0eff4; color: #454b60; font-size: .65rem; padding: 13px 11px; vertical-align: middle; }
+.exams-page .exams-table tbody tr:hover { background: #fcfbff; }
+.exams-page .exam-name { align-items: center; display: flex; gap: 10px; min-width: 190px; }
+.exams-page .exam-row-icon {
+  align-items: center;
+  background: #f1edff;
+  border-radius: 9px;
+  color: #6330e0;
+  display: flex;
+  flex: 0 0 34px;
+  height: 34px;
+  justify-content: center;
+}
+.exams-page .exam-row-icon svg { fill: none; height: 18px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; width: 18px; }
+.exams-page .exam-row-icon.is-green { background: #e8f8ef; color: #2daf68; }
+.exams-page .exam-row-icon.is-orange { background: #fff0e2; color: #ee831e; }
+.exams-page .exam-row-icon.is-blue { background: #eaf2ff; color: #347bd8; }
+.exams-page .exam-name strong,
+.exams-page .discipline-name { color: #202538; display: block; font-size: .68rem; font-weight: 750; }
+.exams-page .exam-name small,
+.exams-page .exams-table td > small,
+.exams-page .exams-table td small { color: #858b9e; display: block; font-size: .57rem; margin-top: 3px; }
+.exams-page .content-cell { max-width: 180px; line-height: 1.35; }
+/* Conteúdo longo (inclusive palavras sem espaço) quebra e fica em até 2 linhas na lista; o texto inteiro
+   aparece em "Visualizar". */
+.exams-page .content-text {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.exams-page .status-pill {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: .57rem;
+  font-weight: 750;
+  gap: 5px;
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+.exams-page .status-pill { background: #f1edff; color: #6330e0; }
+.exams-page .status-pill.is-completed { background: #e8f8ef; color: #20945a; }
+.exams-page .status-pill.is-overdue { background: #fdeceb; color: #c0392b; }
+.exams-page .status-pill svg { fill: none; height: 13px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 13px; }
+.exams-page .row-actions { align-items: center; display: flex; gap: 3px; }
+.exams-page .row-actions button { background: transparent; border: 0; color: #7d8394; height: 30px; padding: 5px; width: 30px; }
+.exams-page .row-actions button:hover { background: #f2efff; border-radius: 6px; color: #6330e0; }
+.exams-page .row-actions svg { fill: none; height: 17px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.6; width: 17px; }
+.exams-page .row-action-menu-wrap { position: relative; }
+/* Fixo na tela (top/right/bottom vêm do ExamsTable, junto do botão): dentro da tabela, que tem rolagem
+   própria, o menu era cortado. */
+.exams-page .row-action-menu {
+  background: #fff;
+  border: 1px solid #e4e2ec;
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(20, 24, 48, .12);
+  min-width: 200px;
+  padding: 5px;
+  position: fixed;
+  z-index: 1000;
+}
+.exams-page .row-action-menu button {
+  align-items: center;
+  border-radius: 6px;
+  color: #42485b;
+  display: flex;
+  font-size: .62rem;
+  height: auto;
+  justify-content: flex-start;
+  padding: 8px 9px;
+  white-space: nowrap;
+  width: 100%;
+}
+.exams-page .row-action-menu button:hover { background: #f6f4fb; color: #6330e0; }
+.exams-page .row-action-menu button.is-danger { color: #c54848; }
+.exams-page .row-action-menu button.is-danger:hover { background: #fff1f1; color: #b83e3e; }
+
+.exams-page .exams-table-footer { align-items: center; display: flex; justify-content: space-between; padding: 13px 16px; }
+.exams-page .exams-table-footer p { color: #747a8d; font-size: .61rem; margin: 0; }
+.exams-page .exams-table-footer nav { display: flex; gap: 4px; }
+.exams-page .exams-table-footer button {
+  background: #fff;
+  border: 1px solid #dedee7;
+  border-radius: 6px;
+  color: #535a6e;
+  font-size: .65rem;
+  height: 30px;
+  min-width: 30px;
+}
+.exams-page .exams-table-footer button.active { background: #6330e0; border-color: #6330e0; color: #fff; }
+.exams-page .exams-table-footer button:disabled { cursor: not-allowed; opacity: .4; }
+
+.exams-page .exams-side-column { display: grid; gap: 16px; }
+.exams-page .upcoming-card { padding: 16px; }
+.exams-page .upcoming-card header,
+.exams-page .mini-calendar header { align-items: center; display: flex; justify-content: space-between; }
+.exams-page .upcoming-card header { margin-bottom: 12px; }
+.exams-page .upcoming-card header strong { color: #202538; font-size: .75rem; }
+.exams-page .upcoming-card header button { background: none; border: 0; color: #6330e0; font-size: .61rem; font-weight: 750; }
+.exams-page .upcoming-empty { color: #858b9e; font-size: .63rem; padding: 10px 0; }
+.exams-page .upcoming-item { align-items: center; background: transparent; border: 0; border-top: 1px solid #f0eff4; display: grid; gap: 9px; grid-template-columns: 31px 1fr auto; padding: 11px 0; text-align: left; width: 100%; }
+.exams-page .upcoming-number { align-items: center; border-radius: 7px; display: flex; font-size: .66rem; font-weight: 800; height: 30px; justify-content: center; width: 30px; }
+.exams-page .upcoming-number.is-purple { background: #f0ebff; color: #6330e0; }
+.exams-page .upcoming-number.is-green { background: #e8f8ef; color: #2daf68; }
+.exams-page .upcoming-number.is-orange { background: #fff0e2; color: #ee831e; }
+.exams-page .upcoming-number.is-blue { background: #eaf2ff; color: #347bd8; }
+.exams-page .upcoming-details strong { color: #252a3c; display: block; font-size: .64rem; }
+.exams-page .upcoming-details small,
+.exams-page .upcoming-date small { color: #858b9e; display: block; font-size: .56rem; margin-top: 3px; }
+.exams-page .upcoming-date { text-align: right; }
+.exams-page .upcoming-date strong { color: #252a3c; display: block; font-size: .61rem; }
+
+.exams-page .mini-calendar { padding: 16px; }
+.exams-page .mini-calendar header strong { color: #252a3c; font-size: .76rem; }
+.exams-page .mini-calendar header button { background: none; border: 0; color: #747a8d; font-size: 1.35rem; line-height: 1; padding: 3px 6px; }
+.exams-page .calendar-weekdays,
+.exams-page .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+.exams-page .calendar-weekdays { color: #7f8596; font-size: .55rem; margin: 17px 0 8px; }
+.exams-page .calendar-grid { gap: 5px 2px; }
+.exams-page .calendar-day { align-items: center; border-radius: 50%; color: #52586c; display: flex; font-size: .58rem; height: 27px; justify-content: center; margin: auto; width: 27px; }
+.exams-page .calendar-day.today { background: #6330e0; color: #fff; font-weight: 800; }
+.exams-page .calendar-day.upcoming { background: #e8f8ef; color: #20945a; font-weight: 750; }
+.exams-page .calendar-day.overdue { background: #fdeceb; color: #c0392b; font-weight: 750; }
+.exams-page .calendar-day.completed { background: #eaf2ff; color: #347bd8; font-weight: 750; }
+.exams-page .calendar-legend { border-top: 1px solid #f0eff4; display: grid; gap: 7px; margin-top: 14px; padding-top: 13px; }
+.exams-page .calendar-legend span { align-items: center; color: #777d90; display: flex; font-size: .54rem; gap: 6px; }
+.exams-page .legend-dot { border-radius: 50%; display: inline-block; height: 6px; width: 6px; }
+.exams-page .legend-dot.is-today { background: #6330e0; }
+.exams-page .legend-dot.is-upcoming { background: #2daf68; }
+.exams-page .legend-dot.is-overdue { background: #c0392b; }
+.exams-page .legend-dot.is-completed { background: #347bd8; }
+
+.exams-page .exams-tip { align-items: center; background: #f2efff; border-radius: 9px; display: flex; gap: 12px; margin-top: 15px; padding: 12px 16px; }
+.exams-page .tip-icon { align-items: center; background: #e5dcff; border-radius: 50%; display: flex; flex: 0 0 34px; height: 34px; justify-content: center; }
+.exams-page .exams-tip div { min-width: 0; }
+.exams-page .exams-tip strong { color: #30364a; font-size: .66rem; }
+.exams-page .exams-tip p { color: #6c7287; font-size: .59rem; margin: 3px 0 0; }
+.exams-page .exams-tip button { background: #fff; border: 1px solid #ddd7ee; border-radius: 6px; color: #6330e0; font-size: .59rem; font-weight: 750; margin-left: auto; padding: 8px 11px; white-space: nowrap; }
+
+.exams-page .exams-filter-field { color: #596078; display: grid; font-size: .61rem; font-weight: 700; gap: 6px; min-width: 0; --app-select-height: 32px; --app-select-font-size: .68rem; --app-select-radius: 6px; --app-select-padding: 0 10px; }
+.exams-page .exams-filter-field > span { height: 15px; line-height: 15px; }
+
+.exams-page .exam-modal { max-width: 650px; }
+.exams-page .exam-modal-title { align-items: center; display: flex; gap: 14px; }
+.exams-page .exam-modal-icon { align-items: center; background: #f0eaff; border-radius: 9px; color: #6932df; display: flex; flex: 0 0 50px; height: 50px; justify-content: center; width: 50px; }
+.exams-page .exam-modal-icon.is-danger { background: #fff0ef; color: #c4433b; }
+.exams-page .exam-modal-icon svg { fill: none; height: 25px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 25px; }
+.exams-page .exam-modal-title h2 { color: #303548; font-size: 1.22rem; font-weight: 800; letter-spacing: -.03em; margin: 0 0 5px; }
+.exams-page .exam-modal-title p { color: #70778b; font-size: .73rem; margin: 0; }
+.exams-page .exam-modal form { display: grid; gap: 20px; }
+.exams-page .exam-form-field { color: #282d40; display: grid; font-size: .74rem; font-weight: 700; gap: 8px; --app-select-height: 44px; --app-select-font-size: .74rem; --app-select-radius: 7px; --app-select-padding: 0 14px; --app-date-height: 44px; --app-date-font-size: .74rem; --app-date-radius: 7px; --app-date-padding: 0 14px; }
+.exams-page .exam-form-field strong { color: #e84260; }
+.exams-page .exam-form-field small { color: #777e91; font-size: .63rem; font-weight: 450; }
+.exams-page .exam-form-field input,
+.exams-page .exam-form-field textarea { background: #fff; border: 1px solid #dfe1e8; border-radius: 7px; box-sizing: border-box; color: #242a3d; font: inherit; font-weight: 400; outline: none; padding: 12px 14px; resize: vertical; width: 100%; }
+.exams-page .exam-form-field input:focus,
+.exams-page .exam-form-field textarea:focus { border-color: #7544eb; box-shadow: 0 0 0 3px rgba(117, 68, 235, .11); }
+.exams-page .exam-form-field input:disabled,
+.exams-page .exam-form-field textarea:disabled { background: #f6f5f9; color: #8e93a4; cursor: not-allowed; }
+.exams-page .exam-form-field input::placeholder,
+.exams-page .exam-form-field textarea::placeholder { color: #aaa7b5; opacity: 1; }
+.exams-page .exam-form-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.exams-page .exam-modal-footer { align-items: center; border-top: 1px solid #ececf1; display: flex; gap: 12px; justify-content: flex-end; margin-top: 3px; padding-top: 20px; }
+.exams-page .exam-cancel-button,
+.exams-page .exam-save-button { border-radius: 7px; cursor: pointer; font-size: .72rem; font-weight: 700; padding: 11px 18px; }
+.exams-page .exam-cancel-button { background: #fff; border: 1px solid #dfe1e8; color: #343a4e; }
+.exams-page .exam-save-button { background: linear-gradient(100deg, #5d20df, #7419f5); border: 0; box-shadow: 0 8px 18px rgba(101, 31, 225, .2); color: #fff; }
+.exams-page .exam-save-button.is-danger { background: #e0433c; box-shadow: 0 8px 18px rgba(224, 67, 60, .2); }
+.exams-page .exam-cancel-button:disabled,
+.exams-page .exam-save-button:disabled { cursor: not-allowed; opacity: .6; }
+.exams-page .exam-modal .app-field-error { margin-top: -8px; }
+.exams-page .exam-details-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.exams-page .exam-details-grid > div {
+  background: #faf9fd;
+  border: 1px solid #eeeaf5;
+  border-radius: 8px;
+  padding: 11px 12px;
+}
+.exams-page .exam-details-grid span {
+  color: #858b9e;
+  display: block;
+  font-size: .58rem;
+  margin-bottom: 5px;
+}
+.exams-page .exam-details-grid strong {
+  color: #292e41;
+  display: block;
+  font-size: .68rem;
+  line-height: 1.35;
+  /* Conteúdo longo, inclusive palavra sem espaço, quebra dentro do modal (antes saía pela borda). */
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.exams-page .exam-details-full { grid-column: 1 / -1; }
+.exams-page .exam-delete-text { color: #454b60; font-size: .72rem; line-height: 1.55; margin: 0; }
+
+.exams-page .sr-only { height: 1px; margin: -1px; overflow: hidden; position: absolute; width: 1px; clip: rect(0,0,0,0); }
+.exams-page button:focus-visible,
+.exams-page a:focus-visible,
+.exams-page input:focus-visible,
+.exams-page textarea:focus-visible { outline: 2px solid #6330e0; outline-offset: 2px; }
+/* Breakpoints padrão do projeto: 1100 / 760 / 520. */
+@media (max-width: 1100px) {
+  .exams-page .exams-layout { grid-template-columns: 1fr; }
+  .exams-page .exams-side-column { align-items: start; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .exams-page .exams-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .exams-page .exams-filters { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 760px) {
+  .exams-page .exams-header { align-items: flex-start; gap: 12px; }
+  .exams-page .exams-header-actions { flex-shrink: 0; }
+  .exams-page .exams-side-column { grid-template-columns: 1fr; }
+  .exams-page .exam-details-grid { grid-template-columns: 1fr; }
+  .exams-page .exam-details-full { grid-column: auto; }
+  .exams-page .exams-tip { align-items: flex-start; flex-wrap: wrap; }
+  .exams-page .exams-tip button { margin-left: 46px; }
+  .exams-page .exam-form-grid { grid-template-columns: 1fr; }
+  .exams-page .exam-modal-footer { align-items: stretch; flex-direction: column-reverse; }
+
+  /* Fontes de 9–11 px sobem para 12 px; campos para 16 px (sem zoom no iOS); alvos de toque para 44 px. */
+  .exams-page .exams-heading p,
+  .exams-page .exams-request-error,
+  .exams-page .exams-summary-card p,
+  .exams-page .exams-summary-card small,
+  .exams-page .exams-filters label,
+  .exams-page .exams-filter-field,
+  .exams-page .exams-table td,
+  .exams-page .exam-name strong,
+  .exams-page .discipline-name,
+  .exams-page .exam-name small,
+  .exams-page .exams-table td small,
+  .exams-page .status-pill,
+  .exams-page .row-action-menu button,
+  .exams-page .exams-table-footer p,
+  .exams-page .exams-table-footer button,
+  .exams-page .upcoming-card header button,
+  .exams-page .upcoming-empty,
+  .exams-page .upcoming-number,
+  .exams-page .upcoming-details strong,
+  .exams-page .upcoming-details small,
+  .exams-page .upcoming-date small,
+  .exams-page .upcoming-date strong,
+  .exams-page .calendar-weekdays,
+  .exams-page .calendar-day,
+  .exams-page .calendar-legend span,
+  .exams-page .exams-tip strong,
+  .exams-page .exams-tip p,
+  .exams-page .exams-tip button,
+  .exams-page .exam-form-field small,
+  .exams-page .app-field-error,
+  .exams-page .exam-details-grid span,
+  .exams-page .exam-details-grid strong { font-size: .75rem; }
+  .exams-page .exams-button,
+  .exams-page .exam-cancel-button,
+  .exams-page .exam-save-button,
+  .exams-page .exam-form-field,
+  .exams-page .exam-modal-title p,
+  .exams-page .exam-delete-text { font-size: .875rem; }
+  .exams-page .exams-filter-field { --app-select-height: 44px; --app-select-font-size: 1rem; }
+  .exams-page .exam-form-field { --app-select-font-size: 1rem; --app-date-font-size: 1rem; }
+  .exams-page .exams-search,
+  .exams-page .exams-search input { height: 44px; }
+  .exams-page .exams-search input { font-size: 1rem; }
+  .exams-page .exam-form-field input,
+  .exams-page .exam-form-field textarea { font-size: 1rem; }
+  .exams-page .exams-button,
+  .exams-page .exam-cancel-button,
+  .exams-page .exam-save-button,
+  .exams-page .exams-tip button,
+  .exams-page .upcoming-card header button,
+  .exams-page .exams-table-footer button,
+  .exams-page .app-modal-close { min-height: 44px; min-width: 44px; }
+  .exams-page .mini-calendar header button { min-height: 44px; min-width: 44px; }
+  .exams-page .row-actions button { height: 44px; width: 44px; }
+  .exams-page .row-action-menu button { min-height: 44px; }
+  .exams-page .upcoming-item { min-height: 44px; }
+  .exams-page .exams-table-footer { flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .exams-page .exams-table-footer nav { flex-wrap: wrap; justify-content: center; }
+
+}
+
+/* Tablet e celular: a tabela não cabe inteira abaixo de 1100 px (a barra lateral ocupa parte da tela). */
+@media (max-width: 1100px) {
+  /* Tabela vira lista de cards: uma prova por card, com as mesmas informações e ações.
+     Sem rolagem horizontal; o menu de ações abre para cima, pois o cartão não tem mais rolagem própria. */
+  .exams-page .exams-main-column { overflow: visible; }
+  .exams-page .exams-table-wrap { overflow: visible; }
+  .exams-page .exams-table,
+  .exams-page .exams-table tbody { display: block; min-width: 0; width: 100%; }
+  .exams-page .exams-table thead { clip: rect(0, 0, 0, 0); height: 1px; margin: -1px; overflow: hidden; position: absolute; width: 1px; }
+  .exams-page .exams-table tbody tr { border-top: 1px solid #f0eff4; display: grid; gap: 12px 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px; }
+  .exams-page .exams-table td { border: 0; display: block; min-width: 0; padding: 0; }
+  .exams-page .exams-table td:nth-child(1),
+  .exams-page .exams-table td:nth-child(4),
+  .exams-page .exams-table td.empty-row { grid-column: 1 / -1; }
+  .exams-page .exams-table td[data-label]::before { color: #858b9e; content: attr(data-label); display: block; font-size: .75rem; font-weight: 700; margin-bottom: 4px; }
+  .exams-page .exams-table td.actions-cell { justify-self: end; }
+  .exams-page .exam-name { min-width: 0; }
+  .exams-page .exam-name > div { min-width: 0; overflow-wrap: anywhere; }
+  .exams-page .content-cell { max-width: none; overflow-wrap: anywhere; }
+  .exams-page .content-text { -webkit-line-clamp: 3; line-clamp: 3; }
+}
+@media (max-width: 520px) {
+  .exams-page .exams-header { flex-wrap: wrap; }
+  .exams-page .exams-header-actions,
+  .exams-page .exams-header-actions .exams-button { width: 100%; }
+  .exams-page .exams-summary-grid { grid-template-columns: 1fr; }
+  .exams-page .exams-filters { grid-template-columns: 1fr; }
+}
+
+/* Tablet (761–1100 px): os cards da tabela usam a largura em 4 colunas, em vez de 2 como no celular. */
+@media (min-width: 761px) and (max-width: 1100px) {
+  .exams-page .exams-table tbody tr { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /* O conteúdo (texto longo) vai para a última linha, ocupando a largura toda. */
+  .exams-page .exams-table td:nth-child(4) { order: 1; }
+  /* Os 4 cards de resumo numa linha, como Disciplinas e Frequência (em 2 × 2 a tela ficava diferente).
+     Ícone e espaçamento menores para o texto caber. */
+  .exams-page .exams-summary-grid { gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .exams-page .exams-summary-card { gap: 10px; min-height: 96px; padding: 14px 12px; }
+  .exams-page .summary-icon { flex-basis: 38px; height: 38px; }
+  .exams-page .summary-icon svg { height: 20px; width: 20px; }
+}
